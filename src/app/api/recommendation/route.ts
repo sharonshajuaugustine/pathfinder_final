@@ -4,7 +4,7 @@ import { getServiceClient } from "@/lib/supabase/admin";
 import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { loadKnowledgeBase } from "@/lib/kb-loader";
 import { generateRecommendations } from "@/core/recommendation-engine";
-import { normalizeProfile } from "@/core/profile-builder";
+import { normalizeProfile, computeCompleteness } from "@/core/profile-builder";
 import { explainRecommendation } from "@/core/ai";
 import type { StudentProfile } from "@/types/profile";
 import { audit } from "@/lib/audit";
@@ -30,6 +30,17 @@ export async function POST(req: NextRequest) {
     const profile = normalizeProfile(prof?.profile as Partial<StudentProfile> | null);
     const { data: lead } = await db.from("leads").select("age, preferred_language").eq("session_id", sessionId).maybeSingle();
     const language = lead?.preferred_language === "ml" ? "ml" : "en";
+
+    // Gate: refuse to generate if the profile is too sparse (onboarding only,
+    // no conversation or assessment). Completeness < 30% means no interests,
+    // no aptitude, no goals — results would be meaningless.
+    const completeness = computeCompleteness(profile);
+    if (completeness < 30) {
+      return NextResponse.json(
+        { error: "Please complete the conversation and quick quiz before viewing your recommendations." },
+        { status: 422 }
+      );
+    }
 
     // 1. Deterministic engine = final decision-maker.
     const kb = await loadKnowledgeBase();
