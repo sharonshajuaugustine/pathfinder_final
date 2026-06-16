@@ -57,7 +57,7 @@ export async function extractProfileDelta(studentReply: string): Promise<{
     personality: `object mapping any of [${PERSONALITY_TRAITS.join(", ")}] to -1..1`,
     academic: `{ strongSubjects: string[], weakSubjects: string[] }`,
     aspiration: `{ goalOrientation: 'job_soon'|'higher_study'|'business'|'government' }`,
-    constraints: `{ budgetBand: 'low'|'medium'|'high'|'no_constraint', locationPref: 'kerala'|'india'|'abroad' }`,
+    constraints: `{ budgetBand: 'low'|'medium'|'high'|'no_constraint', locationPref: 'kerala'|'india'|'abroad', timeToIncomeNeed: 'urgent'|'flexible' }`,
   };
   const messages: ChatMessage[] = [
     {

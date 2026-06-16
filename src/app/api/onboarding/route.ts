@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase/admin";
 import { onboardingSchema } from "@/types/onboarding";
 import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { audit } from "@/lib/audit";
+import { normalizeProfile, computeCompleteness } from "@/core/profile-builder";
 
 // POST /api/onboarding — validate + persist PII (server-only, service role).
 // Creates the lead, links the session, and mirrors academic fields to the profile.
@@ -47,12 +48,14 @@ export async function POST(req: NextRequest) {
       .eq("id", d.sessionId);
 
     // Seed the profile with mirrored academic hard-filter fields.
+    const seedProfile = { academic: { stream: d.stream, percentage: d.percentage, strongSubjects: [], weakSubjects: [] } };
     await db.from("student_profiles").upsert(
       {
         session_id: d.sessionId,
         stream: d.stream,
         percentage: d.percentage ?? null,
-        profile: { academic: { stream: d.stream, percentage: d.percentage, strongSubjects: [], weakSubjects: [] } },
+        profile: seedProfile,
+        completeness_pct: computeCompleteness(normalizeProfile(seedProfile)),
       },
       { onConflict: "session_id" }
     );
