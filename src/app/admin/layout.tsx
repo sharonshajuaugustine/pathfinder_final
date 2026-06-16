@@ -21,6 +21,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             Leads
           </Link>
+          <Link
+            href="/admin/analytics"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Analytics
+          </Link>
+          <a
+            href="/api/admin/export"
+            className="ml-auto rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Export CSV
+          </a>
         </div>
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">{children}</div>
