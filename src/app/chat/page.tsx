@@ -69,15 +69,25 @@ function ChatInner() {
     if (message) setMessages((m) => [...m, { role: "user", content: message }]);
 
     // Advance stage every 2 student turns (simple MVP pacing).
+    // Use a local counter so the terminal-turn check below isn't stale.
     let stage = STAGES[stageIdx];
+    let nextTurns = turns;
     if (message) {
-      const t = turns + 1;
-      setTurns(t);
-      if (t % 2 === 0 && stageIdx < STAGES.length - 1) {
+      nextTurns = turns + 1;
+      setTurns(nextTurns);
+      if (nextTurns % 2 === 0 && stageIdx < STAGES.length - 1) {
         setStageIdx((i) => i + 1);
         stage = STAGES[Math.min(stageIdx + 1, STAGES.length - 1)];
       }
     }
+
+    // Always POST — the server must save the message and extract profile signals
+    // from every student reply, including the final one. However, suppress
+    // displaying the AI's response once the interview is complete: the assessment
+    // phase starts instead and showing a new question here would create the
+    // contradictory state where an open AI question and the recommendation CTA
+    // are visible at the same time.
+    const interviewComplete = message !== undefined && nextTurns >= STAGES.length * 2;
 
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -85,7 +95,9 @@ function ChatInner() {
       body: JSON.stringify({ sessionId, stage, message }),
     });
     const data = await res.json();
-    if (data.question) setMessages((m) => [...m, { role: "assistant", content: data.question }]);
+    if (data.question && !interviewComplete) {
+      setMessages((m) => [...m, { role: "assistant", content: data.question }]);
+    }
     setBusy(false);
   }
 
