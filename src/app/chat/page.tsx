@@ -2,17 +2,13 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import Link from "next/link";
 import type { AssessmentItemPublic } from "@/types/assessment";
 
-// Chat page — functional PLACEHOLDER. Wires the guided conversation to
-// /api/chat (AI interviews + extracts). Not the final polished UI.
-//
-// Flow: chat (10 turns) → mini assessment (15 MCQs) → result page.
-// The assessment activates the dormant 25% aptitude weight in the scoring engine.
+// Flow: chat (10 turns across 5 stages) → aptitude assessment (15 MCQs) → result page.
 const STAGES = ["interests", "strengths", "personality", "aspiration", "constraints"];
+const STAGE_LABELS = ["Interests", "Strengths", "Personality", "Goals", "Preferences"];
 
 type Msg = { role: "assistant" | "user"; content: string };
 
@@ -21,7 +17,7 @@ function ChatInner() {
   const params = useSearchParams();
   const sessionId = params.get("session");
 
-  // ── Chat state ───────────────────────────────────────────────────────────
+  // ── Chat state ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [stageIdx, setStageIdx] = useState(0);
@@ -31,7 +27,7 @@ function ChatInner() {
   // One-shot guard: React StrictMode double-invokes mount effects in dev.
   const startedRef = useRef(false);
 
-  // ── Assessment state ─────────────────────────────────────────────────────
+  // ── Assessment state ────────────────────────────────────────────────────────
   const [assessmentItems, setAssessmentItems] = useState<AssessmentItemPublic[]>([]);
   const [assessmentIdx, setAssessmentIdx] = useState(0);
   const [assessmentDone, setAssessmentDone] = useState(false);
@@ -69,7 +65,6 @@ function ChatInner() {
     if (message) setMessages((m) => [...m, { role: "user", content: message }]);
 
     // Advance stage every 2 student turns (simple MVP pacing).
-    // Use a local counter so the terminal-turn check below isn't stale.
     let stage = STAGES[stageIdx];
     let nextTurns = turns;
     if (message) {
@@ -81,12 +76,7 @@ function ChatInner() {
       }
     }
 
-    // Always POST — the server must save the message and extract profile signals
-    // from every student reply, including the final one. However, suppress
-    // displaying the AI's response once the interview is complete: the assessment
-    // phase starts instead and showing a new question here would create the
-    // contradictory state where an open AI question and the recommendation CTA
-    // are visible at the same time.
+    // Suppress the AI's response on the final turn — assessment phase starts instead.
     const interviewComplete = message !== undefined && nextTurns >= STAGES.length * 2;
 
     const res = await fetch("/api/chat", {
@@ -131,81 +121,194 @@ function ChatInner() {
   }
 
   if (!sessionId) {
-    return <main className="p-12 text-center text-muted-foreground">Missing session. Please start from onboarding.</main>;
+    return (
+      <main className="flex h-screen items-center justify-center px-6 text-center text-muted-foreground">
+        Missing session. Please start from{" "}
+        <Link href="/onboarding" className="ml-1 underline">
+          onboarding
+        </Link>
+        .
+      </main>
+    );
   }
 
   const currentAssessmentItem = assessmentItems[assessmentIdx];
 
   return (
-    <main className="mx-auto flex h-screen max-w-2xl flex-col px-4 py-6">
-      <header className="mb-4">
-        <h1 className="text-lg font-semibold">Let&apos;s talk about you</h1>
-        {!chatDone && (
-          <p className="text-xs text-muted-foreground">Stage: {STAGES[stageIdx]} · There are no wrong answers.</p>
-        )}
-        {chatDone && !assessmentDone && assessmentItems.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Quick check — question {assessmentIdx + 1} of {assessmentItems.length}
-          </p>
-        )}
+    <div className="flex h-screen flex-col bg-background">
+      {/* ── Top nav ── */}
+      <header className="shrink-0 border-b bg-white">
+        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-md bg-primary" />
+            <span className="text-sm font-semibold">PathFinder</span>
+          </Link>
+          <span className="text-xs text-muted-foreground">
+            {chatDone && !assessmentDone && assessmentItems.length > 0
+              ? `Quick check · ${assessmentIdx + 1} of ${assessmentItems.length}`
+              : "Step 2 of 3"}
+          </span>
+        </div>
       </header>
 
-      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-        {messages.map((m, i) => (
-          <Card
-            key={i}
-            className={m.role === "user" ? "ml-auto max-w-[80%] bg-primary text-primary-foreground" : "mr-auto max-w-[80%]"}
-          >
-            <div className="p-3 text-sm">{m.content}</div>
-          </Card>
-        ))}
-        {busy && <p className="text-xs text-muted-foreground">Thinking…</p>}
-        <div ref={endRef} />
-      </div>
-
-      {/* ── Assessment phase (after chat is done, before result) ── */}
-      {chatDone && !assessmentDone && currentAssessmentItem && (
-        <div className="mt-4 space-y-3">
-          <Card className="mr-auto max-w-[90%]">
-            <div className="p-3 text-sm">{currentAssessmentItem.questionText}</div>
-          </Card>
-          <div className="grid gap-2">
-            {currentAssessmentItem.choices.map((c) => (
-              <Button
-                key={c.id}
-                variant="outline"
-                className="h-auto justify-start whitespace-normal py-2 px-3 text-left text-sm"
-                disabled={answering}
-                onClick={() => void submitAssessmentAnswer(currentAssessmentItem.id, c.id)}
-              >
-                {c.text}
-              </Button>
-            ))}
+      {/* ── Stage progress (chat phase) ── */}
+      {!chatDone && (
+        <div className="shrink-0 border-b bg-white px-4 py-2.5">
+          <div className="mx-auto max-w-2xl">
+            <div className="mb-1.5 flex gap-1.5">
+              {STAGE_LABELS.map((label, i) => (
+                <div key={label} className="flex-1">
+                  <div
+                    className={`h-1 rounded-full transition-colors ${
+                      i <= stageIdx ? "bg-primary" : "bg-muted"
+                    }`}
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {STAGE_LABELS[stageIdx]} · There are no wrong answers.
+            </p>
           </div>
         </div>
       )}
 
-      {/* ── Chat input (visible while chat is running) ── */}
-      {!chatDone && (
-        <form onSubmit={onSend} className="mt-4 flex gap-2">
-          <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type your answer…" disabled={busy} />
-          <Button type="submit" disabled={busy || !input.trim()}>Send</Button>
-        </form>
+      {/* ── Assessment progress (assessment phase) ── */}
+      {chatDone && !assessmentDone && assessmentItems.length > 0 && (
+        <div className="shrink-0 border-b bg-white px-4 py-3">
+          <div className="mx-auto max-w-2xl">
+            <div className="mb-1.5 flex items-center justify-between text-xs">
+              <span className="font-medium text-foreground">Aptitude check</span>
+              <span className="text-muted-foreground">
+                {assessmentIdx + 1} of {assessmentItems.length}
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-300"
+                style={{ width: `${(assessmentIdx / assessmentItems.length) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* ── Result button (after both chat and assessment are done) ── */}
-      {assessmentDone && (
-        <Button className="mt-4" onClick={() => router.push(`/result?session=${sessionId}`)}>
-          See my recommendations
-        </Button>
+      {/* ── Messages ── */}
+      <div className="flex-1 overflow-y-auto px-4 py-5">
+        <div className="mx-auto max-w-2xl space-y-4">
+          {messages.map((m, i) =>
+            m.role === "assistant" ? (
+              <div key={i} className="flex items-start gap-2.5">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">
+                  P
+                </div>
+                <div className="max-w-[80%] rounded-2xl rounded-tl-sm border bg-white px-4 py-3 text-sm shadow-sm">
+                  {m.content}
+                </div>
+              </div>
+            ) : (
+              <div key={i} className="flex justify-end">
+                <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-3 text-sm text-white">
+                  {m.content}
+                </div>
+              </div>
+            )
+          )}
+
+          {/* Typing indicator */}
+          {busy && (
+            <div className="flex items-start gap-2.5">
+              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">
+                P
+              </div>
+              <div className="rounded-2xl rounded-tl-sm border bg-white px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={endRef} />
+        </div>
+      </div>
+
+      {/* ── Assessment quiz ── */}
+      {chatDone && !assessmentDone && currentAssessmentItem && (
+        <div className="shrink-0 border-t bg-secondary/30 px-4 py-4">
+          <div className="mx-auto max-w-2xl">
+            <p className="mb-3 text-sm font-medium text-foreground">
+              {currentAssessmentItem.questionText}
+            </p>
+            <div className="grid gap-2">
+              {currentAssessmentItem.choices.map((c) => (
+                <button
+                  key={c.id}
+                  disabled={answering}
+                  onClick={() => void submitAssessmentAnswer(currentAssessmentItem.id, c.id)}
+                  className="w-full rounded-xl border bg-white px-4 py-3 text-left text-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {c.text}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
-    </main>
+
+      {/* ── Chat input ── */}
+      {!chatDone && (
+        <div className="shrink-0 border-t bg-white px-4 py-3">
+          <form onSubmit={onSend} className="mx-auto flex max-w-2xl gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your answer…"
+              disabled={busy}
+              className="flex-1 rounded-xl"
+            />
+            <button
+              type="submit"
+              disabled={busy || !input.trim()}
+              className="flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-40"
+            >
+              Send
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── Result CTA ── */}
+      {assessmentDone && (
+        <div className="shrink-0 border-t bg-white px-4 py-4">
+          <div className="mx-auto max-w-2xl">
+            <p className="mb-3 text-center text-sm text-muted-foreground">
+              Great — we have everything we need to build your personalised report.
+            </p>
+            <button
+              onClick={() => router.push(`/result?session=${sessionId}`)}
+              className="h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white shadow transition-all hover:bg-primary/90"
+            >
+              See my career recommendations →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
 export default function ChatPage() {
   return (
-    <Suspense fallback={<main className="p-12 text-center">Loading…</main>}>
+    <Suspense
+      fallback={
+        <main className="flex h-screen items-center justify-center p-12 text-muted-foreground">
+          Loading…
+        </main>
+      }
+    >
       <ChatInner />
     </Suspense>
   );
