@@ -6,9 +6,12 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import type { AssessmentItemPublic } from "@/types/assessment";
 
-// Flow: chat (10 turns across 5 stages) → aptitude assessment (15 MCQs) → result page.
-const STAGES = ["interests", "strengths", "personality", "aspiration", "constraints"];
-const STAGE_LABELS = ["Interests", "Strengths", "Personality", "Goals", "Preferences"];
+// Flow: chat (3 turns × 6 stages = 18 turns) → aptitude assessment → result page.
+// 3 turns per stage gives the AI room to ask, react, and gently clarify a vague
+// reply before moving on — 2 turns was too few when students answered briefly.
+const STAGES = ["interests", "academics", "personality", "aspiration", "constraints", "reflection"];
+const STAGE_LABELS = ["Interests", "Academics", "Work Style", "Goals", "Constraints", "Reflection"];
+const TURNS_PER_STAGE = 3;
 
 type Msg = { role: "assistant" | "user"; content: string };
 
@@ -43,7 +46,7 @@ function ChatInner() {
 
   useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
 
-  const chatDone = turns >= STAGES.length * 2;
+  const chatDone = turns >= STAGES.length * TURNS_PER_STAGE;
 
   // Fetch assessment questions once chat finishes.
   useEffect(() => {
@@ -70,14 +73,14 @@ function ChatInner() {
     if (message) {
       nextTurns = turns + 1;
       setTurns(nextTurns);
-      if (nextTurns % 2 === 0 && stageIdx < STAGES.length - 1) {
+      if (nextTurns % TURNS_PER_STAGE === 0 && stageIdx < STAGES.length - 1) {
         setStageIdx((i) => i + 1);
         stage = STAGES[Math.min(stageIdx + 1, STAGES.length - 1)];
       }
     }
 
     // Suppress the AI's response on the final turn — assessment phase starts instead.
-    const interviewComplete = message !== undefined && nextTurns >= STAGES.length * 2;
+    const interviewComplete = message !== undefined && nextTurns >= STAGES.length * TURNS_PER_STAGE;
 
     const res = await fetch("/api/chat", {
       method: "POST",

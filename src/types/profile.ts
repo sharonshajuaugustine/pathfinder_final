@@ -59,6 +59,11 @@ export interface StudentProfile {
     goalOrientation?: GoalOrientation;
     riskAppetite?: number; // 0..1
     ambitionLevel?: number; // 0..1
+    // Free-text career the student explicitly says they want to become
+    // (e.g. "game developer", "veterinarian"). Used to detect when a student's
+    // target career falls outside the KB's catalog so the explainer can address
+    // it honestly instead of silently returning the nearest match.
+    statedCareer?: string;
   };
   constraints: {
     budgetBand?: BudgetBand;
