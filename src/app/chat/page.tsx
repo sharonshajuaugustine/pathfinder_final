@@ -10,7 +10,7 @@ import type { AssessmentItemPublic } from "@/types/assessment";
 // 3 turns per stage gives the AI room to ask, react, and gently clarify a vague
 // reply before moving on — 2 turns was too few when students answered briefly.
 const STAGES = ["interests", "academics", "personality", "aspiration", "constraints", "reflection"];
-const STAGE_LABELS = ["Interests", "Academics", "Work Style", "Goals", "Constraints", "Reflection"];
+const STAGE_LABELS = ["Direction", "Academics", "Work Style", "Goals", "Constraints", "Reflection"];
 const TURNS_PER_STAGE = 3;
 
 type Msg = { role: "assistant" | "user"; content: string };
