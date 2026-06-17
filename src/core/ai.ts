@@ -140,7 +140,8 @@ export async function extractProfileDelta(studentReply: string): Promise<{
       ", "
     )}] to -1..1 (positive = trait strongly present, negative = opposite pole) — extract from how they describe their work preferences, learning style, or natural behaviour`,
     academic: `{ strongSubjects: string[], weakSubjects: string[] } — subjects they explicitly say they are good at or struggle with`,
-    aspiration: `{ goalOrientation: 'job_soon'|'higher_study'|'business'|'government', riskAppetite: 0..1 (0=strongly risk-averse, 1=very risk-seeking), ambitionLevel: 0..1 (0=modest/content, 1=highly ambitious) }`,
+    aspiration: `{ goalOrientation: 'job_soon'|'higher_study'|'business'|'government', riskAppetite: 0..1 (0=strongly risk-averse, 1=very risk-seeking), ambitionLevel: 0..1 (0=modest/content, 1=highly ambitious) }
+  goalOrientation examples: "I want to do a degree / study more / go for BTech / do Masters" → higher_study; "I want to earn quickly / start working soon" → job_soon; "I want to start my own company / business" → business; "I want a government job / PSC / civil services" → government`,
     constraints: `{ budgetBand: 'low'|'medium'|'high'|'no_constraint', locationPref: 'kerala'|'india'|'abroad', timeToIncomeNeed: 'urgent'|'flexible', familyExpectations: string[] (career fields family expects, e.g. ["medicine", "engineering"]) }`,
   };
   const messages: ChatMessage[] = [

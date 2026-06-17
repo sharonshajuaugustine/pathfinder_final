@@ -335,7 +335,7 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
         id: "a",
         text: "Writing news stories or creating videos that reach a large audience",
         signals: [
-          { interest: "media_communication", interestValue: 0.9 },
+          { interest: "media_communication", interestValue: 0.5 },
           { riasec: "artistic", riasecValue: 0.7 },
           { trait: "social", traitValue: 0.5 },
         ],
@@ -344,16 +344,16 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
         id: "b",
         text: "Protecting wildlife, forests, or working to improve agriculture and food security",
         signals: [
-          { interest: "nature_agriculture", interestValue: 0.9 },
+          { interest: "nature_agriculture", interestValue: 0.5 },
           { riasec: "realistic", riasecValue: 0.6 },
-          { interest: "science_research", interestValue: 0.4 },
+          { interest: "science_research", interestValue: 0.3 },
         ],
       },
       {
         id: "c",
         text: "Training and serving in the armed forces, police, or civil services",
         signals: [
-          { interest: "defence_adventure", interestValue: 0.9 },
+          { interest: "defence_adventure", interestValue: 0.5 },
           { riasec: "realistic", riasecValue: 0.7 },
           { trait: "practical", traitValue: 0.6 },
         ],
@@ -362,7 +362,7 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
         id: "d",
         text: "Investigating cases, protecting rights, or working in courts and law",
         signals: [
-          { interest: "law_justice", interestValue: 0.9 },
+          { interest: "law_justice", interestValue: 0.5 },
           { riasec: "enterprising", riasecValue: 0.7 },
           { trait: "analytical", traitValue: 0.6 },
         ],
