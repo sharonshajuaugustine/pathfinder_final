@@ -447,7 +447,7 @@ insert into public.careers
    'Civil Services Officer (IAS / IPS / IFS)',
    'government',
    'Serve in Indian Administrative, Police, or Foreign Services via UPSC.',
-   array['social','enterprising'], array['analytical','social'],
+   array['social','enterprising'], array['social'],
    'medium','strong','strong','none','stable',5),
 
   ('defence_officer',
