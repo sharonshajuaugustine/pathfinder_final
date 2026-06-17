@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import type { AssessmentItemPublic } from "@/types/assessment";
 
-// Flow: chat (10 turns across 5 stages) → aptitude assessment (15 MCQs) → result page.
-const STAGES = ["interests", "strengths", "personality", "aspiration", "constraints"];
-const STAGE_LABELS = ["Interests", "Strengths", "Personality", "Goals", "Preferences"];
+// Flow: chat (12 turns across 6 stages) → aptitude assessment → result page.
+const STAGES = ["interests", "academics", "personality", "aspiration", "constraints", "reflection"];
+const STAGE_LABELS = ["Interests", "Academics", "Work Style", "Goals", "Constraints", "Reflection"];
 
 type Msg = { role: "assistant" | "user"; content: string };
 
