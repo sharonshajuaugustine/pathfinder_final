@@ -166,7 +166,13 @@ function personalityFit(career: Career, profile: StudentProfile): number {
   const matches = career.personalityFit.filter(
     (t) => (profile.personality[t] ?? 0) > 0.2
   ).length;
-  return clamp(matches / career.personalityFit.length);
+  const ratio = matches / career.personalityFit.length;
+  // Floor at 0.3: a single unmeasured/unmatched personality trait should not
+  // zero out 10% of a career's score. Personality is a weak, noisy signal from
+  // a few MCQ answers — a student curious about science but who didn't pick the
+  // "logic puzzle" option shouldn't be hard-blocked from research careers.
+  // 0 matches => 0.3, partial/full matches scale up to 1.0.
+  return clamp(0.3 + 0.7 * ratio);
 }
 
 function aspirationFit(career: Career, profile: StudentProfile): number {

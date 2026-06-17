@@ -29,9 +29,22 @@ export async function POST(req: NextRequest) {
   try {
     // 1. Persist the student's message (if any) and extract structured signals.
     if (message && message.trim()) {
+      // Fetch the AI's previous question so the extractor can interpret short
+      // replies in context (e.g. a one-word answer, or a rejection in the
+      // reflection stage). Must run BEFORE inserting the new user message.
+      const { data: lastQ } = await db
+        .from("conversations")
+        .select("content")
+        .eq("session_id", sessionId)
+        .eq("role", "assistant")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const precedingQuestion = lastQ?.content as string | undefined;
+
       await db.from("conversations").insert({ session_id: sessionId, role: "user", stage, content: message });
 
-      const { delta, model } = await extractProfileDelta(message);
+      const { delta, model } = await extractProfileDelta({ reply: message, stage, precedingQuestion });
       if (delta) {
         // Profile rows from onboarding are PARTIAL (academic only). mergeProfile
         // normalizes to the full shape, so this is safe even if sections are missing.
