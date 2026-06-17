@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import type { RecommendationResult } from "@/types/recommendation";
 
 const RANK_STYLES = [
@@ -252,7 +253,10 @@ function ResultInner() {
 function Center({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <main
-      className={`flex h-screen items-center justify-center px-6 text-center text-muted-foreground ${className ?? ""}`}
+      className={cn(
+        "flex h-screen items-center justify-center px-6 text-center text-muted-foreground",
+        className
+      )}
     >
       {children}
     </main>
