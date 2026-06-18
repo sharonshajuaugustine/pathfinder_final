@@ -64,12 +64,31 @@ export function mergeProfile(
   const next = normalizeProfile(base);
   if (!delta || typeof delta !== "object") return next;
 
-  if (delta.academic) Object.assign(next.academic, delta.academic);
+  if (delta.academic) {
+    // Accumulate subject arrays rather than overwriting — clicking "Biology" then
+    // "Chemistry" should result in both, not just the most recent click.
+    const existingStrong = next.academic.strongSubjects;
+    const existingWeak = next.academic.weakSubjects;
+    Object.assign(next.academic, delta.academic);
+    next.academic.strongSubjects = Array.from(
+      new Set([...existingStrong, ...(delta.academic.strongSubjects ?? [])])
+    );
+    next.academic.weakSubjects = Array.from(
+      new Set([...existingWeak, ...(delta.academic.weakSubjects ?? [])])
+    );
+  }
   if (delta.interests) next.interests = { ...next.interests, ...delta.interests };
   if (delta.riasec) next.riasec = { ...next.riasec, ...delta.riasec };
   if (delta.aptitude) next.aptitude = { ...next.aptitude, ...delta.aptitude };
   if (delta.personality) next.personality = { ...next.personality, ...delta.personality };
-  if (delta.aspiration) Object.assign(next.aspiration, delta.aspiration);
+  if (delta.aspiration) {
+    // Accumulate careerPriorities across turns — multiple answers should merge.
+    const existingPriorities = next.aspiration.careerPriorities ?? [];
+    Object.assign(next.aspiration, delta.aspiration);
+    next.aspiration.careerPriorities = Array.from(
+      new Set([...existingPriorities, ...(delta.aspiration.careerPriorities ?? [])])
+    );
+  }
   if (delta.constraints) {
     const existingFam = next.constraints.familyExpectations;
     const incomingFam = delta.constraints.familyExpectations ?? [];

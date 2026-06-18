@@ -64,6 +64,9 @@ export interface StudentProfile {
     // target career falls outside the KB's catalog so the explainer can address
     // it honestly instead of silently returning the nearest match.
     statedCareer?: string;
+    // What the student values most in a career (e.g. "high_salary", "job_security",
+    // "passion", "government"). Collected from the "what matters most?" question.
+    careerPriorities?: string[];
   };
   constraints: {
     budgetBand?: BudgetBand;

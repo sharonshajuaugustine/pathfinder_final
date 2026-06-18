@@ -98,6 +98,8 @@ export interface StudentContext {
   knownBudget?: string;
   knownLocation?: string;
   detectedInterests?: string[];
+  strongSubjects?: string[];
+  careerPriorities?: string[]; // what the student values: high_salary, job_security, passion, government
   // True when at least one personality/work-style signal has been captured.
   // Prevents the AI from asking another alone/team or desk/active question.
   hasPersonalityData?: boolean;
@@ -166,11 +168,21 @@ export async function nextQuestion(params: {
   if (ctx?.knownLocation) {
     contextLines.push(`Location preference already captured (${ctx.knownLocation}) — don't re-ask it.`);
   }
+  if (ctx?.strongSubjects?.length) {
+    contextLines.push(
+      `STRONG SUBJECTS already captured (${ctx.strongSubjects.join(", ")}) — do NOT ask which subjects they enjoy again.`
+    );
+  }
   if (ctx?.detectedInterests?.length) {
     contextLines.push(
       `INTEREST ALREADY CAPTURED (${ctx.detectedInterests.join(", ")}). Stop asking about fields, subjects, ` +
       `or what they enjoy — you have enough. Do NOT drill into sub-specialties (e.g. which ward, which kind of code). ` +
-      `Move to their GOAL (study/job/govt/business), BUDGET, or LOCATION instead.`
+      `Move to the next GAP instead.`
+    );
+  }
+  if (ctx?.careerPriorities?.length) {
+    contextLines.push(
+      `CAREER PRIORITIES already captured (${ctx.careerPriorities.join(", ")}) — do NOT ask what matters most in a career again.`
     );
   }
   if (ctx?.hasPersonalityData) {
@@ -222,7 +234,13 @@ export async function nextQuestion(params: {
         'STEP 4 — Write the JSON:\n' +
         '  "question": ONE clear, concrete question (max 30 words, ends with "?") that fills GAP #1.\n' +
         '  "choices": exactly 4 options that DIRECTLY answer your question.\n' +
-        "  • If asking about subjects → choices are subject names (e.g. 'Biology', 'Maths', 'Accountancy', 'English').\n" +
+        "  • If asking which subjects they enjoy or score best in → give 4 subject names from their stream. " +
+        "Science (Bio): 'Biology', 'Chemistry', 'Physics', 'Mathematics'. " +
+        "Science (Maths/CS): 'Mathematics', 'Physics', 'Computer Science', 'Chemistry'. " +
+        "Commerce: 'Accountancy', 'Business Studies', 'Economics', 'Mathematics'. " +
+        "Humanities: 'History / Political Science', 'English / Literature', 'Psychology', 'Economics'.\n" +
+        "  • If asking what matters most in a career → use EXACTLY these four: " +
+        "'High salary and fast growth', 'Stable job and job security', 'Work I am passionate about', 'Government or public service job'.\n" +
         "  • INTEREST/ACTIVITY questions (any question about what they enjoy, like, or are drawn to): " +
         "choices MUST be real activities or scenarios — NEVER bare field or domain names. " +
         "GOOD choices: 'Caring for sick people and their families', 'Building apps and writing code', " +
@@ -434,6 +452,13 @@ function sanitizeDelta(
       ) {
         asp.statedCareer = sc;
       }
+    }
+    // careerPriorities: what the student values most in a career.
+    if (Array.isArray(data.aspiration.careerPriorities)) {
+      const valid = (data.aspiration.careerPriorities as unknown[])
+        .filter((p): p is string => typeof p === "string" && p.length >= 2 && p.length <= 60)
+        .slice(0, 6);
+      if (valid.length > 0) asp.careerPriorities = valid;
     }
     if (Object.keys(asp).length) out.aspiration = asp;
   }

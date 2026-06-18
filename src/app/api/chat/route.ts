@@ -33,6 +33,26 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
   };
   if (fieldMap[message]) return { interests: { [fieldMap[message]]: 0.7 } };
 
+  // Common subject names → strongSubjects (avoids LLM call for simple subject answers)
+  const subjectMap: Record<string, string> = {
+    "Mathematics": "Mathematics", "Maths": "Mathematics",
+    "Physics": "Physics", "Chemistry": "Chemistry", "Biology": "Biology",
+    "Computer Science": "Computer Science", "Computer science": "Computer Science",
+    "Accountancy": "Accountancy", "Business Studies": "Business Studies",
+    "Economics": "Economics", "English": "English",
+    "English / Literature": "English", "History": "History",
+    "History / Political Science": "History", "Political Science": "Political Science",
+    "Psychology": "Psychology", "Geography": "Geography",
+    "Fine Arts / Design": "Fine Arts", "Social Science": "Social Science",
+  };
+  if (subjectMap[message]) return { academic: { strongSubjects: [subjectMap[message]] } };
+
+  // Career priorities
+  if (message === "High salary and fast growth") return { aspiration: { careerPriorities: ["high_salary"] } };
+  if (message === "Stable job and job security") return { aspiration: { careerPriorities: ["job_security"] } };
+  if (message === "Work I am passionate about") return { aspiration: { careerPriorities: ["passion"] } };
+  if (message === "Government or public service job") return { aspiration: { careerPriorities: ["government"] } };
+
   if (message === "My family has a preference") return { constraints: { familyExpectations: ["family has career preference"] } };
   if (message === "I already have a career in mind") return null; // needs LLM to extract which career
   if (message === "Still figuring it out") return { interests: {} }; // signal captured, no cluster yet
@@ -292,25 +312,47 @@ export async function POST(req: NextRequest) {
     const capturedInterestCount = Object.values(ctxProfile?.interests ?? {}).filter(
       (v) => (v ?? 0) >= 0.3
     ).length;
+    const capturedStrongSubjects = (ctxProfile?.academic?.strongSubjects?.length ?? 0) > 0;
+    const capturedCareerPriorities = (ctxProfile?.aspiration?.careerPriorities?.length ?? 0) > 0;
+
     const remainingGaps: string[] = [];
+
+    // 1. Strong subjects — highest priority: feeds applyDerivedAptitude directly.
+    //    Ask BEFORE broad interest so we can infer aptitude from real subjects.
+    if (!capturedStrongSubjects)
+      remainingGaps.push("which specific subjects they enjoy most or score best in — give 4 stream-appropriate subject names as choices");
+
+    // 2. Interest / activity
     if (capturedInterestCount < 1) {
       const sc = ctxProfile?.aspiration?.statedCareer;
       if (sc) {
-        // Career known but interest cluster not yet inferred — ask what draws them to it
         remainingGaps.push(`what specifically draws them to "${sc}" and what daily activities in that field excite them`);
       } else {
-        // Ask with activity/scenario choices — NEVER bare field labels like "Medicine" or "Technology"
-        remainingGaps.push("what ACTIVITIES, SUBJECTS, or TYPE OF DAILY WORK genuinely excites them — choices must describe real activities (e.g. 'Caring for patients', 'Building software', 'Running a business'), NOT bare field names");
+        remainingGaps.push("what ACTIVITIES or TYPE OF DAILY WORK genuinely excites them — choices must describe real activities (e.g. 'Caring for patients', 'Building software', 'Running a business'), NOT bare field names");
       }
     }
+
+    // 3. Goal orientation
     if (!ctxProfile?.aspiration?.goalOrientation)
       remainingGaps.push("their goal after school — study further, get a job, govt exams (PSC/UPSC), or start a business");
+
+    // 4. Career priorities — what matters most: salary, security, passion, govt
+    if (!capturedCareerPriorities)
+      remainingGaps.push("what matters most to them in a career — high salary and growth, job stability and security, following their passion, or government/public service");
+
+    // 5. Budget
     if (!ctxProfile?.constraints?.budgetBand)
       remainingGaps.push("whether study costs are a concern for their family");
+
+    // 6. Location
     if (!ctxProfile?.constraints?.locationPref)
       remainingGaps.push("whether they can move to another city or abroad to study");
+
+    // 7. Family expectations
     if (!capturedFamilyExpectations)
       remainingGaps.push("whether their family has strong expectations about their career choice");
+
+    // 8. Work style / personality
     if (!hasPersonalityData)
       remainingGaps.push("how they prefer to work — with people, solo / focused, or outdoors / hands-on");
 
@@ -323,6 +365,12 @@ export async function POST(req: NextRequest) {
       knownBudget: ctxProfile?.constraints?.budgetBand,
       knownLocation: ctxProfile?.constraints?.locationPref,
       detectedInterests: detectedInterests.length > 0 ? detectedInterests : undefined,
+      strongSubjects: (ctxProfile?.academic?.strongSubjects?.length ?? 0) > 0
+        ? (ctxProfile?.academic?.strongSubjects ?? undefined)
+        : undefined,
+      careerPriorities: (ctxProfile?.aspiration?.careerPriorities?.length ?? 0) > 0
+        ? (ctxProfile?.aspiration?.careerPriorities ?? undefined)
+        : undefined,
       hasPersonalityData,
       remainingGaps: remainingGaps.length > 0 ? remainingGaps : undefined,
       relevantExams: relevantExamsList.length > 0 ? relevantExamsList : undefined,
