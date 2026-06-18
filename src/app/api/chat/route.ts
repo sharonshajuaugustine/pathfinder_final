@@ -113,20 +113,47 @@ export async function POST(req: NextRequest) {
       numbers_analysis: "mathematics / data analysis",
     };
 
-    const detectedInterests = ctxProfile?.interests
-      ? Object.entries(ctxProfile.interests)
-          .filter(([, v]) => (v ?? 0) >= 0.4)
-          .map(([k]) => INTEREST_LABELS[k] ?? k)
-      : [];
+    // Use 0.2 threshold so any partial interest is already treated as "known"
+    // (prevents the AI from asking about a topic it partially captured at 0.3)
+    const detectedInterests = Object.entries(ctxProfile?.interests ?? {})
+      .filter(([, v]) => (v ?? 0) >= 0.2)
+      .map(([k]) => INTEREST_LABELS[k] ?? k);
+
+    // statedCareer: the free-text career the student explicitly named
+    const statedCareer = ctxProfile?.aspiration?.statedCareer ?? undefined;
+
+    // Work-style captured if any personality trait has a non-trivial value
+    const hasPersonalityData = Object.values(ctxProfile?.personality ?? {}).some(
+      (v) => Math.abs((v as number) ?? 0) > 0.2
+    );
+
+    // Build a prioritised list of what the profile still needs
+    const capturedInterestCount = Object.values(ctxProfile?.interests ?? {}).filter(
+      (v) => (v ?? 0) >= 0.3
+    ).length;
+    const remainingGaps: string[] = [];
+    if (capturedInterestCount < 2)
+      remainingGaps.push("which field or subject genuinely interests them");
+    if (!ctxProfile?.aspiration?.goalOrientation)
+      remainingGaps.push("their plan after school — quick job, study more, own business, or government job");
+    if (!ctxProfile?.constraints?.budgetBand)
+      remainingGaps.push("whether study costs are a concern for their family");
+    if (!ctxProfile?.constraints?.locationPref)
+      remainingGaps.push("whether they can move to another city to study");
+    if (!hasPersonalityData)
+      remainingGaps.push("how they prefer to work — alone or with people, structured or free, desk-based or active");
 
     const rawStream = ctxProfile?.academic?.stream as string | undefined;
     const studentContext: StudentContext = {
       stream: rawStream ? (STREAM_LABELS[rawStream] ?? rawStream) : undefined,
       percentage: ctxProfile?.academic?.percentage,
+      statedCareer: statedCareer || undefined,
       knownGoal: ctxProfile?.aspiration?.goalOrientation,
       knownBudget: ctxProfile?.constraints?.budgetBand,
       knownLocation: ctxProfile?.constraints?.locationPref,
       detectedInterests: detectedInterests.length > 0 ? detectedInterests : undefined,
+      hasPersonalityData,
+      remainingGaps: remainingGaps.length > 0 ? remainingGaps : undefined,
     };
 
     // 4. Ask the next question.
