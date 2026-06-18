@@ -95,10 +95,40 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
   if (message === "Family can manage it") return { constraints: { budgetBand: "no_constraint" } };
   if (message === "Not sure about costs") return { constraints: { budgetBand: "medium" } };
 
-  if (message === "They support my choice fully") return { constraints: { familyExpectations: [] } };
+  // Family-related answers — use sentinel "none" for supportive/no-constraint answers
+  // so capturedFamilyExpectations closes the gap (empty array leaves it open).
+  if (message === "They support my choice fully") return { constraints: { familyExpectations: ["none"] } };
   if (message === "They want a specific career") return { constraints: { familyExpectations: ["family has career preference"] } };
   if (message === "Some preferences, not strict") return { constraints: { familyExpectations: ["some family preferences"] } };
-  if (message === "Haven't discussed yet") return { constraints: { familyExpectations: [] } };
+  if (message === "Haven't discussed yet") return { constraints: { familyExpectations: ["none"] } };
+  // AI-generated family choice variants
+  if (message === "Very involved and supportive") return { constraints: { familyExpectations: ["supportive"] } };
+  if (message === "Somewhat involved but not decisive") return { constraints: { familyExpectations: ["some_preference"] } };
+  if (message === "Somewhat involved, but I have some freedom") return { constraints: { familyExpectations: ["some_preference"] } };
+  if (message === "Not very involved, but I'll consider their views") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "Not involved at all, I'll make my own decision") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "Not at all involved, I make my own decisions") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "They have a strong preference") return { constraints: { familyExpectations: ["family_preference"] } };
+  if (message === "They are very supportive and excited for you") return { constraints: { familyExpectations: ["supportive"] } };
+  if (message === "They have some concerns but are open to discussing it") return { constraints: { familyExpectations: ["some_concerns"] } };
+  if (message === "They have strong expectations for you to pursue a different career") return { constraints: { familyExpectations: ["strong_expectations"] } };
+  if (message === "They haven't discussed it with you yet") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "They are neutral and open to suggestions") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "They are open to suggestions") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "They have a moderate preference") return { constraints: { familyExpectations: ["some_preference"] } };
+  if (message === "They are not involved in my career choice") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "They don't have any expectations") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "They have no expectations") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "They're open to my choice") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "They want me to pursue a different field") return { constraints: { familyExpectations: ["family_preference"] } };
+  if (message === "They want me to choose something else") return { constraints: { familyExpectations: ["family_preference"] } };
+  if (message === "I make the final decision") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "My family has a lot of influence") return { constraints: { familyExpectations: ["family_preference"] } };
+  // Standard labels enforced by STEP 4 instruction in ai.ts
+  if (message === "They are fully supportive of my choice") return { constraints: { familyExpectations: ["none"] } };
+  if (message === "They have some preferences") return { constraints: { familyExpectations: ["some_preference"] } };
+  if (message === "They have strong career expectations") return { constraints: { familyExpectations: ["family_preference"] } };
+  if (message === "We haven't discussed it yet") return { constraints: { familyExpectations: ["none"] } };
 
   return null;
 }

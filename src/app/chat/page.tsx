@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import type { AssessmentItemPublic } from "@/types/assessment";
 
-// 3 stages × 2 turns = 6 questions max. The AI stops asking once all gaps are
+// 3 stages × 3 turns = 9 questions max. The AI stops asking once all gaps are
 // filled — so most students finish in fewer turns.
 const STAGES = ["interests", "aspiration", "constraints"];
 const STAGE_LABELS = ["Your direction", "Your goals", "Practicalities"];
-const TURNS_PER_STAGE = 2;
+const TURNS_PER_STAGE = 3;
 
 type Msg = { role: "assistant" | "user"; content: string };
 

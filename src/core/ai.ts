@@ -59,16 +59,18 @@ Good question styles:
 
 Stop once you know which subjects/field excite them AND what kind of daily work appeals to them.`,
 
-  aspiration: `STAGE — Their Plan and Goals After Plus Two
-Find out what the student wants to achieve and how they plan to get there.
+  aspiration: `STAGE — Their Plan, Goals, and Career Values
+Find out what the student wants to achieve, how they plan to get there, and what matters most to them.
 
 Signals to collect (first missing one first):
 1. Main plan: study for a degree (BTech / BSc / BA / BBA), get a job quickly, prepare for govt exams (PSC / UPSC), or start a business?
-2. If studying: which course or stream are they thinking about? (e.g. BTech CS, MBBS, BCA, BA Psychology, B.Com)
-3. Entrance exam: are they okay preparing for one? Only mention exams from RELEVANT EXAMS in your context. If none listed, ask about CUET only.
+2. What matters most in a career: high salary and growth, job stability and security, following their passion, or government/public service?
+3. If studying: which course or stream are they thinking about? (e.g. BTech CS, MBBS, BCA, BA Psychology, B.Com)
+4. Entrance exam: are they okay preparing for one? Only mention exams from RELEVANT EXAMS in your context. If none listed, ask about CUET only.
 
 Good question styles:
 • "After Plus Two, what's your plan — study for a degree, get a job, prepare for PSC/UPSC, or start something of your own?"
+• "What matters most to you in a career — high salary, job security, doing work you're passionate about, or a government role?"
 • "Do you have a specific course in mind — like BTech, MBBS, BCA, BBA, or something else?"
 • "Are you willing to prepare for an entrance exam, or would you prefer a course without one?"`,
 
@@ -170,14 +172,17 @@ export async function nextQuestion(params: {
   }
   if (ctx?.strongSubjects?.length) {
     contextLines.push(
-      `STRONG SUBJECTS already captured (${ctx.strongSubjects.join(", ")}) — do NOT ask which subjects they enjoy again.`
+      `STRONG SUBJECTS ALREADY CAPTURED (${ctx.strongSubjects.join(", ")}) — ` +
+      `do NOT ask "which subjects do you enjoy/score best in?" or any variation of it. ` +
+      `This gap is CLOSED. Move to the next gap in the GAPS list.`
     );
   }
   if (ctx?.detectedInterests?.length) {
     contextLines.push(
-      `INTEREST ALREADY CAPTURED (${ctx.detectedInterests.join(", ")}). Stop asking about fields, subjects, ` +
-      `or what they enjoy — you have enough. Do NOT drill into sub-specialties (e.g. which ward, which kind of code). ` +
-      `Move to the next GAP instead.`
+      `INTEREST ALREADY CAPTURED (${ctx.detectedInterests.join(", ")}). ` +
+      `Do NOT ask about fields, subjects, or what they enjoy — this gap is CLOSED. ` +
+      `Do NOT drill into sub-specialties (e.g. which ward, which kind of code, which type of doctor). ` +
+      `Your next question MUST target a different GAP from the GAPS list.`
     );
   }
   if (ctx?.careerPriorities?.length) {
@@ -250,6 +255,8 @@ export async function nextQuestion(params: {
         "  • If asking about their goal → use EXACTLY these four: 'Study a degree further', 'Get a job quickly', 'Prepare for govt exams (PSC/UPSC)', 'Start a business or an independent project'.\n" +
         "  • If asking about budget → use EXACTLY these four: 'Family can manage it', 'Manageable with effort', 'Need a scholarship or loan', 'Not sure about costs'.\n" +
         "  • If asking about location → use EXACTLY these four: 'Stay in Kerala', 'Anywhere in India', 'Open to studying abroad', 'Depends on the course'.\n" +
+        "  • If asking about family expectations → use EXACTLY these four: " +
+        "'They are fully supportive of my choice', 'They have some preferences', 'They have strong career expectations', 'We haven\\'t discussed it yet'.\n" +
         "  • Keep every option realistic for the student's stream.\n\n" +
         "GUARDRAILS:\n" +
         "• One question only. Never recommend careers or colleges.\n" +
