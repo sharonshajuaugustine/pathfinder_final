@@ -6,12 +6,11 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import type { AssessmentItemPublic } from "@/types/assessment";
 
-// Flow: chat (3 turns × 6 stages = 18 turns) → aptitude assessment → result page.
-// 3 turns per stage gives the AI room to ask, react, and gently clarify a vague
-// reply before moving on — 2 turns was too few when students answered briefly.
-const STAGES = ["interests", "academics", "personality", "aspiration", "constraints", "reflection"];
-const STAGE_LABELS = ["Direction", "Academics", "Work Style", "Goals", "Constraints", "Reflection"];
-const TURNS_PER_STAGE = 3;
+// 3 stages × 2 turns = 6 questions max. The AI stops asking once all gaps are
+// filled — so most students finish in fewer turns.
+const STAGES = ["interests", "aspiration", "constraints"];
+const STAGE_LABELS = ["Your direction", "Your goals", "Practicalities"];
+const TURNS_PER_STAGE = 2;
 
 type Msg = { role: "assistant" | "user"; content: string };
 
@@ -26,8 +25,10 @@ function ChatInner() {
   const [stageIdx, setStageIdx] = useState(0);
   const [busy, setBusy] = useState(false);
   const [turns, setTurns] = useState(0);
+  const [choices, setChoices] = useState<string[]>([]);
+  const [chatError, setChatError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  // One-shot guard: React StrictMode double-invokes mount effects in dev.
+  const inputRef = useRef<HTMLInputElement>(null);
   const startedRef = useRef(false);
 
   // ── Assessment state ────────────────────────────────────────────────────────
@@ -40,7 +41,7 @@ function ChatInner() {
   useEffect(() => {
     if (!sessionId || startedRef.current) return;
     startedRef.current = true;
-    void send(undefined); // kick off the first AI question exactly once
+    void send(undefined, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
@@ -48,7 +49,6 @@ function ChatInner() {
 
   const chatDone = turns >= STAGES.length * TURNS_PER_STAGE;
 
-  // Fetch assessment questions once chat finishes.
   useEffect(() => {
     if (!chatDone || assessmentLoadedRef.current) return;
     assessmentLoadedRef.current = true;
@@ -57,17 +57,18 @@ function ChatInner() {
       .then((d) => {
         const items: AssessmentItemPublic[] = d.items ?? [];
         setAssessmentItems(items);
-        if (items.length === 0) setAssessmentDone(true); // fallback: skip if empty
+        if (items.length === 0) setAssessmentDone(true);
       })
-      .catch(() => setAssessmentDone(true)); // fallback: don't block on network error
+      .catch(() => setAssessmentDone(true));
   }, [chatDone]);
 
-  async function send(message?: string) {
+  async function send(message?: string, isChoice = false) {
     if (!sessionId || busy) return;
     setBusy(true);
+    setChatError(null);
+    setChoices([]);
     if (message) setMessages((m) => [...m, { role: "user", content: message }]);
 
-    // Advance stage every 2 student turns (simple MVP pacing).
     let stage = STAGES[stageIdx];
     let nextTurns = turns;
     if (message) {
@@ -79,19 +80,32 @@ function ChatInner() {
       }
     }
 
-    // Suppress the AI's response on the final turn — assessment phase starts instead.
     const interviewComplete = message !== undefined && nextTurns >= STAGES.length * TURNS_PER_STAGE;
 
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sessionId, stage, message }),
-    });
-    const data = await res.json();
-    if (data.question && !interviewComplete) {
-      setMessages((m) => [...m, { role: "assistant", content: data.question }]);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId, stage, message, isChoice }),
+      });
+      if (res.status === 429) {
+        setChatError("The AI is busy right now. Please wait a moment and try again.");
+        return;
+      }
+      if (!res.ok) {
+        setChatError("Something went wrong. Please try again.");
+        return;
+      }
+      const data = await res.json();
+      if (data.question && !interviewComplete) {
+        setMessages((m) => [...m, { role: "assistant", content: data.question }]);
+        setChoices(data.choices ?? []);
+      }
+    } catch {
+      setChatError("Connection error. Please check your internet and try again.");
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   function onSend(e: React.FormEvent) {
@@ -99,7 +113,7 @@ function ChatInner() {
     const text = input.trim();
     if (!text) return;
     setInput("");
-    void send(text);
+    void send(text, false);
   }
 
   async function submitAssessmentAnswer(itemId: string, choiceId: string) {
@@ -112,7 +126,7 @@ function ChatInner() {
         body: JSON.stringify({ sessionId, itemId, choiceId }),
       });
     } catch {
-      // non-fatal — profile update best-effort
+      // non-fatal
     }
     const next = assessmentIdx + 1;
     if (next >= assessmentItems.length) {
@@ -176,7 +190,7 @@ function ChatInner() {
         </div>
       )}
 
-      {/* ── Assessment progress (assessment phase) ── */}
+      {/* ── Assessment progress ── */}
       {chatDone && !assessmentDone && assessmentItems.length > 0 && (
         <div className="shrink-0 border-b bg-white px-4 py-3">
           <div className="mx-auto max-w-2xl">
@@ -218,7 +232,6 @@ function ChatInner() {
             )
           )}
 
-          {/* Typing indicator */}
           {busy && (
             <div className="flex items-start gap-2.5">
               <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">
@@ -261,25 +274,51 @@ function ChatInner() {
         </div>
       )}
 
-      {/* ── Chat input ── */}
+      {/* ── Error banner ── */}
+      {chatError && (
+        <div className="shrink-0 border-t border-red-200 bg-red-50 px-4 py-2">
+          <p className="mx-auto max-w-2xl text-xs text-red-600">{chatError}</p>
+        </div>
+      )}
+
+      {/* ── Chat input: choice buttons + Other field ── */}
       {!chatDone && (
         <div className="shrink-0 border-t bg-white px-4 py-3">
-          <form onSubmit={onSend} className="mx-auto flex max-w-2xl gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your answer…"
-              disabled={busy}
-              className="flex-1 rounded-xl"
-            />
-            <button
-              type="submit"
-              disabled={busy || !input.trim()}
-              className="flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-40"
-            >
-              Send
-            </button>
-          </form>
+          <div className="mx-auto max-w-2xl space-y-2">
+            {/* Choice buttons — shown when the AI returns structured options */}
+            {choices.length > 0 && !busy && (
+              <div className="grid grid-cols-2 gap-2">
+                {choices.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => void send(c, true)}
+                    className="rounded-xl border bg-white px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:border-primary hover:bg-primary/5"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Other / free-text input */}
+            <form onSubmit={onSend} className="flex gap-2">
+              <Input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={choices.length > 0 ? "Or type your own answer…" : "Type your answer…"}
+                disabled={busy}
+                className="flex-1 rounded-xl"
+              />
+              <button
+                type="submit"
+                disabled={busy || !input.trim()}
+                className="flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-40"
+              >
+                Send
+              </button>
+            </form>
+          </div>
         </div>
       )}
 

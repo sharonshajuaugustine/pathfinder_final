@@ -1,372 +1,454 @@
 import type { AssessmentItem } from "@/types/assessment";
 
-// 18-question item bank:
-//   Aptitude (right/wrong, score 0 or 100):
-//     4 numerical, 4 logical, 2 verbal, 2 spatial, 2 scientific
-//   Personality/work-preference (no correct answer — each choice maps to signals):
-//     4 personality items
+// 10 general interest-discovery questions.
+// Choices describe values, activities, and feelings — never field names or careers.
+// The signal system maps each choice to interest clusters behind the scenes.
 //
-// The answer key (signals) lives here on the server only.
-// GET /api/assessment strips signals before sending to the client.
+// Server-only. GET /api/assessment strips signals before sending to the client.
 export const ASSESSMENT_ITEMS: AssessmentItem[] = [
 
-  // ─────────────────────── NUMERICAL ABILITY (4) ────────────────────────────
-
   {
-    id: "num_01",
-    dimension: "numerical",
-    questionText:
-      "A shopkeeper buys an item for ₹80 and sells it for ₹100. What is the profit percentage?",
-    choices: [
-      { id: "a", text: "25%", signals: [{ score: 100 }] },
-      { id: "b", text: "20%", signals: [{ score: 0 }] },
-      { id: "c", text: "15%", signals: [{ score: 0 }] },
-      { id: "d", text: "10%", signals: [{ score: 0 }] },
-    ],
-  },
-
-  {
-    id: "num_02",
-    dimension: "numerical",
-    questionText:
-      "6 workers can complete a task in 10 days. How many days will 10 workers take to complete the same task?",
-    choices: [
-      { id: "a", text: "4 days", signals: [{ score: 0 }] },
-      { id: "b", text: "6 days", signals: [{ score: 100 }] },
-      { id: "c", text: "8 days", signals: [{ score: 0 }] },
-      { id: "d", text: "5 days", signals: [{ score: 0 }] },
-    ],
-  },
-
-  {
-    id: "num_03",
-    dimension: "numerical",
-    questionText: "What comes next in the series?   2, 6, 12, 20, 30, __",
-    choices: [
-      { id: "a", text: "40", signals: [{ score: 0 }] },
-      { id: "b", text: "42", signals: [{ score: 100 }] },
-      { id: "c", text: "44", signals: [{ score: 0 }] },
-      { id: "d", text: "36", signals: [{ score: 0 }] },
-    ],
-  },
-
-  {
-    id: "num_04",
-    dimension: "numerical",
-    questionText:
-      "In a school, 120 students chose their stream: 60 chose Science, 40 chose Commerce, and 20 chose Humanities. What percentage of students chose Science?",
-    choices: [
-      { id: "a", text: "40%", signals: [{ score: 0 }] },
-      { id: "b", text: "45%", signals: [{ score: 0 }] },
-      { id: "c", text: "50%", signals: [{ score: 100 }] },
-      { id: "d", text: "60%", signals: [{ score: 0 }] },
-    ],
-  },
-
-  // ─────────────────────── LOGICAL REASONING (4) ────────────────────────────
-
-  {
-    id: "log_01",
-    dimension: "logical",
-    questionText: "In a code, MANGO is written as OCPIQ. How is GRAPE coded?",
-    choices: [
-      { id: "a", text: "ITCRG", signals: [{ score: 100 }] },
-      { id: "b", text: "HSCRG", signals: [{ score: 0 }] },
-      { id: "c", text: "ITBRF", signals: [{ score: 0 }] },
-      { id: "d", text: "JUCSH", signals: [{ score: 0 }] },
-    ],
-  },
-
-  {
-    id: "log_02",
-    dimension: "logical",
-    questionText: "Pen is to Writer as Brush is to ___?",
-    choices: [
-      { id: "a", text: "Canvas",  signals: [{ score: 0 }] },
-      { id: "b", text: "Painter", signals: [{ score: 100 }] },
-      { id: "c", text: "Art",     signals: [{ score: 0 }] },
-      { id: "d", text: "Colour",  signals: [{ score: 0 }] },
-    ],
-  },
-
-  {
-    id: "log_03",
-    dimension: "logical",
-    questionText:
-      "All doctors are engineers. Some engineers are scientists. Which statement is DEFINITELY true?",
-    choices: [
-      { id: "a", text: "All doctors are scientists",  signals: [{ score: 0 }] },
-      { id: "b", text: "Some engineers are doctors",  signals: [{ score: 100 }] },
-      { id: "c", text: "All scientists are doctors",  signals: [{ score: 0 }] },
-      { id: "d", text: "No doctor is a scientist",    signals: [{ score: 0 }] },
-    ],
-  },
-
-  {
-    id: "log_04",
-    dimension: "logical",
-    questionText:
-      "Four students — Arya, Binu, Ciya, and Dinu — sit in a row. Binu sits between Ciya and Dinu. Arya is NOT next to Dinu. Who is sitting next to Arya?",
-    choices: [
-      { id: "a", text: "Binu",              signals: [{ score: 0 }] },
-      { id: "b", text: "Ciya",              signals: [{ score: 100 }] },
-      { id: "c", text: "Dinu",              signals: [{ score: 0 }] },
-      { id: "d", text: "Both Binu and Dinu", signals: [{ score: 0 }] },
-    ],
-  },
-
-  // ─────────────────────────── VERBAL ABILITY (2) ───────────────────────────
-
-  {
-    id: "ver_01",
-    dimension: "verbal",
-    questionText: "Choose the word CLOSEST in meaning to 'Meticulous':",
-    choices: [
-      { id: "a", text: "Careless", signals: [{ score: 0 }] },
-      { id: "b", text: "Brave",    signals: [{ score: 0 }] },
-      { id: "c", text: "Precise",  signals: [{ score: 100 }] },
-      { id: "d", text: "Lazy",     signals: [{ score: 0 }] },
-    ],
-  },
-
-  {
-    id: "ver_02",
-    dimension: "verbal",
-    questionText:
-      "Read the sentence: 'Despite the lack of resources, the young scientist produced groundbreaking results through sheer determination.' What does 'groundbreaking' mean here?",
-    choices: [
-      { id: "a", text: "Literally breaking the ground",  signals: [{ score: 0 }] },
-      { id: "b", text: "Pioneering and highly original", signals: [{ score: 100 }] },
-      { id: "c", text: "Very tiring and exhausting",     signals: [{ score: 0 }] },
-      { id: "d", text: "Carefully planned in advance",   signals: [{ score: 0 }] },
-    ],
-  },
-
-  // ─────────────────────── SPATIAL REASONING (2) ────────────────────────────
-
-  {
-    id: "spa_01",
-    dimension: "spatial",
-    questionText:
-      "A square sheet of paper is folded in half, then folded in half again. A hole is punched through all layers. How many holes appear when the paper is fully unfolded?",
-    choices: [
-      { id: "a", text: "2", signals: [{ score: 0 }] },
-      { id: "b", text: "4", signals: [{ score: 100 }] },
-      { id: "c", text: "6", signals: [{ score: 0 }] },
-      { id: "d", text: "8", signals: [{ score: 0 }] },
-    ],
-  },
-
-  {
-    id: "spa_02",
-    dimension: "spatial",
-    questionText:
-      "A solid cube is painted red on all 6 faces and then cut into 27 equal smaller cubes. How many of the smaller cubes have exactly 2 faces painted red?",
-    choices: [
-      { id: "a", text: "6",  signals: [{ score: 0 }] },
-      { id: "b", text: "8",  signals: [{ score: 0 }] },
-      { id: "c", text: "12", signals: [{ score: 100 }] },
-      { id: "d", text: "18", signals: [{ score: 0 }] },
-    ],
-  },
-
-  // ───────────────────── SCIENTIFIC REASONING (2) ───────────────────────────
-
-  {
-    id: "sci_01",
-    dimension: "scientific",
-    questionText: "Which of the following is a PHYSICAL change?",
-    choices: [
-      { id: "a", text: "Burning wood",     signals: [{ score: 0 }] },
-      { id: "b", text: "Melting ice",      signals: [{ score: 100 }] },
-      { id: "c", text: "Rusting of iron",  signals: [{ score: 0 }] },
-      { id: "d", text: "Curdling of milk", signals: [{ score: 0 }] },
-    ],
-  },
-
-  {
-    id: "sci_02",
-    dimension: "scientific",
-    questionText: "Which of the following is NOT a renewable energy source?",
-    choices: [
-      { id: "a", text: "Solar energy",  signals: [{ score: 0 }] },
-      { id: "b", text: "Wind energy",   signals: [{ score: 0 }] },
-      { id: "c", text: "Natural gas",   signals: [{ score: 100 }] },
-      { id: "d", text: "Tidal energy",  signals: [{ score: 0 }] },
-    ],
-  },
-
-  // ─────────────────── PERSONALITY / WORK PREFERENCE (4) ───────────────────
-  // No correct answer. Each choice maps to personality traits, RIASEC, and
-  // interest clusters. All signal values are positive — absence signals nothing.
-
-  {
-    id: "per_01",
+    id: "int_01",
     dimension: "personality",
-    questionText: "You have free time after school. You would most enjoy:",
+    questionText: "After a long school day, which would help you relax AND feel productive?",
     choices: [
       {
         id: "a",
-        text: "Solving a maths puzzle or logic game",
+        text: "Helping a neighbour or family member with something they're struggling with",
         signals: [
-          { trait: "analytical", traitValue: 0.8 },
-          { riasec: "investigative", riasecValue: 0.7 },
-          { interest: "numbers_analysis", interestValue: 0.6 },
-        ],
-      },
-      {
-        id: "b",
-        text: "Helping a friend study or work through a problem",
-        signals: [
+          { interest: "helping_teaching", interestValue: 0.7 },
+          { interest: "health_medicine", interestValue: 0.4 },
           { trait: "social", traitValue: 0.8 },
-          { riasec: "social", riasecValue: 0.7 },
-          { interest: "helping_teaching", interestValue: 0.6 },
-        ],
-      },
-      {
-        id: "c",
-        text: "Building, fixing, or making something with your hands",
-        signals: [
-          { trait: "practical", traitValue: 0.8 },
-          { riasec: "realistic", riasecValue: 0.7 },
-          { interest: "building_engineering", interestValue: 0.6 },
-        ],
-      },
-      {
-        id: "d",
-        text: "Drawing, writing, or creating something artistic",
-        signals: [
-          { riasec: "artistic", riasecValue: 0.7 },
-          { interest: "design_visual", interestValue: 0.8 },
-        ],
-      },
-    ],
-  },
-
-  {
-    id: "per_02",
-    dimension: "personality",
-    questionText: "In a group project, your natural role is usually:",
-    choices: [
-      {
-        id: "a",
-        text: "The planner who organises tasks and keeps track of deadlines",
-        signals: [
-          { trait: "structured", traitValue: 0.8 },
-          { riasec: "conventional", riasecValue: 0.6 },
         ],
       },
       {
         id: "b",
-        text: "The creative one who generates ideas and designs solutions",
+        text: "Tinkering with a gadget, app, or something broken that needs fixing",
         signals: [
-          { riasec: "artistic", riasecValue: 0.8 },
-          { interest: "design_visual", interestValue: 0.7 },
+          { interest: "technology_coding", interestValue: 0.7 },
+          { interest: "building_engineering", interestValue: 0.5 },
+          { trait: "analytical", traitValue: 0.6 },
+          { trait: "practical", traitValue: 0.5 },
         ],
       },
       {
         id: "c",
-        text: "The leader who motivates the team and keeps everyone on board",
+        text: "Drawing, writing, cooking, or making something creative",
         signals: [
-          { trait: "social", traitValue: 0.7 },
-          { riasec: "enterprising", riasecValue: 0.8 },
-          { interest: "business_money", interestValue: 0.5 },
+          { interest: "design_visual", interestValue: 0.7 },
+          { interest: "media_communication", interestValue: 0.5 },
+          { riasec: "artistic", riasecValue: 0.8 },
         ],
       },
       {
         id: "d",
-        text: "The analyst who researches options and finds the best approach",
+        text: "Reading about how the world works — science, money, news, or nature",
         signals: [
-          { trait: "analytical", traitValue: 0.8 },
-          { riasec: "investigative", riasecValue: 0.7 },
+          { interest: "science_research", interestValue: 0.5 },
+          { interest: "business_money", interestValue: 0.4 },
+          { interest: "nature_agriculture", interestValue: 0.3 },
+          { trait: "analytical", traitValue: 0.6 },
         ],
       },
     ],
   },
 
   {
-    id: "per_03",
+    id: "int_02",
     dimension: "personality",
-    questionText: "Your ideal career would mainly involve:",
+    questionText: "A close friend needs help urgently. In which situation do you feel most useful?",
     choices: [
       {
         id: "a",
-        text: "Working with data, numbers, and logical systems",
+        text: "They're unwell — you take care of them and try to figure out what's wrong",
         signals: [
-          { interest: "numbers_analysis", interestValue: 0.9 },
+          { interest: "health_medicine", interestValue: 0.9 },
+          { trait: "social", traitValue: 0.7 },
+        ],
+      },
+      {
+        id: "b",
+        text: "Their device is broken and they need it working by tomorrow",
+        signals: [
+          { interest: "technology_coding", interestValue: 0.8 },
+          { interest: "building_engineering", interestValue: 0.4 },
           { trait: "analytical", traitValue: 0.7 },
         ],
       },
       {
+        id: "c",
+        text: "They're stressed and need someone to listen, guide, and help them think clearly",
+        signals: [
+          { interest: "helping_teaching", interestValue: 0.8 },
+          { interest: "law_justice", interestValue: 0.4 },
+          { trait: "social", traitValue: 0.9 },
+        ],
+      },
+      {
+        id: "d",
+        text: "They need an event organised — budget, tasks, and people managed",
+        signals: [
+          { interest: "business_money", interestValue: 0.8 },
+          { trait: "structured", traitValue: 0.7 },
+          { riasec: "enterprising", riasecValue: 0.7 },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "int_03",
+    dimension: "personality",
+    questionText: "You have ₹10,000 to spend on learning something new. What do you choose?",
+    choices: [
+      {
+        id: "a",
+        text: "A first-aid, nutrition, or healthcare short course",
+        signals: [
+          { interest: "health_medicine", interestValue: 0.9 },
+          { interest: "science_research", interestValue: 0.3 },
+        ],
+      },
+      {
         id: "b",
-        text: "Helping, supporting, or teaching other people",
+        text: "A coding, digital skills, or electronics workshop",
+        signals: [
+          { interest: "technology_coding", interestValue: 0.9 },
+          { trait: "analytical", traitValue: 0.5 },
+        ],
+      },
+      {
+        id: "c",
+        text: "An art, photography, music, or creative writing class",
+        signals: [
+          { interest: "design_visual", interestValue: 0.8 },
+          { interest: "media_communication", interestValue: 0.5 },
+          { riasec: "artistic", riasecValue: 0.8 },
+        ],
+      },
+      {
+        id: "d",
+        text: "A business, investing, or public speaking course",
+        signals: [
+          { interest: "business_money", interestValue: 0.8 },
+          { interest: "numbers_analysis", interestValue: 0.4 },
+          { riasec: "enterprising", riasecValue: 0.7 },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "int_04",
+    dimension: "personality",
+    questionText: "Which kind of mistake bothers you the most when you make it?",
+    choices: [
+      {
+        id: "a",
+        text: "A mistake that hurt someone's feelings or made their situation worse",
+        signals: [
+          { trait: "social", traitValue: 0.9 },
+          { interest: "helping_teaching", interestValue: 0.6 },
+          { interest: "health_medicine", interestValue: 0.4 },
+        ],
+      },
+      {
+        id: "b",
+        text: "A mistake that broke a system or process others were depending on",
+        signals: [
+          { interest: "technology_coding", interestValue: 0.5 },
+          { interest: "building_engineering", interestValue: 0.5 },
+          { trait: "analytical", traitValue: 0.7 },
+          { trait: "structured", traitValue: 0.6 },
+        ],
+      },
+      {
+        id: "c",
+        text: "A mistake that missed a good opportunity to earn or grow",
+        signals: [
+          { interest: "business_money", interestValue: 0.8 },
+          { trait: "risk_taking", traitValue: 0.6 },
+          { riasec: "enterprising", riasecValue: 0.7 },
+        ],
+      },
+      {
+        id: "d",
+        text: "A mistake that made something look, sound, or feel wrong or ugly",
+        signals: [
+          { interest: "design_visual", interestValue: 0.8 },
+          { interest: "media_communication", interestValue: 0.5 },
+          { riasec: "artistic", riasecValue: 0.7 },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "int_05",
+    dimension: "personality",
+    questionText: "Which type of school day would you enjoy the most?",
+    choices: [
+      {
+        id: "a",
+        text: "Doing a lab experiment or studying how the human body works",
+        signals: [
+          { interest: "science_research", interestValue: 0.7 },
+          { interest: "health_medicine", interestValue: 0.6 },
+          { trait: "analytical", traitValue: 0.6 },
+          { riasec: "investigative", riasecValue: 0.7 },
+        ],
+      },
+      {
+        id: "b",
+        text: "Building or assembling something in a workshop or computer lab",
+        signals: [
+          { interest: "building_engineering", interestValue: 0.7 },
+          { interest: "technology_coding", interestValue: 0.6 },
+          { trait: "practical", traitValue: 0.7 },
+        ],
+      },
+      {
+        id: "c",
+        text: "Debating, performing, or presenting in front of the class",
+        signals: [
+          { interest: "law_justice", interestValue: 0.5 },
+          { interest: "media_communication", interestValue: 0.6 },
+          { trait: "social", traitValue: 0.7 },
+          { riasec: "enterprising", riasecValue: 0.6 },
+        ],
+      },
+      {
+        id: "d",
+        text: "Organising a school event, fundraiser, or team activity",
+        signals: [
+          { interest: "business_money", interestValue: 0.6 },
+          { interest: "helping_teaching", interestValue: 0.5 },
+          { trait: "social", traitValue: 0.6 },
+          { riasec: "enterprising", riasecValue: 0.7 },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "int_06",
+    dimension: "personality",
+    questionText: "Which person's real-life story would you most enjoy reading about?",
+    choices: [
+      {
+        id: "a",
+        text: "Someone who saved hundreds of lives working in difficult conditions",
+        signals: [
+          { interest: "health_medicine", interestValue: 0.8 },
+          { interest: "defence_adventure", interestValue: 0.3 },
+          { trait: "social", traitValue: 0.7 },
+        ],
+      },
+      {
+        id: "b",
+        text: "A scientist whose discovery completely changed how we understand the world",
+        signals: [
+          { interest: "science_research", interestValue: 0.9 },
+          { trait: "analytical", traitValue: 0.7 },
+          { riasec: "investigative", riasecValue: 0.8 },
+        ],
+      },
+      {
+        id: "c",
+        text: "An artist, filmmaker, or writer whose work moved millions of people",
+        signals: [
+          { interest: "media_communication", interestValue: 0.7 },
+          { interest: "design_visual", interestValue: 0.7 },
+          { riasec: "artistic", riasecValue: 0.8 },
+        ],
+      },
+      {
+        id: "d",
+        text: "Someone who built a company from nothing and created thousands of jobs",
+        signals: [
+          { interest: "business_money", interestValue: 0.9 },
+          { trait: "risk_taking", traitValue: 0.8 },
+          { riasec: "enterprising", riasecValue: 0.8 },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "int_07",
+    dimension: "personality",
+    questionText: "What does your ideal workplace look and feel like?",
+    choices: [
+      {
+        id: "a",
+        text: "A place where people come to you for care, advice, or support",
+        signals: [
+          { interest: "health_medicine", interestValue: 0.6 },
+          { interest: "helping_teaching", interestValue: 0.6 },
+          { trait: "social", traitValue: 0.8 },
+        ],
+      },
+      {
+        id: "b",
+        text: "A screen, tools, and a quiet space to build or solve something",
+        signals: [
+          { interest: "technology_coding", interestValue: 0.7 },
+          { interest: "building_engineering", interestValue: 0.5 },
+          { trait: "analytical", traitValue: 0.6 },
+        ],
+      },
+      {
+        id: "c",
+        text: "A creative studio with cameras, canvases, or design tools around you",
+        signals: [
+          { interest: "design_visual", interestValue: 0.8 },
+          { interest: "media_communication", interestValue: 0.6 },
+          { riasec: "artistic", riasecValue: 0.8 },
+        ],
+      },
+      {
+        id: "d",
+        text: "Outdoors or on the move — nature, construction sites, or the field",
+        signals: [
+          { interest: "nature_agriculture", interestValue: 0.7 },
+          { interest: "defence_adventure", interestValue: 0.5 },
+          { interest: "building_engineering", interestValue: 0.4 },
+          { trait: "practical", traitValue: 0.7 },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "int_08",
+    dimension: "personality",
+    questionText: "If you volunteered for a community project, which would feel most meaningful?",
+    choices: [
+      {
+        id: "a",
+        text: "Teaching children in an underserved school or tutoring for free",
         signals: [
           { interest: "helping_teaching", interestValue: 0.9 },
           { trait: "social", traitValue: 0.8 },
         ],
       },
       {
-        id: "c",
-        text: "Taking risks and building something of your own",
+        id: "b",
+        text: "Setting up a computer lab or fixing digital tools for a local NGO",
         signals: [
-          { trait: "risk_taking", traitValue: 0.9 },
-          { interest: "business_money", interestValue: 0.8 },
-          { riasec: "enterprising", riasecValue: 0.7 },
+          { interest: "technology_coding", interestValue: 0.8 },
+          { interest: "helping_teaching", interestValue: 0.3 },
+        ],
+      },
+      {
+        id: "c",
+        text: "Creating posters, videos, or a campaign to raise awareness",
+        signals: [
+          { interest: "design_visual", interestValue: 0.6 },
+          { interest: "media_communication", interestValue: 0.7 },
+          { riasec: "artistic", riasecValue: 0.6 },
         ],
       },
       {
         id: "d",
-        text: "Discovering new knowledge through research and experiments",
+        text: "Planting trees, cleaning rivers, or protecting animals in the wild",
         signals: [
-          { interest: "science_research", interestValue: 0.9 },
-          { riasec: "investigative", riasecValue: 0.8 },
+          { interest: "nature_agriculture", interestValue: 0.9 },
+          { trait: "practical", traitValue: 0.5 },
         ],
       },
     ],
   },
 
   {
-    id: "per_04",
+    id: "int_09",
     dimension: "personality",
-    questionText:
-      "If you could spend a year doing one of these roles, which sounds most like you?",
+    questionText: "You finish a big task and feel genuinely proud. Which scenario is it?",
     choices: [
       {
         id: "a",
-        text: "Writing news stories or creating videos that reach a large audience",
+        text: "Someone is healthier, safer, or happier directly because of what you did",
         signals: [
-          { interest: "media_communication", interestValue: 0.5 },
-          { riasec: "artistic", riasecValue: 0.7 },
-          { trait: "social", traitValue: 0.5 },
+          { interest: "health_medicine", interestValue: 0.7 },
+          { interest: "helping_teaching", interestValue: 0.6 },
+          { trait: "social", traitValue: 0.8 },
         ],
       },
       {
         id: "b",
-        text: "Protecting wildlife, forests, or working to improve agriculture and food security",
+        text: "A product, tool, or system you built is now being used by real people",
         signals: [
-          { interest: "nature_agriculture", interestValue: 0.5 },
-          { riasec: "realistic", riasecValue: 0.6 },
-          { interest: "science_research", interestValue: 0.3 },
+          { interest: "technology_coding", interestValue: 0.8 },
+          { interest: "building_engineering", interestValue: 0.5 },
+          { trait: "analytical", traitValue: 0.5 },
         ],
       },
       {
         id: "c",
-        text: "Training and serving in the armed forces, police, or civil services",
+        text: "Something you created — a design, story, or video — got people talking",
         signals: [
-          { interest: "defence_adventure", interestValue: 0.5 },
-          { riasec: "realistic", riasecValue: 0.7 },
-          { trait: "practical", traitValue: 0.6 },
+          { interest: "media_communication", interestValue: 0.7 },
+          { interest: "design_visual", interestValue: 0.7 },
+          { riasec: "artistic", riasecValue: 0.7 },
         ],
       },
       {
         id: "d",
-        text: "Investigating cases, protecting rights, or working in courts and law",
+        text: "A case was won, a wrong was corrected, or justice was served",
         signals: [
-          { interest: "law_justice", interestValue: 0.5 },
-          { riasec: "enterprising", riasecValue: 0.7 },
+          { interest: "law_justice", interestValue: 0.9 },
           { trait: "analytical", traitValue: 0.6 },
+          { riasec: "enterprising", riasecValue: 0.5 },
         ],
       },
     ],
   },
+
+  {
+    id: "int_10",
+    dimension: "personality",
+    questionText: "Which statement sounds most like the real you?",
+    choices: [
+      {
+        id: "a",
+        text: "I feel happiest when I directly help someone and can see they're better for it",
+        signals: [
+          { interest: "helping_teaching", interestValue: 0.7 },
+          { interest: "health_medicine", interestValue: 0.6 },
+          { trait: "social", traitValue: 0.9 },
+        ],
+      },
+      {
+        id: "b",
+        text: "I feel happiest when I figure out how something works or build something that functions",
+        signals: [
+          { interest: "science_research", interestValue: 0.5 },
+          { interest: "technology_coding", interestValue: 0.6 },
+          { interest: "building_engineering", interestValue: 0.5 },
+          { trait: "analytical", traitValue: 0.8 },
+          { riasec: "investigative", riasecValue: 0.7 },
+        ],
+      },
+      {
+        id: "c",
+        text: "I feel happiest when I create something that people enjoy, admire, or are moved by",
+        signals: [
+          { interest: "design_visual", interestValue: 0.7 },
+          { interest: "media_communication", interestValue: 0.7 },
+          { riasec: "artistic", riasecValue: 0.9 },
+        ],
+      },
+      {
+        id: "d",
+        text: "I feel happiest when I take charge, make things happen, and see real results",
+        signals: [
+          { interest: "business_money", interestValue: 0.7 },
+          { interest: "defence_adventure", interestValue: 0.4 },
+          { trait: "risk_taking", traitValue: 0.8 },
+          { riasec: "enterprising", riasecValue: 0.8 },
+        ],
+      },
+    ],
+  },
+
 ];

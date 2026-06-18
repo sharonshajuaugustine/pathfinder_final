@@ -72,6 +72,20 @@ export function scoreCareer(career: Career, profile: StudentProfile, kb: Knowled
   const signals = kb.signals.filter((s) => s.careerId === career.id);
   const factors: ScoreFactor[] = [];
 
+  // Which dimensions did we actually measure for THIS student? A dimension with
+  // no data must be EXCLUDED from the weighted average — not scored 0. Scoring an
+  // unmeasured dimension 0 silently caps everyone's fit (e.g. an empty aptitude
+  // section dragging every career down ~25 points). We renormalize over the
+  // dimensions we have, so a fit score reflects fit on what we know.
+  const has = {
+    interest: Object.values(profile.interests).some((v) => (v ?? 0) > 0),
+    aptitude: Object.keys(profile.aptitude).length > 0,
+    academic: profile.academic.strongSubjects.length > 0,
+    personality: Object.values(profile.personality).some((v) => Math.abs(v ?? 0) > 0),
+    aspiration: !!profile.aspiration.goalOrientation,
+    constraint: !!profile.constraints.budgetBand || !!profile.constraints.locationPref,
+  };
+
   // Interest match: weighted overlap of student interests vs career interest signals.
   const interestScore = weightedMatch(
     signals.filter((s) => s.signalType === "interest").map((s) => [s.signalKey, s.weight]),
@@ -102,16 +116,23 @@ export function scoreCareer(career: Career, profile: StudentProfile, kb: Knowled
   const constraintScore = constraintFit(career, profile);
   pushFactor(factors, "constraint", constraintScore, SCORING_WEIGHTS.constraint, "Fits your constraints");
 
-  const fitScore = Number(
-    clamp(
-      interestScore * SCORING_WEIGHTS.interest +
-        aptitudeScore * SCORING_WEIGHTS.aptitude +
-        academicScore * SCORING_WEIGHTS.academic +
-        personalityScore * SCORING_WEIGHTS.personality +
-        aspirationScore * SCORING_WEIGHTS.aspiration +
-        constraintScore * SCORING_WEIGHTS.constraint
-    ).toFixed(4)
-  );
+  // Weighted average over MEASURED dimensions only (renormalized).
+  const dims: [number, number, boolean][] = [
+    [interestScore, SCORING_WEIGHTS.interest, has.interest],
+    [aptitudeScore, SCORING_WEIGHTS.aptitude, has.aptitude],
+    [academicScore, SCORING_WEIGHTS.academic, has.academic],
+    [personalityScore, SCORING_WEIGHTS.personality, has.personality],
+    [aspirationScore, SCORING_WEIGHTS.aspiration, has.aspiration],
+    [constraintScore, SCORING_WEIGHTS.constraint, has.constraint],
+  ];
+  let num = 0;
+  let denom = 0;
+  for (const [score, weight, present] of dims) {
+    if (!present) continue;
+    num += score * weight;
+    denom += weight;
+  }
+  const fitScore = Number(clamp(denom === 0 ? 0 : num / denom).toFixed(4));
 
   // Keep only meaningfully-contributing factors, ranked.
   const ranked = factors

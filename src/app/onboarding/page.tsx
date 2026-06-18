@@ -43,12 +43,12 @@ export default function OnboardingPage() {
       sessionId,
       name: String(fd.get("name") ?? ""),
       phone: String(fd.get("phone") ?? ""),
-      email: String(fd.get("email") ?? ""),
+      email: String(fd.get("email")),
       age: Number(fd.get("age")),
       district: String(fd.get("district") ?? ""),
       stream: String(fd.get("stream") ?? ""),
-      percentage: percentageRaw ? Number(percentageRaw) : undefined,
-      preferredLanguage: String(fd.get("preferredLanguage") ?? "en"),
+      percentage: Number(percentageRaw),
+      preferredLanguage: "en",
       consentGiven: fd.get("consentGiven") === "on",
     };
 
@@ -122,8 +122,8 @@ export default function OnboardingPage() {
             </Field>
           </div>
 
-          <Field label="Email (optional)">
-            <Input name="email" type="email" placeholder="you@example.com" />
+          <Field label="Email">
+            <Input name="email" type="email" required placeholder="you@example.com" />
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
@@ -153,24 +153,17 @@ export default function OnboardingPage() {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Percentage (optional)">
-              <Input
-                name="percentage"
-                type="number"
-                min={0}
-                max={100}
-                step="0.01"
-                placeholder="e.g. 85"
-              />
-            </Field>
-            <Field label="Preferred language">
-              <Select name="preferredLanguage" defaultValue="en">
-                <option value="en">English</option>
-                <option value="ml">Malayalam</option>
-              </Select>
-            </Field>
-          </div>
+          <Field label="Percentage">
+            <Input
+              name="percentage"
+              type="number"
+              required
+              min={0}
+              max={100}
+              step="0.01"
+              placeholder="e.g. 85"
+            />
+          </Field>
 
           <label className="flex items-start gap-3 rounded-xl border bg-muted/40 p-4 text-sm">
             <Checkbox name="consentGiven" required className="mt-0.5 shrink-0" />

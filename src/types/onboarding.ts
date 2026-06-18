@@ -25,11 +25,11 @@ export const onboardingSchema = z.object({
   sessionId: z.string().uuid(),
   name: z.string().min(2).max(80),
   phone: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"),
-  email: z.string().email().optional().or(z.literal("")),
+  email: z.string().email(),
   age: z.number().int().min(14).max(30),
   district: z.enum(KERALA_DISTRICTS),
   stream: z.enum(STREAMS),
-  percentage: z.number().min(0).max(100).optional(),
+  percentage: z.number().min(0).max(100),
   preferredLanguage: z.enum(LANGUAGES).default("en"),
   consentGiven: z.literal(true, {
     errorMap: () => ({ message: "Consent is required to continue" }),

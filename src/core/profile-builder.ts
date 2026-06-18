@@ -76,7 +76,70 @@ export function mergeProfile(
     Object.assign(next.constraints, delta.constraints);
     next.constraints.familyExpectations = Array.from(new Set([...existingFam, ...incomingFam]));
   }
+
+  // Derive aptitude from the subjects/stream we know. For a Plus Two student,
+  // "strong in Maths" is a far more reliable aptitude signal than a few MCQs —
+  // and it's the main source now that the quiz is interest-focused. Observed
+  // values (e.g. "I'm great at numbers") always win; inference only fills gaps.
+  applyDerivedAptitude(next);
   return next;
+}
+
+// Maps Plus Two subjects → aptitude dimensions (0..100). Partial substring match,
+// so "Computer Science" hits "computer", "Mathematics" hits "maths"/"math".
+const SUBJECT_APTITUDE: { match: string[]; aptitude: Partial<Record<string, number>> }[] = [
+  { match: ["math", "maths"],            aptitude: { numerical: 85, logical: 80, spatial: 70 } },
+  { match: ["physics"],                  aptitude: { numerical: 75, logical: 75, scientific: 80, spatial: 70 } },
+  { match: ["chemistry"],                aptitude: { scientific: 85, numerical: 60 } },
+  { match: ["biology", "bio ", "botany", "zoology"], aptitude: { scientific: 85, verbal: 60 } },
+  { match: ["computer", "informatics"],  aptitude: { logical: 85, numerical: 75 } },
+  { match: ["account"],                  aptitude: { numerical: 85, logical: 65 } },
+  { match: ["economic"],                 aptitude: { numerical: 75, verbal: 70, logical: 65 } },
+  { match: ["business", "commerce"],     aptitude: { verbal: 70, numerical: 65 } },
+  { match: ["english", "literature"],    aptitude: { verbal: 90 } },
+  { match: ["malayalam", "hindi", "language", "sanskrit", "arabic"], aptitude: { verbal: 75 } },
+  { match: ["history"],                  aptitude: { verbal: 80 } },
+  { match: ["political", "politics"],    aptitude: { verbal: 80, logical: 65 } },
+  { match: ["geography"],                aptitude: { spatial: 75, verbal: 60 } },
+  { match: ["sociology", "psychology", "philosophy"], aptitude: { verbal: 75 } },
+];
+
+// Weaker baseline from stream alone — used when no subjects were named.
+const STREAM_APTITUDE: Record<string, Partial<Record<string, number>>> = {
+  science_maths: { numerical: 70, logical: 70, spatial: 65, scientific: 60 },
+  science_bio:   { scientific: 75, numerical: 55, verbal: 55 },
+  science_cs:    { logical: 75, numerical: 70, scientific: 55 },
+  commerce:      { numerical: 70, verbal: 65, logical: 55 },
+  humanities:    { verbal: 75, logical: 55 },
+};
+
+// Fills aptitude gaps from subjects (preferred) or stream (fallback). Mutates
+// the profile in place. Never lowers an existing value — takes the max so an
+// observed strength and a subject signal reinforce rather than overwrite.
+export function applyDerivedAptitude(p: StudentProfile): void {
+  const inferred: Record<string, number> = {};
+  const subjects = p.academic.strongSubjects.map((s) => s.toLowerCase());
+
+  for (const subj of subjects) {
+    for (const rule of SUBJECT_APTITUDE) {
+      if (rule.match.some((m) => subj.includes(m.trim()))) {
+        for (const [dim, val] of Object.entries(rule.aptitude)) {
+          inferred[dim] = Math.max(inferred[dim] ?? 0, val as number);
+        }
+      }
+    }
+  }
+
+  // No subject signal at all → fall back to the stream baseline.
+  if (Object.keys(inferred).length === 0 && p.academic.stream) {
+    const base = STREAM_APTITUDE[p.academic.stream];
+    if (base) for (const [dim, val] of Object.entries(base)) inferred[dim] = val as number;
+  }
+
+  for (const [dim, val] of Object.entries(inferred)) {
+    const existing = (p.aptitude as Record<string, number>)[dim];
+    (p.aptitude as Record<string, number>)[dim] = Math.max(existing ?? 0, val);
+  }
 }
 
 // Completeness: weighted coverage of the dimensions the scoring engine needs.

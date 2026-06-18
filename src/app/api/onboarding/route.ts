@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
         session_id: d.sessionId,
         name: d.name,
         phone: d.phone,
-        email: d.email || null,
+        email: d.email,
         age: d.age,
         is_minor: d.age < 18,
         district: d.district,

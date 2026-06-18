@@ -21,17 +21,13 @@ export const serverEnv = {
   get groqApiKey() {
     return required("GROQ_API_KEY", process.env.GROQ_API_KEY);
   },
-  // Optional backup Groq key(s). Used only when the primary key is rate-limited
-  // (HTTP 429) or hits a transient error (5xx / network). Comma-separated to
-  // allow more than one backup. Empty/unset = no fallback (current behaviour).
-  get groqApiKeysFallback() {
-    return (process.env.GROQ_API_KEY_FALLBACK ?? "")
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
-  },
   get groqModel() {
     return process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
+  },
+  // Model used when falling back to a backup API key (lighter, faster, avoids
+  // hitting the same rate-limit bucket as the primary model).
+  get groqFallbackModel() {
+    return process.env.GROQ_FALLBACK_MODEL ?? "llama-3.1-8b-instant";
   },
   get kbVersion() {
     return process.env.KB_VERSION ?? "1";

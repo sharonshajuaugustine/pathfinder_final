@@ -9,42 +9,36 @@ import { serverEnv } from "@/lib/env";
 // Provider abstraction: all model calls go through `chat()` and `extractJson()`
 // so a frontier-model fallback can be slotted in later without touching callers.
 
-// Client pool: the primary key first, then any fallback keys (same model, same
-// Groq endpoint). Built once and reused for the lifetime of the process.
-let clientPool: Groq[] | null = null;
-function clients(): Groq[] {
-  if (!clientPool) {
-    const keys = [serverEnv.groqApiKey, ...serverEnv.groqApiKeysFallback];
-    clientPool = keys.map((apiKey) => new Groq({ apiKey }));
-  }
-  return clientPool;
+// Single client, built once and reused. Fallback is a lighter model on the same
+// key — not a separate key — since rate limits differ per model, not per key.
+let groqClient: Groq | null = null;
+function getClient(): Groq {
+  if (!groqClient) groqClient = new Groq({ apiKey: serverEnv.groqApiKey });
+  return groqClient;
 }
 
-// A failure is worth retrying on the next key only if it's a rate limit (429)
-// or a transient server/network error. A 4xx like 400/401 would just fail again.
+// Retry with the fallback model on rate-limit (429) or transient errors (5xx /
+// network). Hard errors like 400/401 are thrown immediately.
 function isRetryable(err: unknown): boolean {
   const status = (err as { status?: number } | null)?.status;
-  if (status === undefined) return true; // connection/network error — no HTTP status
+  if (status === undefined) return true; // network error — no HTTP status
   return status === 429 || status >= 500;
 }
 
-// Run `op` against the primary client; on a retryable error, fall through to the
-// next key in the pool. Throws the last error if every key fails.
-async function withFallback<T>(op: (c: Groq) => Promise<T>): Promise<T> {
-  const pool = clients();
-  let lastErr: unknown;
-  for (let i = 0; i < pool.length; i++) {
-    try {
-      return await op(pool[i]);
-    } catch (err) {
-      lastErr = err;
-      const more = i < pool.length - 1;
-      if (!more || !isRetryable(err)) throw err;
-      const status = (err as { status?: number } | null)?.status ?? "network";
-      console.warn(`[groq] key #${i + 1} failed (${status}); retrying on backup key #${i + 2}`);
-    }
+async function withFallback<T>(
+  op: (c: Groq, model: string) => Promise<T>,
+  primaryModel: string,
+  fallbackModel: string
+): Promise<T> {
+  const c = getClient();
+  try {
+    return await op(c, primaryModel);
+  } catch (err) {
+    if (!isRetryable(err)) throw err;
+    const status = (err as { status?: number } | null)?.status ?? "network";
+    console.warn(`[groq] ${primaryModel} failed (${status}); retrying with ${fallbackModel}`);
+    return await op(c, fallbackModel);
   }
-  throw lastErr;
 }
 
 export interface ChatMessage {
@@ -60,17 +54,16 @@ export interface ChatResult {
 }
 
 export async function chat(messages: ChatMessage[], opts?: { temperature?: number }): Promise<ChatResult> {
-  const model = serverEnv.groqModel;
-  const res = await withFallback((c) =>
-    c.chat.completions.create({
-      model,
-      messages,
-      temperature: opts?.temperature ?? 0.6,
-    })
+  const primaryModel = serverEnv.groqModel;
+  const fallbackModel = serverEnv.groqFallbackModel;
+  const res = await withFallback(
+    (c, model) => c.chat.completions.create({ model, messages, temperature: opts?.temperature ?? 0.6 }),
+    primaryModel,
+    fallbackModel
   );
   return {
     content: res.choices[0]?.message?.content ?? "",
-    model,
+    model: res.model,
     promptTokens: res.usage?.prompt_tokens,
     outputTokens: res.usage?.completion_tokens,
   };
@@ -80,17 +73,17 @@ export async function chat(messages: ChatMessage[], opts?: { temperature?: numbe
 // still validate the parsed object against a Zod schema (extraction is the
 // accuracy-critical path; never trust raw model output).
 export async function extractJson<T = unknown>(
-  messages: ChatMessage[]
+  messages: ChatMessage[],
+  opts?: { temperature?: number }
 ): Promise<{ data: T | null; raw: string; model: string }> {
-  const model = serverEnv.groqModel;
-  const res = await withFallback((c) =>
-    c.chat.completions.create({
-      model,
-      messages,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-    })
+  const primaryModel = serverEnv.groqModel;
+  const fallbackModel = serverEnv.groqFallbackModel;
+  const res = await withFallback(
+    (c, model) => c.chat.completions.create({ model, messages, temperature: opts?.temperature ?? 0.1, response_format: { type: "json_object" } }),
+    primaryModel,
+    fallbackModel
   );
+  const model = res.model;
   const raw = res.choices[0]?.message?.content ?? "";
   try {
     return { data: JSON.parse(raw) as T, raw, model };
