@@ -164,17 +164,17 @@ export async function nextQuestion(params: {
     {
       role: "user",
       content:
-        "STEP 1: Read the full conversation history above. Note every question already asked and every topic already answered. " +
-        "STEP 2: Check the context block — identify the most important remaining gap. " +
-        "STEP 3: Ask exactly ONE short, friendly question that fills that gap. " +
-        "Rules: " +
-        "• If a statedCareer is already known, do NOT ask what they want to be — explore that career deeper instead. " +
-        "• If an interest/field is already listed in detected interests, do NOT ask about it again. " +
-        "• If work-style is already captured, skip another alone/team question. " +
-        "• If their reply was short or vague, offer 2-3 concrete options pointing to DIFFERENT fields/directions. " +
-        "• If they gave an entertainment answer (movie, game, sport), ask what it is ABOUT it they enjoy and link it to a real field or skill — never dig into genre/team/title details. " +
-        "• Never repeat a question already in the history. Never ask two questions at once. " +
-        "Start with one short warm acknowledgement of what they just said, then ask the one question.",
+        "STEP 1: Scan the conversation above — note every topic already covered and every question already asked. " +
+        "STEP 2: Look at the GAPS list in the context block. " +
+        "  — If a gap IS listed: your ONLY job this turn is to ask ONE simple question that fills gap #1. Do not wander to another topic. " +
+        "  — If there are NO gaps: follow the stage goal exactly as written. Ask specifically what the stage goal says to ask next. " +
+        "STEP 3: Write your response: ONE warm acknowledgement sentence + ONE question. " +
+        "• Your acknowledgement must reference what the student said in their LAST reply specifically — not a repeat of a phrase you already used. Vary your wording every turn. " +
+        "• Your question must be about gap #1 (when a gap exists) — not about topics already captured in the context block. " +
+        "• If their last reply was very short or vague, offer 2-3 concrete options that point to DIFFERENT directions. " +
+        "• If they gave an entertainment or casual answer, ask what they enjoy ABOUT it and link it to a real field — never dig into genre/title/team. " +
+        "• Never repeat a question already in the conversation history above. Never ask two questions in one turn. " +
+        "• If statedCareer is already known, do NOT ask what they want to be — fill a remaining gap or explore the career instead.",
     },
   ];
   return chat(messages, { temperature: 0.7 });
