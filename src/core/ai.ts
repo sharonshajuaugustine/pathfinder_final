@@ -225,9 +225,9 @@ export async function nextQuestion(params: {
         "  • If asking about subjects → choices are subject names (e.g. 'Biology', 'Maths', 'Accountancy', 'English').\n" +
         "  • If asking what they enjoy doing → describe the ACTIVITY, not a bare field label. " +
         "GOOD: 'Caring for people who are unwell', 'Building apps and solving tech problems'. BAD: 'Medicine', 'Technology'.\n" +
-        "  • If asking about their goal → choices like 'Study a degree further', 'Get a job quickly', 'Govt exams (PSC/UPSC)', 'Start a business'.\n" +
-        "  • If asking about budget → choices like 'Family can manage it', 'Manageable with effort', 'Need a scholarship or loan', 'Not sure yet'.\n" +
-        "  • If asking about location → choices like 'Stay in Kerala', 'Anywhere in India', 'Open to abroad', 'Depends on the course'.\n" +
+        "  • If asking about their goal → use EXACTLY these four: 'Study a degree further', 'Get a job quickly', 'Prepare for govt exams (PSC/UPSC)', 'Start a business or an independent project'.\n" +
+        "  • If asking about budget → use EXACTLY these four: 'Family can manage it', 'Manageable with effort', 'Need a scholarship or loan', 'Not sure about costs'.\n" +
+        "  • If asking about location → use EXACTLY these four: 'Stay in Kerala', 'Anywhere in India', 'Open to studying abroad', 'Depends on the course'.\n" +
         "  • Keep every option realistic for the student's stream.\n\n" +
         "GUARDRAILS:\n" +
         "• One question only. Never recommend careers or colleges.\n" +
@@ -417,9 +417,17 @@ function sanitizeDelta(
       asp.ambitionLevel = Math.min(1, Math.max(0, data.aspiration.ambitionLevel));
     }
     // statedCareer: a clean, short free-text career name the student WANTS.
+    // Must be a real career name (≤4 words) — reject generic phrases like
+    // "I already have a career in mind" which are not actionable career names.
     if (typeof data.aspiration.statedCareer === "string") {
       const sc = data.aspiration.statedCareer.trim().replace(/\s+/g, " ");
-      if (sc.length >= 2 && sc.length <= 60 && !/\b(not|no|don'?t|dislike|hate|avoid)\b/i.test(sc)) {
+      const wordCount = sc.split(/\s+/).length;
+      if (
+        sc.length >= 2 &&
+        sc.length <= 60 &&
+        wordCount <= 4 &&
+        !/\b(not|no|don'?t|dislike|hate|avoid|already|mind|idea|thinking)\b/i.test(sc)
+      ) {
         asp.statedCareer = sc;
       }
     }

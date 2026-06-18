@@ -55,6 +55,25 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
   if (message === "Stay in Kerala") return { constraints: { locationPref: "kerala" } };
   if (message === "Anywhere in India") return { constraints: { locationPref: "india" } };
   if (message === "Open to going abroad") return { constraints: { locationPref: "abroad" } };
+  if (message === "Open to studying abroad") return { constraints: { locationPref: "abroad" } };
+  if (message === "Open to abroad") return { constraints: { locationPref: "abroad" } };
+  // Ambiguous/flexible answers close the location gap without a specific preference.
+  if (
+    message === "Depends on the course" ||
+    message === "I'm not sure yet" ||
+    message === "Not sure yet" ||
+    message === "Flexible"
+  ) return { constraints: { locationPref: "india" } };
+
+  // Goal variations the AI may generate
+  if (message === "Study a degree further") return { aspiration: { goalOrientation: "higher_study" } };
+  if (message === "Get a job quickly") return { aspiration: { goalOrientation: "job_soon" } };
+  if (message === "Prepare for govt exams (PSC/UPSC)") return { aspiration: { goalOrientation: "government" } };
+  if (message === "Start a business or an independent project") return { aspiration: { goalOrientation: "business" } };
+
+  // Budget variations
+  if (message === "Family can manage it") return { constraints: { budgetBand: "no_constraint" } };
+  if (message === "Not sure about costs") return { constraints: { budgetBand: "medium" } };
 
   if (message === "They support my choice fully") return { constraints: { familyExpectations: [] } };
   if (message === "They want a specific career") return { constraints: { familyExpectations: ["family has career preference"] } };
