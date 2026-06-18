@@ -83,6 +83,38 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
   return null;
 }
 
+// Maps a stated career name to the most relevant interest cluster.
+// Used to close the interest gap automatically when a student names a specific
+// career instead of picking a broad interest category.
+function inferInterestFromCareer(career: string): Record<string, number> | null {
+  const c = career.toLowerCase();
+  if (/doctor|medicine|mbbs|nursing|medical|physician|surgeon|dentist|pharmacist|hospital|physiotherapy|healthcare|paramedic/.test(c))
+    return { health_medicine: 0.7 };
+  if (/software|developer|programmer|coding|engineer|tech|computer|information technology|app|web|data science|artificial intelligence|machine learning|cyber/.test(c))
+    return { technology_coding: 0.7 };
+  if (/business|entrepreneur|management|marketing|finance|accounting|commerce|startup|ceo|mba|economics/.test(c))
+    return { business_money: 0.7 };
+  if (/lawyer|law|legal|advocate|judge|solicitor|ias|upsc|psc|civil service|government service/.test(c))
+    return { law_justice: 0.7 };
+  if (/teacher|teaching|education|professor|lecturer|trainer|counsellor/.test(c))
+    return { helping_teaching: 0.7 };
+  if (/design|architect|graphic|animation|fashion|interior|ui|ux|visual art/.test(c))
+    return { design_visual: 0.7 };
+  if (/scientist|research|biology|chemistry|physics|biotech|bioinformatics|ecology|geology/.test(c))
+    return { science_research: 0.7 };
+  if (/army|navy|air force|military|nda|defence|defense|police|soldier|officer/.test(c))
+    return { defence_adventure: 0.7 };
+  if (/farmer|agriculture|environment|animal|vet|wildlife|forest|horticulture/.test(c))
+    return { nature_agriculture: 0.7 };
+  if (/journalist|media|film|acting|writer|content|communication|public relations|journalism|broadcasting/.test(c))
+    return { media_communication: 0.7 };
+  if (/chartered accountant|ca\b|actuary|financial analyst|statistician|data analyst/.test(c))
+    return { numbers_analysis: 0.7 };
+  if (/civil engineer|mechanical engineer|electrical engineer|construction|architecture/.test(c))
+    return { building_engineering: 0.7 };
+  return null;
+}
+
 // POST /api/chat — save the student message, extract profile signals, persist,
 // and return the AI's next question plus choice buttons for the UI.
 export async function POST(req: NextRequest) {
@@ -164,7 +196,32 @@ export async function POST(req: NextRequest) {
       .select("profile")
       .eq("session_id", sessionId)
       .maybeSingle();
-    const ctxProfile = ctxRow?.profile as Partial<StudentProfile> | null;
+    let ctxProfile = ctxRow?.profile as Partial<StudentProfile> | null;
+
+    // When the student named a specific career but no interest cluster was captured
+    // yet, infer the cluster from the career name and persist it. This ensures the
+    // recommendation engine has interest data even when the student skipped broad
+    // interest selection by naming a career directly.
+    {
+      const sc = ctxProfile?.aspiration?.statedCareer;
+      const hasCluster = Object.values(ctxProfile?.interests ?? {}).some(v => (v ?? 0) >= 0.3);
+      if (sc && !hasCluster) {
+        const inferred = inferInterestFromCareer(sc);
+        if (inferred) {
+          const merged = mergeProfile(ctxProfile, { interests: inferred });
+          await db.from("student_profiles").upsert(
+            {
+              session_id: sessionId,
+              profile: merged,
+              completeness_pct: computeCompleteness(merged),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "session_id" }
+          );
+          ctxProfile = merged;
+        }
+      }
+    }
 
     const STREAM_LABELS: Record<string, string> = {
       science_bio: "Science (Biology)",
@@ -236,8 +293,16 @@ export async function POST(req: NextRequest) {
       (v) => (v ?? 0) >= 0.3
     ).length;
     const remainingGaps: string[] = [];
-    if (capturedInterestCount < 1)
-      remainingGaps.push("which field or career genuinely interests them");
+    if (capturedInterestCount < 1) {
+      const sc = ctxProfile?.aspiration?.statedCareer;
+      if (sc) {
+        // Career known but interest cluster not yet inferred — ask what draws them to it
+        remainingGaps.push(`what specifically draws them to "${sc}" and what daily activities in that field excite them`);
+      } else {
+        // Ask with activity/scenario choices — NEVER bare field labels like "Medicine" or "Technology"
+        remainingGaps.push("what ACTIVITIES, SUBJECTS, or TYPE OF DAILY WORK genuinely excites them — choices must describe real activities (e.g. 'Caring for patients', 'Building software', 'Running a business'), NOT bare field names");
+      }
+    }
     if (!ctxProfile?.aspiration?.goalOrientation)
       remainingGaps.push("their goal after school — study further, get a job, govt exams (PSC/UPSC), or start a business");
     if (!ctxProfile?.constraints?.budgetBand)

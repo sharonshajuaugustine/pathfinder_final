@@ -223,8 +223,12 @@ export async function nextQuestion(params: {
         '  "question": ONE clear, concrete question (max 30 words, ends with "?") that fills GAP #1.\n' +
         '  "choices": exactly 4 options that DIRECTLY answer your question.\n' +
         "  • If asking about subjects → choices are subject names (e.g. 'Biology', 'Maths', 'Accountancy', 'English').\n" +
-        "  • If asking what they enjoy doing → describe the ACTIVITY, not a bare field label. " +
-        "GOOD: 'Caring for people who are unwell', 'Building apps and solving tech problems'. BAD: 'Medicine', 'Technology'.\n" +
+        "  • INTEREST/ACTIVITY questions (any question about what they enjoy, like, or are drawn to): " +
+        "choices MUST be real activities or scenarios — NEVER bare field or domain names. " +
+        "GOOD choices: 'Caring for sick people and their families', 'Building apps and writing code', " +
+        "'Doing experiments and lab research', 'Teaching and helping students learn', " +
+        "'Managing and growing a business', 'Designing visuals and creative work'. " +
+        "BAD choices: 'Medicine', 'Technology', 'Science', 'Business', 'Engineering' — these are labels, not activities.\n" +
         "  • If asking about their goal → use EXACTLY these four: 'Study a degree further', 'Get a job quickly', 'Prepare for govt exams (PSC/UPSC)', 'Start a business or an independent project'.\n" +
         "  • If asking about budget → use EXACTLY these four: 'Family can manage it', 'Manageable with effort', 'Need a scholarship or loan', 'Not sure about costs'.\n" +
         "  • If asking about location → use EXACTLY these four: 'Stay in Kerala', 'Anywhere in India', 'Open to studying abroad', 'Depends on the course'.\n" +

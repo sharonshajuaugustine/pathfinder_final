@@ -55,13 +55,13 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return badRequest("Invalid payload", parsed.error.flatten());
 
   const { sessionId } = parsed.data;
-  const limited = await enforceRateLimit(limiters.recommend, "recommend", [sessionId, ipHash]);
-  if (limited) return limited;
 
   const db = getServiceClient();
   try {
-    // Return cached result if this session already has a recommendation.
-    // Prevents re-generation (and a new DB row) on every page refresh.
+    // Cache check FIRST — bypasses rate limit for repeat visits and page refreshes.
+    // React double-renders both hit the endpoint at the same time; checking the cache
+    // before the rate limiter means the second call returns the cached result instead
+    // of a 429 "Too many requests" error.
     const { data: cached } = await db
       .from("recommendations")
       .select("id, kb_version, results, overall_confidence, explanation")
@@ -80,6 +80,10 @@ export async function POST(req: NextRequest) {
         explanation: cached.explanation ?? undefined,
       });
     }
+
+    // No cache — only rate-limit when we actually need to generate.
+    const limited = await enforceRateLimit(limiters.recommend, "recommend", [sessionId, ipHash]);
+    if (limited) return limited;
 
     // Load profile + age + language.
     const { data: prof } = await db.from("student_profiles").select("profile").eq("session_id", sessionId).maybeSingle();
