@@ -63,10 +63,18 @@ Keep it gentle and encouraging.`,
 export interface StudentContext {
   stream?: string;
   percentage?: number;
+  // Career the student explicitly said they want (e.g. "doctor", "software engineer").
+  // When set, the AI must NOT ask "what do you want to be?" — it already knows.
+  statedCareer?: string;
   knownGoal?: string;
   knownBudget?: string;
   knownLocation?: string;
   detectedInterests?: string[];
+  // True when at least one personality/work-style signal has been captured.
+  // Prevents the AI from asking another alone/team or desk/active question.
+  hasPersonalityData?: boolean;
+  // Profile sections still empty — the AI uses this to focus its next question.
+  remainingGaps?: string[];
 }
 
 // --- interviewer ---------------------------------------------------------------
@@ -99,22 +107,52 @@ export async function nextQuestion(params: {
     return chat(messages, { temperature: 0.7 });
   }
 
-  // Build a light context block. Stream/marks are background only — never the
-  // basis of a question. Detected interests prevent re-asking what's known.
+  // Build context block: what the AI already knows, and what gaps remain.
+  // Stream/marks are background only — never the basis of a question.
   const ctx = params.studentContext;
   const contextLines: string[] = [];
-  if (ctx?.stream) contextLines.push(`Background only (do NOT build a question around this): their stream is ${ctx.stream}.`);
-  if (ctx?.knownGoal) contextLines.push(`They have already mentioned this goal: ${ctx.knownGoal} — don't re-ask it.`);
-  if (ctx?.knownBudget) contextLines.push(`Budget comfort already known: ${ctx.knownBudget} — don't re-ask it.`);
-  if (ctx?.knownLocation) contextLines.push(`Location preference already known: ${ctx.knownLocation} — don't re-ask it.`);
+
+  // Most critical first — statedCareer stops the AI from re-asking career choice
+  if (ctx?.statedCareer) {
+    contextLines.push(
+      `ALREADY KNOWN — they said they want to become: "${ctx.statedCareer}". ` +
+      `Do NOT ask "what do you want to be?" or "do you have a career in mind?" — you know this. ` +
+      `Explore it: what draws them to it, what they picture doing day-to-day, ` +
+      `the strengths it needs, or gently widen to closely related fields.`
+    );
+  }
+  if (ctx?.stream) {
+    contextLines.push(`Background only (do NOT build a question around this): their stream is ${ctx.stream}.`);
+  }
+  if (ctx?.knownGoal) {
+    contextLines.push(`Goal orientation already captured (${ctx.knownGoal}) — don't re-ask job-soon vs higher-study.`);
+  }
+  if (ctx?.knownBudget) {
+    contextLines.push(`Budget comfort already captured (${ctx.knownBudget}) — don't re-ask it.`);
+  }
+  if (ctx?.knownLocation) {
+    contextLines.push(`Location preference already captured (${ctx.knownLocation}) — don't re-ask it.`);
+  }
   if (ctx?.detectedInterests?.length) {
     contextLines.push(
-      `They have already clearly shown interest in these — do NOT ask about them again: ${ctx.detectedInterests.join(", ")}.`
+      `Interest areas already recorded — do NOT ask about these again: ${ctx.detectedInterests.join(", ")}.`
+    );
+  }
+  if (ctx?.hasPersonalityData) {
+    contextLines.push(
+      `Work-style preferences already captured — do NOT ask another alone/team, ` +
+      `structured/creative, or desk/active question.`
+    );
+  }
+  if (ctx?.remainingGaps?.length) {
+    contextLines.push(
+      `GAPS — these profile areas are still empty. Your next question should fill ONE of these (most important first):\n` +
+      ctx.remainingGaps.map((g, i) => `  ${i + 1}. ${g}`).join("\n")
     );
   }
 
   const contextBlock = contextLines.length
-    ? `\n\n[Things you already know — use to avoid repeating, not as question material]\n${contextLines.map((l) => `• ${l}`).join("\n")}`
+    ? `\n\n[What you already know — read before forming your next question]\n${contextLines.map((l) => `• ${l}`).join("\n")}`
     : "";
 
   const messages: ChatMessage[] = [
@@ -126,13 +164,17 @@ export async function nextQuestion(params: {
     {
       role: "user",
       content:
-        "Continue. In one short warm sentence acknowledge what the student just said, then ask ONE simple question that uncovers a useful career signal — focused on what they want to STUDY or become, the field that suits them, a strength, or how they like to work. " +
-        "If they have named a field or career they want, keep exploring THAT — what draws them to it, what they imagine doing in that job, and the interests/strengths behind it — and gently mention nearby options. Do not ignore a career they've named. " +
-        "If they are unsure, help them narrow to a field by asking about the kinds of work or subjects they are drawn to. " +
-        "Do NOT chase casual details (movie genres, game titles, favourite teams). If they gave an entertainment or small-talk answer, ask what they enjoy ABOUT it and link it to a real field. " +
-        "If their last reply was short, unsure, or 'I don't know', offer 2-3 concrete options that point to DIFFERENT fields/directions. " +
-        "If they asked why you're asking, reassure them in one short line and still ask a useful question. " +
-        "Never repeat something already answered. Keep it short, simple, and friendly.",
+        "STEP 1: Read the full conversation history above. Note every question already asked and every topic already answered. " +
+        "STEP 2: Check the context block — identify the most important remaining gap. " +
+        "STEP 3: Ask exactly ONE short, friendly question that fills that gap. " +
+        "Rules: " +
+        "• If a statedCareer is already known, do NOT ask what they want to be — explore that career deeper instead. " +
+        "• If an interest/field is already listed in detected interests, do NOT ask about it again. " +
+        "• If work-style is already captured, skip another alone/team question. " +
+        "• If their reply was short or vague, offer 2-3 concrete options pointing to DIFFERENT fields/directions. " +
+        "• If they gave an entertainment answer (movie, game, sport), ask what it is ABOUT it they enjoy and link it to a real field or skill — never dig into genre/team/title details. " +
+        "• Never repeat a question already in the history. Never ask two questions at once. " +
+        "Start with one short warm acknowledgement of what they just said, then ask the one question.",
     },
   ];
   return chat(messages, { temperature: 0.7 });
@@ -208,7 +250,22 @@ export async function extractProfileDelta(params: {
   const isReflection = stage === "reflection";
 
   const schemaHint = {
-    interests: `object mapping any of [${INTEREST_CLUSTERS.join(", ")}] to 0..1 — ONLY from interests the student explicitly states they enjoy or are drawn to. Do not infer.`,
+    interests: `object mapping any of [${INTEREST_CLUSTERS.join(", ")}] to 0..1.
+PRIMARY RULE: only set from interests the student EXPLICITLY states they enjoy or are drawn to.
+EXCEPTION — stated career inference: if the student says they WANT to BE or BECOME a specific career, you MAY set the PRIMARY interest cluster for that career at 0.7 (even if they didn't say "I enjoy X"). Use ONLY these mappings:
+  doctor / nurse / dentist / surgeon / hospital / medical / MBBS → health_medicine
+  software / programmer / coder / developer / computer science / IT / game developer / app developer / AI → technology_coding
+  lawyer / advocate / judge / legal / law → law_justice
+  teacher / educator / professor / coaching → helping_teaching
+  civil engineer / mechanical engineer / architect / construction / structural → building_engineering
+  scientist / researcher / physicist / chemist / biologist / marine biologist / microbiologist / biotechnologist → science_research
+  journalist / media / director / writer / content creator / actor / filmmaker → media_communication
+  business / entrepreneur / startup / CA / finance → business_money
+  army / navy / air force / police / defence / pilot → defence_adventure
+  farmer / botanist / ecologist / wildlife / veterinarian → nature_agriculture
+  designer / artist / animator / graphic / UX → design_visual
+  accountant / banker / economist / actuary / data analyst / statistician → numbers_analysis
+Do this ONLY for explicit "I want to be/become X" statements. For vague mentions, do NOT infer.`,
     aptitude: `object mapping any of [${APTITUDES.join(", ")}] to 0..100 — ONLY if the student literally says they are good or bad at a named subject/skill. Otherwise omit entirely.`,
     personality: `object mapping any of [${PERSONALITY_TRAITS.join(
       ", "
