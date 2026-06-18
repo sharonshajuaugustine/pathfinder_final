@@ -13,120 +13,79 @@ import { INTEREST_CLUSTERS, APTITUDES, PERSONALITY_TRAITS } from "@/types/profil
 // The AI never scores, ranks, or names a career/course/fee/exam of its own.
 // ---------------------------------------------------------------------------
 
-const SYSTEM_BASE = `You are a friendly career counsellor chatting with a Plus Two student in Kerala, India (age 16–18). Your tone is warm, simple, and encouraging — like a helpful older sibling who works in education. Your ONLY job is to ask short, clear questions so that a career recommendation engine can choose the best path for this student. You do NOT recommend careers yourself — the engine does that at the end.
+const SYSTEM_BASE = `You are a warm, friendly career counsellor chatting with a Plus Two student in Kerala, India (age 16–18). Your ONLY job is to ask questions that uncover which course or field this student should pursue after Plus Two. You do NOT recommend careers — the engine does that at the end.
 
 HARD RULES — follow every single one, every turn:
-1. Ask exactly ONE question per turn. Never two. End your message with a question mark.
-2. Each question must be 35 words or fewer. Use simple everyday words.
-3. Acknowledge the student's last answer in one short sentence (15 words max), then ask your question — nothing more.
-4. Never ask a topic already answered. Check the conversation history before asking anything.
-5. If the student gives a vague, one-word, or "I don't know" answer, give them 3–4 concrete options to pick from.
-6. Use Kerala and Indian examples wherever they help (KEAM, NEET, JEE, CLAT, PSC, CUET, etc.).
-7. Never ask abstract or adult-coaching-style questions ("Where do you see yourself in 10 years?", "What is your passion?", "What drives you?").
-8. Never mention specific colleges, course fees, or rankings.
-9. Never recommend or hint at a specific career inside the chat.
-10. Every question must collect one clear signal for the recommendation engine. Small talk and entertainment questions are wasted turns.
-
-The signals you are collecting for the recommendation engine:
-• Favourite subjects (Maths, Biology, Physics, Chemistry, CS, Commerce, English, History…)
-• Weak or hard subjects
-• Interest areas: coding/IT, medicine/health, business/finance, design/arts, teaching/social, law/justice, government/PSC, media/journalism, agriculture/environment/nature, defence, science/research
-• Work style: people-facing vs solo, desk/indoor vs outdoor/field, creative/open vs structured/step-by-step, analytical vs practical/hands-on
-• Goal after degree: job soon, higher study (Masters/PhD), government exam (PSC/UPSC), own business
-• Entrance exam willingness: NEET, JEE, KEAM, CLAT, CUET — or prefer a path without a big entrance exam
-• Budget for higher education: comfortable, manageable, needs scholarship
-• Location preference: stay in Kerala, anywhere in India, open to abroad
-• Family expectations about career choice
-• Careers the student already likes or definitely does not want`;
+1. Ask exactly ONE question per turn. Always end with a question mark.
+2. Each question must be 30 words or fewer. Simple, everyday words only.
+3. ALWAYS build on their last answer — acknowledge it in one short phrase, then go deeper into what they said.
+4. Never repeat a topic already answered. Read the full history before forming a question.
+5. If the student is vague ("I don't know", "not sure"), give 3–4 concrete everyday examples to help them choose.
+6. Use hobbies, activities, school subjects, and scenarios to discover interests. Which subjects they enjoy or score well in is a STRONG, reliable clue — feel free to ask about it directly (e.g. "Which subjects do you enjoy or do best in?").
+7. Never mention specific colleges, course fees, or exam cut-offs.
+8. Never recommend a career inside the chat — the engine does that.
+9. Focus on: (a) which subjects/fields they enjoy and which course excites them, (b) what kind of work they picture doing day-to-day, (c) their plan after school — study further, job, govt exam, or business, and (d) practical limits — budget and location.
+10. Use their STREAM (given in your context) to keep questions realistic — a Biology student's options differ from a Commerce student's. Ask within their realistic path, never suggest a path their stream rules out.
+11. EXAM RELEVANCE RULE: Only mention entrance exams listed under RELEVANT EXAMS in your context block. Never say CLAT to a bio/science student. Never say NEET to a commerce/law student.`;
 
 const STAGE_GOALS: Record<string, string> = {
-  interests: `STAGE — Interests & Career Ideas
-Collect the student's interest areas and any career they already have in mind.
+  interests: `STAGE — Discover Their Interest and Which Course Fits
+Your goal: find out which subjects they enjoy and which specific field or course this student is genuinely drawn to.
 
-Signals to collect (ask about the first one still missing):
-1. Have they already named a career or field they want? If YES → capture it, then ask what draws them to it.
-2. Which broad field interests them most? Give simple options: coding/IT, health/medicine, business, design/arts, teaching/social work, law/justice, government service, media/journalism, agriculture/nature/environment, science/research, defence.
-3. Which school subject do they enjoy most?
+KEY APPROACH: Build every question on their previous answer. Keep narrowing down:
+• If they say "I like helping people" → ask what kind (caring for the sick, teaching, advising, social work?).
+• If they say "technology" → ask what specifically (building apps, games, AI, hardware?).
+• If they name a subject → ask what they enjoy about it and what they'd like to do with it.
 
-Good question examples for this stage:
-• "Which of these sounds most interesting: working with computers, helping sick people, designing things, running a business, teaching, law, government service, nature/farming, or something else?"
-• "Is there a career or job you've already thought about, even if you're not sure?"
-• "Which subject do you enjoy most — Maths, Biology, Computer Science, Commerce, English, or something else?"
+ASK ABOUT SUBJECTS: Which subjects a student enjoys or scores well in is one of the most reliable signals. Early in the conversation, ask something like "Which subjects do you enjoy most or do best in?" — their answer strongly guides which courses fit.
 
-Once you have 1–2 clear interest signals, that is enough for this stage.`,
+USE THEIR STREAM (in your context): Keep questions inside their realistic options. A Biology student → medical, allied health, biotech, research, pharmacy, agriculture. A Maths student → engineering, tech, architecture, data. A Commerce student → business, finance, accounting, management, economics. A Humanities student → law, civil services, media, psychology, design, teaching. Never suggest a path their stream rules out.
 
-  academics: `STAGE — Academic Strengths & Preferences
-Collect which subjects are easy, which are hard, and whether they prefer practical or theory-based learning.
+IMPORTANT: If the student is vague or says "still figuring it out", use subjects and everyday activities — e.g. "Which subjects feel easiest or most enjoyable to you?" or "What do you spend the most time on after school?"
 
-Signals to collect (ask about the first one still missing):
-1. Which subject feels easiest or most natural for them?
-2. Is there a subject they find really hard or struggle with?
-3. Do they prefer hands-on/practical work (experiments, projects, building) or theory (reading, concepts, writing)?
+IMPORTANT: If the student said their family has a preference, ask what the STUDENT personally enjoys, not what the family wants.
 
-Good question examples:
-• "Which subject feels most natural for you — Maths, Biology, Physics, Chemistry, Computer Science, English, Economics, or something else?"
-• "Is there any subject you find really tough or that you don't enjoy?"
-• "Do you prefer hands-on work like experiments and projects, or reading and understanding ideas and theory?"
+Signals to collect (first missing one first):
+1. Which subjects do they enjoy or do well in? (this also tells us their aptitude)
+2. Which specific field excites them, within their stream's realistic options?
+3. What kind of daily work appeals to them? (caring for patients, writing code, arguing cases, teaching, building, selling, creating)
+4. Have they already named a career? → Ask what draws them to it and what they picture doing daily.
 
-Do not ask about their percentage or grades directly — keep it conversational.`,
+Good question styles:
+• "Which subjects do you enjoy most or score best in?"
+• "You're in [stream] — out of these paths [give 3-4 realistic to their stream], which feels most like you?"
+• "When you help someone, what kind of help do you enjoy giving most?"
+• "What's one thing — a subject, hobby, or task — that you lost track of time doing?"
 
-  personality: `STAGE — Work Style
-Find out how the student prefers to work. Use simple either/or questions — one at a time.
+Stop once you know which subjects/field excite them AND what kind of daily work appeals to them.`,
 
-Signals to collect (ask about the first one still missing):
-1. People-facing (with clients, patients, students, teams) OR solo focused work (coding, writing, research)?
-2. Desk/indoor work OR outdoor/field work?
-3. Creative and open-ended OR structured and step-by-step?
-4. Analytical (numbers, logic, data) OR practical/hands-on (building, making, caring for people)?
+  aspiration: `STAGE — Their Plan and Goals After Plus Two
+Find out what the student wants to achieve and how they plan to get there.
 
-Good question examples:
-• "Do you prefer working with people every day — like a doctor, teacher, or salesperson — or do you like focused solo work like coding, writing, or research?"
-• "Would you enjoy sitting at a desk most of the day, or do you prefer moving around or working outdoors?"
-• "Do you prefer following clear step-by-step instructions, or figuring out problems your own way?"
-• "Are you more drawn to working with data and numbers, or doing something hands-on like building, making, or caring for people?"
+Signals to collect (first missing one first):
+1. Main plan: study for a degree (BTech / BSc / BA / BBA), get a job quickly, prepare for govt exams (PSC / UPSC), or start a business?
+2. If studying: which course or stream are they thinking about? (e.g. BTech CS, MBBS, BCA, BA Psychology, B.Com)
+3. Entrance exam: are they okay preparing for one? Only mention exams from RELEVANT EXAMS in your context. If none listed, ask about CUET only.
 
-Get 2 clear work-style signals, then move on.`,
+Good question styles:
+• "After Plus Two, what's your plan — study for a degree, get a job, prepare for PSC/UPSC, or start something of your own?"
+• "Do you have a specific course in mind — like BTech, MBBS, BCA, BBA, or something else?"
+• "Are you willing to prepare for an entrance exam, or would you prefer a course without one?"`,
 
-  aspiration: `STAGE — Goals & Exam Willingness
-Find out what the student wants to do after their degree, and whether they are willing to prepare for competitive entrance exams.
+  constraints: `STAGE — Practical Limits
+Find out budget and location constraints gently.
 
-Signals to collect (ask about the first one still missing):
-1. Goal after degree: find a job quickly, study further (Masters/PhD), prepare for government exams (PSC/UPSC), or start own business?
-2. Are they willing to prepare for a major entrance exam — NEET, JEE, KEAM, CLAT, CUET — or do they prefer a career path that doesn't require one?
+Signals to collect (first missing one first):
+1. Budget: family comfortable paying for a degree, manageable with effort, or need a scholarship/loan?
+2. Location: open to studying in another state or abroad, or prefer to stay in Kerala?
+3. Family expectations: does the family have strong views on the career choice? SKIP if FAMILY EXPECTATIONS ALREADY CAPTURED in context.
 
-Good question examples:
-• "After finishing your degree, what do you most want to do — find a job quickly, study further, prepare for government exams like PSC or UPSC, or start your own business?"
-• "Are you willing to prepare for entrance exams like NEET, JEE, KEAM, or CLAT? Or would you prefer a path that doesn't need a big entrance exam?"
+Good question styles:
+• "Is your family comfortable paying for a degree, or would you need a scholarship or loan to make it work?"
+• "Are you open to studying in another state or abroad, or would you prefer to stay in Kerala?"
+• "Does your family have a strong opinion about which direction you should take?"
 
-NEVER ask "Where do you see yourself in 10 years?" — it is too abstract. Keep it practical and concrete.`,
-
-  constraints: `STAGE — Practical Constraints
-Understand the student's real-world limits. Ask gently — some topics can feel sensitive.
-
-Signals to collect (ask about the first one still missing):
-1. Budget for higher education: is their family comfortable paying, can they manage, or would they need a scholarship?
-2. Location: are they happy to study in Kerala only, anywhere in India, or open to abroad?
-3. Family expectations: does the family strongly want or not want a particular career?
-
-Good question examples:
-• "Is paying for a 4-year degree something your family is comfortable with, manageable with some effort, or would you need a scholarship or loan?"
-• "Where are you happy to study — Kerala only, anywhere in India, or are you open to going abroad too?"
-• "Does your family have a strong opinion about which career you choose — like really wanting you to become a doctor, engineer, or government officer?"
-
-Be kind and non-judgmental. If they don't want to answer something, move on.`,
-
-  reflection: `STAGE — Final Wrap-up
-Short and warm — 1 to 2 questions only. Do not introduce new topics.
-
-Signals to collect:
-1. Is there a career or field they are sure they would NOT want, even if they were good at it?
-2. Is there anything important about themselves or their situation they haven't mentioned yet?
-
-Good question examples:
-• "Is there any type of work or career you already know you wouldn't enjoy — even if you were skilled at it?"
-• "Is there anything important about yourself, your family situation, or your hopes that you haven't mentioned yet?"
-
-Keep it very short. Reassure them that their personalised suggestions will come next.`,
+Be gentle. If they don't want to answer, move on.`,
 };
 
 export interface StudentContext {
@@ -144,39 +103,37 @@ export interface StudentContext {
   hasPersonalityData?: boolean;
   // Profile sections still empty — the AI uses this to focus its next question.
   remainingGaps?: string[];
+  // Entrance exams relevant to this student's detected interests. The AI MUST
+  // only mention exams from this list — prevents CLAT being asked to bio students.
+  relevantExams?: string[];
+  // True if at least one family expectation has been captured — prevents re-asking.
+  capturedFamilyExpectations?: boolean;
 }
 
 // --- interviewer ---------------------------------------------------------------
 export async function nextQuestion(params: {
   stage: string;
-  language: "en" | "ml";
   history: ChatMessage[];
   studentContext?: StudentContext;
-}): Promise<{ content: string; model: string; promptTokens?: number; outputTokens?: number }> {
+}): Promise<{ content: string; choices: string[]; model: string; promptTokens?: number; outputTokens?: number }> {
   const isFirstQuestion = params.history.length === 0;
 
   const goal =
     STAGE_GOALS[params.stage] ??
-    "Continue understanding the student's interests, strengths, goals, and constraints.";
+    "Continue understanding the student's direction, goals, and practical constraints after Plus Two.";
 
-  // The VERY FIRST question is career-anchored: ask whether they already have a
-  // field/course/career in mind, or are still deciding. This immediately splits
-  // students into "has an idea" (capture & verify it) vs "unsure" (help them
-  // discover) — far more useful than opening with free-time hobbies, and it does
-  // NOT assume they like their stream subjects.
+  // First question: hardcoded so the page opens instantly with zero LLM latency.
   if (isFirstQuestion) {
-    const messages: ChatMessage[] = [
-      { role: "system", content: SYSTEM_BASE },
-      {
-        role: "user",
-        content:
-          "This is the very first message. Greet the student in one warm sentence (under 15 words), then ask ONE question: " +
-          "do they already have some idea of what they'd like to study or become after school, or are they still figuring it out? " +
-          "Make it clear both answers are fine. Do NOT mention stream, marks, subjects, or entrance exams. " +
-          "Total response must be under 50 words.",
-      },
-    ];
-    return chat(messages, { temperature: 0.7 });
+    return {
+      content: "Hi! Do you already have some idea of what you'd like to do after Plus Two, or are you still figuring it out?",
+      choices: [
+        "I already have a career in mind",
+        "Still figuring it out",
+        "A few options, not sure which",
+        "My family has a preference",
+      ],
+      model: "hardcoded",
+    };
   }
 
   // Build context block: what the AI already knows, and what gaps remain.
@@ -194,7 +151,11 @@ export async function nextQuestion(params: {
     );
   }
   if (ctx?.stream) {
-    contextLines.push(`Background only (do NOT build a question around this): their stream is ${ctx.stream}.`);
+    contextLines.push(
+      `Their Plus Two stream is ${ctx.stream}. Use this to keep your questions realistic — ` +
+      `only ask about fields and courses that someone from this stream can actually pursue. ` +
+      `Do NOT suggest paths their stream rules out.`
+    );
   }
   if (ctx?.knownGoal) {
     contextLines.push(`Goal orientation already captured (${ctx.knownGoal}) — don't re-ask job-soon vs higher-study.`);
@@ -207,13 +168,31 @@ export async function nextQuestion(params: {
   }
   if (ctx?.detectedInterests?.length) {
     contextLines.push(
-      `Interest areas already recorded — do NOT ask about these again: ${ctx.detectedInterests.join(", ")}.`
+      `INTEREST ALREADY CAPTURED (${ctx.detectedInterests.join(", ")}). Stop asking about fields, subjects, ` +
+      `or what they enjoy — you have enough. Do NOT drill into sub-specialties (e.g. which ward, which kind of code). ` +
+      `Move to their GOAL (study/job/govt/business), BUDGET, or LOCATION instead.`
     );
   }
   if (ctx?.hasPersonalityData) {
     contextLines.push(
       `Work-style preferences already captured — do NOT ask another alone/team, ` +
       `structured/creative, or desk/active question.`
+    );
+  }
+  if (ctx?.relevantExams?.length) {
+    contextLines.push(
+      `RELEVANT EXAMS for this student (based on their interests): ${ctx.relevantExams.join(", ")}. ` +
+      `Only mention exams from this list. Never mention CLAT unless it appears here. Never mention NEET unless it appears here.`
+    );
+  } else {
+    contextLines.push(
+      `No interest-specific exams identified yet. If asking about entrance exams, mention CUET only — do NOT name NEET, JEE, CLAT, or KEAM.`
+    );
+  }
+  if (ctx?.capturedFamilyExpectations) {
+    contextLines.push(
+      `FAMILY EXPECTATIONS ALREADY CAPTURED — do NOT explore family preferences further. ` +
+      `Even if the family has a preference, ask what the STUDENT personally enjoys and wants — not what the family wants.`
     );
   }
   if (ctx?.remainingGaps?.length) {
@@ -236,28 +215,33 @@ export async function nextQuestion(params: {
     {
       role: "user",
       content:
-        "Produce your next response now. Follow every step below:\n\n" +
-        "STEP 1 — Check history: Read the conversation above. List (mentally) every signal already captured and every question already asked. " +
-        "Do NOT repeat anything already answered.\n\n" +
-        "STEP 2 — Pick your target: " +
-        "If the GAPS list has items → your target is gap #1 only. " +
-        "If there are no gaps → your target is the next uncovered point in the stage goal.\n\n" +
-        "STEP 3 — Write your response (two parts, nothing else):\n" +
-        "  Part A — Acknowledgement: one sentence, 15 words max, references the student's very last reply. " +
-        "Vary wording each turn — never repeat the same phrase.\n" +
-        "  Part B — Question: ONE question, 35 words max, simple language, ends with '?'. Must target gap #1 or the next stage signal. " +
-        "If their last reply was short, vague, or 'I don't know' → give 3–4 concrete multiple-choice options " +
-        "(e.g. 'Is it more like... Maths, Biology, CS, or Commerce?'). " +
-        "Use Kerala/India examples where relevant (KEAM, NEET, PSC, etc.).\n\n" +
+        'Respond with valid JSON: { "question": "...", "choices": ["...", "...", "...", "..."] }\n\n' +
+        "STEP 1 — Look at the GAPS list above. Your next question MUST fill GAP #1. This is mandatory — the GAPS list decides your topic, NOT the student's last answer.\n\n" +
+        "STEP 2 — Do NOT drill deeper into a topic that is already captured. If interest/field is already known, do NOT ask more about subjects, fields, or what they enjoy — move on to their goal, budget, or location. One light acknowledgement of their last answer is fine, but the QUESTION must target GAP #1.\n\n" +
+        "STEP 3 — Check history: never repeat a topic already asked. Never ask a hyper-specific follow-up (e.g. 'which hospital ward' or 'which exact task') — stay at the level of choosing a direction, goal, or practical constraint.\n\n" +
+        'STEP 4 — Write the JSON:\n' +
+        '  "question": ONE clear, concrete question (max 30 words, ends with "?") that fills GAP #1.\n' +
+        '  "choices": exactly 4 options that DIRECTLY answer your question.\n' +
+        "  • If asking about subjects → choices are subject names (e.g. 'Biology', 'Maths', 'Accountancy', 'English').\n" +
+        "  • If asking what they enjoy doing → describe the ACTIVITY, not a bare field label. " +
+        "GOOD: 'Caring for people who are unwell', 'Building apps and solving tech problems'. BAD: 'Medicine', 'Technology'.\n" +
+        "  • If asking about their goal → choices like 'Study a degree further', 'Get a job quickly', 'Govt exams (PSC/UPSC)', 'Start a business'.\n" +
+        "  • If asking about budget → choices like 'Family can manage it', 'Manageable with effort', 'Need a scholarship or loan', 'Not sure yet'.\n" +
+        "  • If asking about location → choices like 'Stay in Kerala', 'Anywhere in India', 'Open to abroad', 'Depends on the course'.\n" +
+        "  • Keep every option realistic for the student's stream.\n\n" +
         "GUARDRAILS:\n" +
-        "• Never ask two questions in one turn.\n" +
-        "• Never recommend or name a specific career, college, or fee.\n" +
-        "• Never ask about entertainment sub-types (movie genres, game titles, sports teams).\n" +
-        "• Never ask psychological or deeply personal questions.\n" +
-        "• If statedCareer is already known, do NOT ask 'what do you want to be' — fill a gap or explore the named career instead.",
+        "• One question only. Never recommend careers or colleges.\n" +
+        "• The GAPS list is authoritative. Never re-explore a captured topic just because the last answer was interesting.\n" +
+        "• If statedCareer is known, do not ask 'what do you want to be?' — target the next gap instead.\n" +
+        "• If the student said their FAMILY has a preference: ask what the STUDENT personally enjoys.",
     },
   ];
-  return chat(messages, { temperature: 0.7 });
+  const { data, raw, model } = await extractJson<{ question: string; choices?: string[] }>(messages, { temperature: 0.5 });
+  return {
+    content: data?.question?.trim() || raw.trim() || "Could you share a bit more about what interests you?",
+    choices: Array.isArray(data?.choices) ? data.choices.slice(0, 6) : [],
+    model,
+  };
 }
 
 // --- extractor -----------------------------------------------------------------
@@ -494,9 +478,11 @@ export async function explainRecommendation(
     {
       role: "system",
       content:
-        `${SYSTEM_BASE}\n\nYou are now explaining recommendations ALREADY decided by a scoring engine. ` +
-        `Use ONLY the facts provided below. Do not add new careers, courses, fees, or numbers not given to you. ` +
-        `Write 4–6 warm, clear sentences in simple language. Language: ${language}.` +
+        `You write short career-report summaries for Plus Two students in Kerala, India. ` +
+        `Use ONLY the facts given to you — do not add careers, courses, fees, or numbers that are not in the data. ` +
+        `Write 3–4 warm, encouraging sentences in simple English a 16-year-old can understand. ` +
+        `CRITICAL: Do NOT ask any question. Do NOT end with "What are your thoughts?", "Would you like to?" or anything similar. ` +
+        `End with a positive, forward-looking statement — never a question.` +
         gapInstruction,
     },
     { role: "user", content: JSON.stringify({ facts, caveats: result.caveats }) },

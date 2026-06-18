@@ -136,24 +136,6 @@ function ResultInner() {
 
                 {/* Card body */}
                 <div className="space-y-4 px-5 py-4 text-sm">
-                  {c.factors.length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Why this fits you
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {c.factors.map((f, j) => (
-                          <span
-                            key={j}
-                            className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium"
-                          >
-                            <span className="text-primary">✓</span> {f.label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {c.courses.length > 0 && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -170,6 +152,24 @@ function ResultInner() {
                               )}
                             </p>
                           </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {c.factors.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Why this fits you
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {c.factors.map((f, j) => (
+                          <span
+                            key={j}
+                            className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium"
+                          >
+                            <span className="text-primary">✓</span> {f.label}
+                          </span>
                         ))}
                       </div>
                     </div>
