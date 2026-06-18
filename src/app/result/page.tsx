@@ -37,7 +37,15 @@ function ResultInner() {
       .catch(() => setError("Could not load recommendations."));
   }, [sessionId]);
 
-  if (!sessionId) return <Center>Missing session.</Center>;
+  if (!sessionId) return (
+    <Center>
+      <div className="space-y-4 text-center">
+        <p className="text-base font-medium text-foreground">No session found.</p>
+        <p className="text-sm text-muted-foreground">Please complete the conversation first.</p>
+        <Link href="/" className="inline-block text-sm text-primary hover:underline">← Start over</Link>
+      </div>
+    </Center>
+  );
   if (error) return <Center className="text-destructive">{error}</Center>;
   if (!data) {
     return (

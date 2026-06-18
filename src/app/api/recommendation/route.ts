@@ -60,6 +60,27 @@ export async function POST(req: NextRequest) {
 
   const db = getServiceClient();
   try {
+    // Return cached result if this session already has a recommendation.
+    // Prevents re-generation (and a new DB row) on every page refresh.
+    const { data: cached } = await db
+      .from("recommendations")
+      .select("id, kb_version, results, overall_confidence, explanation")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (cached) {
+      return NextResponse.json({
+        recommendationId: cached.id,
+        sessionId,
+        kbVersion: cached.kb_version,
+        overallConfidence: cached.overall_confidence,
+        top: cached.results,
+        caveats: [],
+        explanation: cached.explanation ?? undefined,
+      });
+    }
+
     // Load profile + age + language.
     const { data: prof } = await db.from("student_profiles").select("profile").eq("session_id", sessionId).maybeSingle();
     const profile = normalizeProfile(prof?.profile as Partial<StudentProfile> | null);
