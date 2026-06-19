@@ -6,11 +6,14 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import type { AssessmentItemPublic } from "@/types/assessment";
 
-// 3 stages × 3 turns = 9 questions max. The AI stops asking once all gaps are
-// filled — so most students finish in fewer turns.
+// The chat is adaptive: the server decides when enough is captured and returns
+// `done: true`, at which point the interview ends. Stages only rotate the AI's
+// topical focus (interests → goals → practicalities). HARD_MAX is a safety
+// ceiling so a student who never answers clearly still finishes.
 const STAGES = ["interests", "aspiration", "constraints"];
 const STAGE_LABELS = ["Your direction", "Your goals", "Practicalities"];
 const TURNS_PER_STAGE = 3;
+const HARD_MAX_TURNS = 12;
 
 type Msg = { role: "assistant" | "user"; content: string };
 
@@ -27,9 +30,15 @@ function ChatInner() {
   const [turns, setTurns] = useState(0);
   const [choices, setChoices] = useState<string[]>([]);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [serverDone, setServerDone] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const startedRef = useRef(false);
+  // Follow-up capping: count how many times each gap has been asked. When a gap
+  // is asked twice without being answered, add it to skipGaps so the server
+  // moves on instead of nagging the student about the same topic.
+  const asksByGapRef = useRef<Record<string, number>>({});
+  const skipGapsRef = useRef<string[]>([]);
 
   // ── Assessment state ────────────────────────────────────────────────────────
   const [assessmentItems, setAssessmentItems] = useState<AssessmentItemPublic[]>([]);
@@ -47,7 +56,9 @@ function ChatInner() {
 
   useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
 
-  const chatDone = turns >= STAGES.length * TURNS_PER_STAGE;
+  // The interview is over when the server says it has enough, or as a safety net
+  // when the student hits the hard question ceiling.
+  const chatDone = serverDone || turns >= HARD_MAX_TURNS;
 
   useEffect(() => {
     if (!chatDone || assessmentLoadedRef.current) return;
@@ -70,9 +81,8 @@ function ChatInner() {
     if (message) setMessages((m) => [...m, { role: "user", content: message }]);
 
     let stage = STAGES[stageIdx];
-    let nextTurns = turns;
     if (message) {
-      nextTurns = turns + 1;
+      const nextTurns = turns + 1;
       setTurns(nextTurns);
       if (nextTurns % TURNS_PER_STAGE === 0 && stageIdx < STAGES.length - 1) {
         setStageIdx((i) => i + 1);
@@ -80,13 +90,11 @@ function ChatInner() {
       }
     }
 
-    const interviewComplete = message !== undefined && nextTurns >= STAGES.length * TURNS_PER_STAGE;
-
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId, stage, message, isChoice }),
+        body: JSON.stringify({ sessionId, stage, message, isChoice, skipGaps: skipGapsRef.current }),
       });
       if (res.status === 429) {
         setChatError("The AI is busy right now. Please wait a moment and try again.");
@@ -97,9 +105,23 @@ function ChatInner() {
         return;
       }
       const data = await res.json();
-      if (data.question && !interviewComplete) {
+      // Server has enough — end the interview and move to the assessment.
+      if (data.done) {
+        setServerDone(true);
+        return;
+      }
+      if (data.question) {
         setMessages((m) => [...m, { role: "assistant", content: data.question }]);
         setChoices(data.choices ?? []);
+        // Cap follow-ups: a gap asked twice without an answer is added to
+        // skipGaps so the next request moves the conversation on.
+        if (data.gapId) {
+          const n = (asksByGapRef.current[data.gapId] ?? 0) + 1;
+          asksByGapRef.current[data.gapId] = n;
+          if (n >= 2 && !skipGapsRef.current.includes(data.gapId)) {
+            skipGapsRef.current.push(data.gapId);
+          }
+        }
       }
     } catch {
       setChatError("Connection error. Please check your internet and try again.");

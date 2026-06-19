@@ -14,7 +14,39 @@ const bodySchema = z.object({
   // true when the student clicked a predefined choice button — skips LLM extraction
   // and writes the profile delta directly, saving ~600ms per turn.
   isChoice: z.boolean().optional(),
+  // Gap ids the client wants skipped because they've already been asked the
+  // capped number of times without the student giving a captureable answer.
+  // The server filters these out of the gap list so the chat moves on instead
+  // of nagging the student about the same topic.
+  skipGaps: z.array(z.string().max(40)).max(12).optional(),
 });
+
+// The eight profile dimensions the chat tries to fill, in priority order.
+// Each maps a stable `id` (shared with the client for follow-up capping) to the
+// instruction the AI uses to phrase its next question.
+const GAP_IDS = [
+  "subjects", "interest", "goal", "priorities", "budget", "location", "family", "workstyle",
+] as const;
+type GapId = (typeof GAP_IDS)[number];
+
+// Which profile dimensions are currently captured. Shared by the gap builder
+// (what to ask next) and the "enough captured?" stop check.
+function capturedDims(p?: Partial<StudentProfile> | null) {
+  return {
+    subjects: (p?.academic?.strongSubjects?.length ?? 0) > 0,
+    interest: Object.values(p?.interests ?? {}).some((v) => (v ?? 0) >= 0.3),
+    goal: !!p?.aspiration?.goalOrientation,
+    priorities: (p?.aspiration?.careerPriorities?.length ?? 0) > 0,
+    budget: !!p?.constraints?.budgetBand,
+    location: !!p?.constraints?.locationPref,
+    family: (p?.constraints?.familyExpectations?.length ?? 0) > 0,
+    workstyle: Object.values(p?.personality ?? {}).some((v) => Math.abs((v as number) ?? 0) > 0.2),
+  } satisfies Record<GapId, boolean>;
+}
+
+function countCaptured(p?: Partial<StudentProfile> | null): number {
+  return Object.values(capturedDims(p)).filter(Boolean).length;
+}
 
 // Maps predefined choice button labels to profile deltas without an LLM call.
 // Only covers the fixed choice sets shown in the UI. Falls back to LLM extraction
@@ -173,11 +205,16 @@ export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) return badRequest("Invalid chat payload", parsed.error.flatten());
 
-  const { sessionId, stage, message, isChoice } = parsed.data;
+  const { sessionId, stage, message, isChoice, skipGaps } = parsed.data;
+  const skipSet = new Set<string>(skipGaps ?? []);
   const limited = await enforceRateLimit(limiters.chat, "chat", [sessionId, ipHash]);
   if (limited) return limited;
 
   const db = getServiceClient();
+  // True when the student answered this turn but it captured no new dimension —
+  // i.e. the answer was vague. Drives the "rephrase with examples" follow-up.
+  let filledThisTurn = false;
+  const answered = !!(message && message.trim());
   try {
     // 1. Persist the student's message (if any) and extract structured signals.
     if (message && message.trim()) {
@@ -213,7 +250,11 @@ export async function POST(req: NextRequest) {
           .select("profile")
           .eq("session_id", sessionId)
           .maybeSingle();
-        const merged = mergeProfile(row?.profile as Partial<StudentProfile> | null, delta);
+        const prevProfile = row?.profile as Partial<StudentProfile> | null;
+        const merged = mergeProfile(prevProfile, delta);
+        // Did this answer actually capture a new dimension? If not, the next
+        // turn rephrases the same question with concrete examples.
+        filledThisTurn = countCaptured(merged) > countCaptured(prevProfile);
         await db.from("student_profiles").upsert(
           {
             session_id: sessionId,
@@ -334,57 +375,74 @@ export async function POST(req: NextRequest) {
     const capturedFamilyExpectations =
       (ctxProfile?.constraints?.familyExpectations?.length ?? 0) > 0;
 
-    // Prioritised gaps: interest → goal → budget → location → family → work style.
-    // Goal/budget/location come right after interest because they're the practical
-    // guidance students need. Work style is last — the 10-question quiz already
-    // captures personality, so a chat turn on it is largely redundant. One clear
-    // interest is enough (threshold: a single cluster ≥ 0.3).
-    const capturedInterestCount = Object.values(ctxProfile?.interests ?? {}).filter(
-      (v) => (v ?? 0) >= 0.3
-    ).length;
-    const capturedStrongSubjects = (ctxProfile?.academic?.strongSubjects?.length ?? 0) > 0;
-    const capturedCareerPriorities = (ctxProfile?.aspiration?.careerPriorities?.length ?? 0) > 0;
+    // Prioritised gaps: subjects → interest → goal → priorities → budget →
+    // location → family → work style. Subjects come first (feeds aptitude), then
+    // interest, then the practical guidance dimensions. Work style is last — the
+    // quiz already captures personality, so a chat turn on it is largely
+    // redundant. One clear interest is enough (threshold: a single cluster ≥ 0.3).
+    const captured = capturedDims(ctxProfile);
+    const sc = ctxProfile?.aspiration?.statedCareer;
 
-    const remainingGaps: string[] = [];
+    // Each gap: a stable id (shared with the client for follow-up capping) and
+    // the instruction the AI uses to phrase the question.
+    const GAP_PROMPTS: Record<GapId, string> = {
+      subjects: "which specific subjects they enjoy most or score best in — give 4 stream-appropriate subject names as choices",
+      interest: sc
+        ? `what specifically draws them to "${sc}" and what daily activities in that field excite them`
+        : "what ACTIVITIES or TYPE OF DAILY WORK genuinely excites them — choices must describe real activities (e.g. 'Caring for patients', 'Building software', 'Running a business'), NOT bare field names",
+      goal: "their goal after school — study further, get a job, govt exams (PSC/UPSC), or start a business",
+      priorities: "what matters most to them in a career — high salary and growth, job stability and security, following their passion, or government/public service",
+      budget: "whether study costs are a concern for their family",
+      location: "whether they can move to another city or abroad to study",
+      family: "whether their family has strong expectations about their career choice",
+      workstyle: "how they prefer to work — with people, solo / focused, or outdoors / hands-on",
+    };
 
-    // 1. Strong subjects — highest priority: feeds applyDerivedAptitude directly.
-    //    Ask BEFORE broad interest so we can infer aptitude from real subjects.
-    if (!capturedStrongSubjects)
-      remainingGaps.push("which specific subjects they enjoy most or score best in — give 4 stream-appropriate subject names as choices");
+    // Core gaps (subjects/interest/goal) feed the recommendation engine and must
+    // never be skipped — only the softer dimensions can be capped and dropped.
+    const CORE_GAPS = new Set<GapId>(["subjects", "interest", "goal"]);
+    // Open gaps in priority order, minus any the client asked us to skip because
+    // they've already been asked the capped number of times.
+    const openGaps = GAP_IDS.filter(
+      (id) => !captured[id] && (CORE_GAPS.has(id) || !skipSet.has(id))
+    );
+    const topGapId: GapId | null = openGaps[0] ?? null;
+    const remainingGaps: string[] = openGaps.map((id) => GAP_PROMPTS[id]);
 
-    // 2. Interest / activity
-    if (capturedInterestCount < 1) {
-      const sc = ctxProfile?.aspiration?.statedCareer;
-      if (sc) {
-        remainingGaps.push(`what specifically draws them to "${sc}" and what daily activities in that field excite them`);
-      } else {
-        remainingGaps.push("what ACTIVITIES or TYPE OF DAILY WORK genuinely excites them — choices must describe real activities (e.g. 'Caring for patients', 'Building software', 'Running a business'), NOT bare field names");
-      }
+    // ── Stop condition ────────────────────────────────────────────────────────
+    // The chat ends when we have ENOUGH to recommend — not at a fixed count.
+    // CORE (subjects + interest + goal) is mandatory for a "satisfied" stop: these
+    // feed aptitude and the recommendation engine, so we never end without them
+    // unless the student simply won't answer (exhaustion / hard ceiling).
+    //   • core captured AND 5+ of 8 dimensions → plenty of signal, stop.
+    //   • core captured AND 7+ questions answered → stop.
+    //   • no askable gaps remain (all captured or skipped) → stop.
+    //   • hard ceiling of 12 answered questions → stop no matter what.
+    const capturedCount = countCaptured(ctxProfile);
+    const coreCaptured = captured.subjects && captured.interest && captured.goal;
+    const answeredCount = (history ?? []).filter((h) => h.role === "user").length;
+    // Require core + priorities + family before the count-based stop.
+    // Priorities feeds the recommendation engine directly; family is soft but
+    // always askable in 1 turn. This prevents stopping after 2–3 turns when
+    // the LLM infers budget/location from stream context, leaving these dims uncovered.
+    const done =
+      (coreCaptured && captured.priorities && captured.family && capturedCount >= 5) ||
+      (coreCaptured && captured.priorities && answeredCount >= 8) ||
+      openGaps.length === 0 ||
+      answeredCount >= 12;
+
+    // When enough is captured, end the chat without burning an LLM call on a
+    // question the student would never see. The client moves to the assessment.
+    if (answered && done) {
+      await db.from("sessions")
+        .update({ status: "in_chat", updated_at: new Date().toISOString() })
+        .eq("id", sessionId);
+      return NextResponse.json({ done: true, stage });
     }
 
-    // 3. Goal orientation
-    if (!ctxProfile?.aspiration?.goalOrientation)
-      remainingGaps.push("their goal after school — study further, get a job, govt exams (PSC/UPSC), or start a business");
-
-    // 4. Career priorities — what matters most: salary, security, passion, govt
-    if (!capturedCareerPriorities)
-      remainingGaps.push("what matters most to them in a career — high salary and growth, job stability and security, following their passion, or government/public service");
-
-    // 5. Budget
-    if (!ctxProfile?.constraints?.budgetBand)
-      remainingGaps.push("whether study costs are a concern for their family");
-
-    // 6. Location
-    if (!ctxProfile?.constraints?.locationPref)
-      remainingGaps.push("whether they can move to another city or abroad to study");
-
-    // 7. Family expectations
-    if (!capturedFamilyExpectations)
-      remainingGaps.push("whether their family has strong expectations about their career choice");
-
-    // 8. Work style / personality
-    if (!hasPersonalityData)
-      remainingGaps.push("how they prefer to work — with people, solo / focused, or outdoors / hands-on");
+    // A follow-up = the student answered but captured nothing new. Tell the AI to
+    // rephrase the SAME gap with concrete examples instead of a fresh topic.
+    const isFollowUp = answered && !filledThisTurn && topGapId !== null;
 
     const rawStream = ctxProfile?.academic?.stream as string | undefined;
     const studentContext: StudentContext = {
@@ -405,6 +463,9 @@ export async function POST(req: NextRequest) {
       remainingGaps: remainingGaps.length > 0 ? remainingGaps : undefined,
       relevantExams: relevantExamsList.length > 0 ? relevantExamsList : undefined,
       capturedFamilyExpectations: capturedFamilyExpectations || undefined,
+      // When set, the AI rephrases the same gap with concrete examples because
+      // the student's previous answer was too vague to capture.
+      followUp: isFollowUp || undefined,
     };
 
     // 4. Ask the next question.
@@ -418,7 +479,9 @@ export async function POST(req: NextRequest) {
       .update({ status: "in_chat", updated_at: new Date().toISOString() })
       .eq("id", sessionId);
 
-    return NextResponse.json({ question: q.content, stage, choices: q.choices });
+    // gapId lets the client cap follow-ups: if the same gapId comes back twice,
+    // the student isn't answering it, so the client adds it to skipGaps.
+    return NextResponse.json({ question: q.content, stage, choices: q.choices, gapId: topGapId, done: false });
   } catch (e) {
     console.error(e);
     return serverError("Chat failed");

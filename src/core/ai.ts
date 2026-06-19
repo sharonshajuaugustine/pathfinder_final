@@ -112,6 +112,9 @@ export interface StudentContext {
   relevantExams?: string[];
   // True if at least one family expectation has been captured — prevents re-asking.
   capturedFamilyExpectations?: boolean;
+  // True when the student's previous answer was too vague to capture, so the AI
+  // should rephrase the SAME gap with concrete examples rather than move on.
+  followUp?: boolean;
 }
 
 // --- interviewer ---------------------------------------------------------------
@@ -212,6 +215,14 @@ export async function nextQuestion(params: {
       `Even if the family has a preference, ask what the STUDENT personally enjoys and wants — not what the family wants.`
     );
   }
+  if (ctx?.followUp) {
+    contextLines.push(
+      `FOLLOW-UP NEEDED — the student's last answer was vague or unclear, so GAP #1 is still empty. ` +
+      `Ask about GAP #1 AGAIN, but rephrase it more simply and give 4 concrete, everyday example choices ` +
+      `to make it easy to answer. Warmly acknowledge what they did say, then re-ask with examples. ` +
+      `Do NOT just repeat the same wording.`
+    );
+  }
   if (ctx?.remainingGaps?.length) {
     contextLines.push(
       `GAPS — these profile areas are still empty. Your next question should fill ONE of these (most important first):\n` +
@@ -237,7 +248,7 @@ export async function nextQuestion(params: {
         "STEP 2 — Do NOT drill deeper into a topic that is already captured. If interest/field is already known, do NOT ask more about subjects, fields, or what they enjoy — move on to their goal, budget, or location. One light acknowledgement of their last answer is fine, but the QUESTION must target GAP #1.\n\n" +
         "STEP 3 — Check history: never repeat a topic already asked. Never ask a hyper-specific follow-up (e.g. 'which hospital ward' or 'which exact task') — stay at the level of choosing a direction, goal, or practical constraint.\n\n" +
         'STEP 4 — Write the JSON:\n' +
-        '  "question": ONE clear, concrete question (max 30 words, ends with "?") that fills GAP #1.\n' +
+        '  "question": A single, direct question about GAP #1. Max 20 words. MUST end with "?". No preamble, no acknowledgement of their previous answer — just ask the question cleanly.\n' +
         '  "choices": exactly 4 options that DIRECTLY answer your question.\n' +
         "  • If asking which subjects they enjoy or score best in → give 4 subject names from their stream. " +
         "Science (Bio): 'Biology', 'Chemistry', 'Physics', 'Mathematics'. " +
