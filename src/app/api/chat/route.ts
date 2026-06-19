@@ -20,19 +20,27 @@ const bodySchema = z.object({
 });
 
 // ── Gap state machine (SERVER-SIDE, single source of truth) ───────────────────
-// The previous design split gap tracking across client + server, which caused
-// the bot to over-drill one topic or drift from the priority order. Now the
-// server tracks, per gap:
-//   asks   — how many times the gap has been posed as a question
-//   fails  — how many times the student answered but captured nothing (vague)
-// Each gap gets ONE follow-up: if the first answer captures nothing, the SAME
-// gap is rephrased with concrete examples exactly once. A second failure (or a
-// second ask) SOFT-SKIPS the gap — it's dropped from the askable list so the
-// conversation moves on and every gap still gets touched. State rides inside
-// the profile JSON (`_gapState`) so it survives across the stateless turns.
-const MAX_FAILS_PER_GAP = 1; // 1 follow-up, then soft-skip
-const HARD_TURN_CEILING = 14; // safety ceiling for the longest conversation
-type GapState = Record<string, { asks: number; fails: number }>;
+// Core gaps (subjects, interest, goal): keep asking until captured. Each follow-up
+// builds on what the student said — a different angle, not a repeat. After
+// MAX_FAILS_CORE vague turns on the same gap, ask the student for permission to
+// move on. If yes → skip. If no or neutral → keep trying until hard ceiling.
+// Permission is asked at most once per gap.
+//
+// Soft gaps (priorities, budget, location, family, workstyle): after
+// MAX_FAILS_SOFT vague answers, silently soft-skip and move on.
+//
+// State rides inside the profile JSON (_gapState). _lastGap marks which gap the
+// last question targeted. _askingPermission flags that the last question was a
+// permission question so the next turn can parse the response correctly.
+const MAX_FAILS_CORE = 5;
+const MAX_FAILS_SOFT = 3;
+const HARD_TURN_CEILING = 14;
+type GapState = Record<string, {
+  asks: number;
+  fails: number;
+  permissionAsked?: boolean;
+  permissionGranted?: boolean;
+}>;
 
 function readGapState(profile: unknown): GapState {
   const g = (profile as { _gapState?: GapState } | null)?._gapState;
@@ -40,8 +48,6 @@ function readGapState(profile: unknown): GapState {
 }
 
 // The eight profile dimensions the chat tries to fill, in priority order.
-// Each maps a stable `id` (shared with the client for follow-up capping) to the
-// instruction the AI uses to phrase its next question.
 const GAP_IDS = [
   "subjects", "interest", "goal", "priorities", "budget", "location", "family", "workstyle",
 ] as const;
@@ -84,13 +90,9 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
   if (fieldMap[message]) return { interests: { [fieldMap[message]]: 0.7 } };
 
   // Two-phase pinned interest choices (stream-tailored activities + drawn-to).
-  // These map DIRECTLY to a cluster — no LLM call, zero ambiguity, ~600ms saved.
-  // Pinned at 0.8: strong enough to clear the 0.3 capture threshold alone, and a
-  // matching answer across both phases reinforces via mergeProfile to ~0.9+.
   const pinnedCluster = choiceLabelToCluster(message);
   if (pinnedCluster) return { interests: { [pinnedCluster]: 0.8 } };
 
-  // Common subject names → strongSubjects (avoids LLM call for simple subject answers)
   const subjectMap: Record<string, string> = {
     "Mathematics": "Mathematics", "Maths": "Mathematics",
     "Physics": "Physics", "Chemistry": "Chemistry", "Biology": "Biology",
@@ -104,16 +106,15 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
   };
   if (subjectMap[message]) return { academic: { strongSubjects: [subjectMap[message]] } };
 
-  // Career priorities
   if (message === "High salary and fast growth") return { aspiration: { careerPriorities: ["high_salary"] } };
   if (message === "Stable job and job security") return { aspiration: { careerPriorities: ["job_security"] } };
   if (message === "Work I am passionate about") return { aspiration: { careerPriorities: ["passion"] } };
   if (message === "Government or public service job") return { aspiration: { careerPriorities: ["government"] } };
 
   if (message === "My family has a preference") return { constraints: { familyExpectations: ["family has career preference"] } };
-  if (message === "I already have a career in mind") return null; // needs LLM to extract which career
-  if (message === "Still figuring it out") return { interests: {} }; // signal captured, no cluster yet
-  if (message === "A few options, not sure which") return null; // needs LLM
+  if (message === "I already have a career in mind") return null;
+  if (message === "Still figuring it out") return { interests: {} };
+  if (message === "A few options, not sure which") return null;
 
   if (message === "Study further (BTech / BSc / degree)") return { aspiration: { goalOrientation: "higher_study" } };
   if (message === "Find a job quickly") return { aspiration: { goalOrientation: "job_soon" } };
@@ -134,7 +135,6 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
   if (message === "Open to going abroad") return { constraints: { locationPref: "abroad" } };
   if (message === "Open to studying abroad") return { constraints: { locationPref: "abroad" } };
   if (message === "Open to abroad") return { constraints: { locationPref: "abroad" } };
-  // Ambiguous/flexible answers close the location gap without a specific preference.
   if (
     message === "Depends on the course" ||
     message === "I'm not sure yet" ||
@@ -142,23 +142,18 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
     message === "Flexible"
   ) return { constraints: { locationPref: "india" } };
 
-  // Goal variations the AI may generate
   if (message === "Study a degree further") return { aspiration: { goalOrientation: "higher_study" } };
   if (message === "Get a job quickly") return { aspiration: { goalOrientation: "job_soon" } };
   if (message === "Prepare for govt exams (PSC/UPSC)") return { aspiration: { goalOrientation: "government" } };
   if (message === "Start a business or an independent project") return { aspiration: { goalOrientation: "business" } };
 
-  // Budget variations
   if (message === "Family can manage it") return { constraints: { budgetBand: "no_constraint" } };
   if (message === "Not sure about costs") return { constraints: { budgetBand: "medium" } };
 
-  // Family-related answers — use sentinel "none" for supportive/no-constraint answers
-  // so capturedFamilyExpectations closes the gap (empty array leaves it open).
   if (message === "They support my choice fully") return { constraints: { familyExpectations: ["none"] } };
   if (message === "They want a specific career") return { constraints: { familyExpectations: ["family has career preference"] } };
   if (message === "Some preferences, not strict") return { constraints: { familyExpectations: ["some family preferences"] } };
   if (message === "Haven't discussed yet") return { constraints: { familyExpectations: ["none"] } };
-  // AI-generated family choice variants
   if (message === "Very involved and supportive") return { constraints: { familyExpectations: ["supportive"] } };
   if (message === "Somewhat involved but not decisive") return { constraints: { familyExpectations: ["some_preference"] } };
   if (message === "Somewhat involved, but I have some freedom") return { constraints: { familyExpectations: ["some_preference"] } };
@@ -181,7 +176,6 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
   if (message === "They want me to choose something else") return { constraints: { familyExpectations: ["family_preference"] } };
   if (message === "I make the final decision") return { constraints: { familyExpectations: ["none"] } };
   if (message === "My family has a lot of influence") return { constraints: { familyExpectations: ["family_preference"] } };
-  // Standard labels enforced by STEP 4 instruction in ai.ts
   if (message === "They are fully supportive of my choice") return { constraints: { familyExpectations: ["none"] } };
   if (message === "They have some preferences") return { constraints: { familyExpectations: ["some_preference"] } };
   if (message === "They have strong career expectations") return { constraints: { familyExpectations: ["family_preference"] } };
@@ -191,8 +185,6 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
 }
 
 // Maps a stated career name to the most relevant interest cluster.
-// Used to close the interest gap automatically when a student names a specific
-// career instead of picking a broad interest category.
 function inferInterestFromCareer(career: string): Record<string, number> | null {
   const c = career.toLowerCase();
   if (/doctor|medicine|mbbs|nursing|medical|physician|surgeon|dentist|pharmacist|hospital|physiotherapy|healthcare|paramedic/.test(c))
@@ -235,10 +227,9 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   const db = getServiceClient();
-  // True when the student answered this turn but it captured no new dimension —
-  // i.e. the answer was vague. Drives the "rephrase with examples" follow-up.
   let filledThisTurn = false;
   const answered = !!(message && message.trim());
+
   try {
     // 1. Persist the student's message (if any) and extract structured signals.
     if (message && message.trim()) {
@@ -254,33 +245,38 @@ export async function POST(req: NextRequest) {
 
       await db.from("conversations").insert({ session_id: sessionId, role: "user", stage, content: message });
 
-      // For predefined choice clicks, map directly to a delta without an LLM call.
-      // For typed "Other" answers, fall back to LLM extraction.
+      // Load previous profile before extraction so we can check permission state
+      // and compute filledThisTurn without a second round-trip.
+      const { data: prevRow } = await db
+        .from("student_profiles")
+        .select("profile")
+        .eq("session_id", sessionId)
+        .maybeSingle();
+      const prevProfile = prevRow?.profile as Partial<StudentProfile> | null;
+
+      // Permission button responses ("Keep exploring this" / "Let's move on") carry
+      // no profile information — skip extraction entirely and handle in gap state.
+      const wasAskingPermission = !!(prevProfile as Record<string, unknown> | null)?._askingPermission;
+      const isPermissionButton = wasAskingPermission && isChoice &&
+        (message === "Let's move on" || message === "Keep exploring this");
+
       let delta: ProfileDelta | null = null;
       let extractModel = "direct-choice";
 
-      if (isChoice) {
-        delta = directDeltaFromChoice(message);
-      }
-      if (!delta) {
-        const result = await extractProfileDelta({ reply: message, stage, precedingQuestion });
-        delta = result.delta;
-        extractModel = result.model;
+      if (!isPermissionButton) {
+        if (isChoice) {
+          delta = directDeltaFromChoice(message);
+        }
+        if (!delta) {
+          const result = await extractProfileDelta({ reply: message, stage, precedingQuestion });
+          delta = result.delta;
+          extractModel = result.model;
+        }
       }
 
       if (delta) {
-        const { data: row } = await db
-          .from("student_profiles")
-          .select("profile")
-          .eq("session_id", sessionId)
-          .maybeSingle();
-        const prevProfile = row?.profile as Partial<StudentProfile> | null;
         const merged = mergeProfile(prevProfile, delta);
-        // Did this answer actually capture a new dimension? If not, the next
-        // turn rephrases the same question with concrete examples.
         filledThisTurn = countCaptured(merged) > countCaptured(prevProfile);
-        // Preserve the engine bookkeeping field that mergeProfile drops (it
-        // returns a clean StudentProfile). Re-attach so gap state survives.
         const mergedWithState = { ...merged, _gapState: readGapState(prevProfile) };
         await db.from("student_profiles").upsert(
           {
@@ -317,9 +313,7 @@ export async function POST(req: NextRequest) {
     let ctxProfile = ctxRow?.profile as Partial<StudentProfile> | null;
 
     // When the student named a specific career but no interest cluster was captured
-    // yet, infer the cluster from the career name and persist it. This ensures the
-    // recommendation engine has interest data even when the student skipped broad
-    // interest selection by naming a career directly.
+    // yet, infer the cluster from the career name and persist it.
     {
       const sc = ctxProfile?.aspiration?.statedCareer;
       const hasCluster = Object.values(ctxProfile?.interests ?? {}).some(v => (v ?? 0) >= 0.3);
@@ -374,7 +368,6 @@ export async function POST(req: NextRequest) {
       (v) => Math.abs((v as number) ?? 0) > 0.2
     );
 
-    // Entrance exams relevant to this student's interest profile.
     const interests = ctxProfile?.interests ?? {};
     const relevantExams = new Set<string>();
     if ((interests.technology_coding ?? 0) >= 0.2 || (interests.numbers_analysis ?? 0) >= 0.2) {
@@ -399,28 +392,11 @@ export async function POST(req: NextRequest) {
     }
     const relevantExamsList = Array.from(relevantExams);
 
-    const capturedFamilyExpectations =
-      (ctxProfile?.constraints?.familyExpectations?.length ?? 0) > 0;
+    const capturedFamilyExpectations = (ctxProfile?.constraints?.familyExpectations?.length ?? 0) > 0;
 
-    // Prioritised gaps: subjects → interest → goal → priorities → budget →
-    // location → family → work style. Subjects come first (feeds aptitude), then
-    // interest, then the practical guidance dimensions. Work style is last — the
-    // quiz already captures personality, so a chat turn on it is largely
-    // redundant. One clear interest is enough (threshold: a single cluster ≥ 0.3).
     const captured = capturedDims(ctxProfile);
     const sc = ctxProfile?.aspiration?.statedCareer;
 
-    // Each gap: a stable id (shared with the client for follow-up capping) and
-    // the instruction the AI uses to phrase the question.
-    // NOTE on interest: this is a TWO-PHASE capture (see interest-questions.ts).
-    //   • Phase 1 (interest not yet asked): "which activities do you enjoy?" —
-    //     stream-tailored activity choices.
-    //   • Phase 2 (interest asked once, still open): "what are you drawn to
-    //     watching/reading?" — a second, different angle so the two answers
-    //     triangulate the cluster. Phase is resolved below from gapState.
-    // The PINNED choices for the current phase are injected into the AI context
-    // and override whatever the AI generates, so the student always sees the
-    // curated stream-tailored set and a click maps directly to a cluster.
     const interestAskedCount = readGapState(ctxProfile).interest?.asks ?? 0;
     const interestPhase: "activities" | "drawnTo" = interestAskedCount >= 1 ? "drawnTo" : "activities";
     const streamKey = ctxProfile?.academic?.stream;
@@ -444,70 +420,58 @@ export async function POST(req: NextRequest) {
       workstyle: "how they prefer to work — with people, solo / focused, or outdoors / hands-on",
     };
 
-    // Core gaps (subjects/interest/goal) feed the recommendation engine and are
-    // the highest priority — but they are NOT exempt from the follow-up cap. A
-    // student who simply won't answer "which subjects?" after a rephrased attempt
-    // should not stall the whole conversation. The assessment quiz + stream act
-    // as a backstop for un-captured core dimensions.
     const CORE_GAPS = new Set<GapId>(["subjects", "interest", "goal"]);
 
     // ── Server-side gap state ────────────────────────────────────────────────
-    // gapState tracks how many times each gap has been asked and how many times
-    // the student's answer failed to capture a dimension. This is the single
-    // source of truth — the client no longer sends skipGaps.
     const gapState = readGapState(ctxProfile);
-    // Update state for the gap that was JUST asked (the one the AI posed last
-    // turn, which the student just answered). We know a capture-failure happened
-    // when the student answered but filledThisTurn is false.
+    const wasAskingPermissionLastTurn = !!(ctxProfile as Record<string, unknown> | null)?._askingPermission;
+
     if (answered) {
-      const lastAsked = (history ?? [])
-        .filter((h) => h.role === "assistant")
-        .map((h) => h.content as string)
-        .slice(-1)[0];
-      // The assistant message we're about to record carries no gapId, but the
-      // client echoes back via stage; instead, infer the asked gap from GAP_PROMPTS
-      // by matching. Simpler + robust: track the LAST gap we returned last turn.
-      // We persist gapState with a `lastGap` marker set when we emit a question.
       const lastGap = (ctxProfile as { _lastGap?: GapId } | null)?._lastGap;
       if (lastGap && GAP_IDS.includes(lastGap)) {
         const gs = (gapState[lastGap] ??= { asks: 0, fails: 0 });
-        gs.asks += 1;
-        if (!filledThisTurn) gs.fails += 1;
-        void lastAsked; // (kept for future richer inference; not needed now)
+        if (wasAskingPermissionLastTurn) {
+          // Permission response — mark asked, grant if student said yes.
+          gs.permissionAsked = true;
+          if (message === "Let's move on") gs.permissionGranted = true;
+          // Don't increment asks/fails; this wasn't a content question.
+        } else {
+          gs.asks += 1;
+          if (!filledThisTurn) gs.fails += 1;
+        }
       }
     }
 
-    // A gap is ASKABLE if it's not yet captured AND has not exhausted its budget.
-    //   • INTEREST is two-phase: it always gets exactly 2 asks (phase 1 activities,
-    //     phase 2 drawn-to) before it can be soft-skipped — UNLESS the student is
-    //     vague on both, in which case a third ask would nag, so we still cap.
-    //   • Other core gaps (subjects, goal): 1 follow-up after a vague answer.
-    //   • Soft gaps: 1 ask, soft-skip on a single vague answer.
+    // ── Askable gaps ─────────────────────────────────────────────────────────
+    // Core gaps: always askable until captured or permission granted.
+    // Interest is two-phase (activities → drawnTo) but still a core gap — no
+    // phase cap; we keep asking from different angles until captured or permission.
+    // Soft gaps: silent skip after MAX_FAILS_SOFT vague answers.
     const askableGaps = GAP_IDS.filter((id) => {
       if (captured[id]) return false;
       const gs = gapState[id];
-      if (!gs) return true;
-      if (id === "interest") {
-        // Allow up to 2 asks for the two phases; soft-skip if BOTH failed to
-        // capture anything (the student gave no usable signal either way).
-        if (gs.asks >= 2 && gs.fails >= 2) return false;
-        return gs.asks < 2 || gs.fails < 2;
+      if (CORE_GAPS.has(id)) {
+        // Core gaps are only skipped when the student explicitly gave permission.
+        return !gs?.permissionGranted;
       }
-      const budget = CORE_GAPS.has(id) ? MAX_FAILS_PER_GAP + 1 : MAX_FAILS_PER_GAP;
-      return gs.fails <= budget;
+      // Soft gaps: skip after too many failures.
+      if (!gs) return true;
+      return gs.fails < MAX_FAILS_SOFT;
     });
     const topGapId: GapId | null = askableGaps[0] ?? null;
     const remainingGaps: string[] = askableGaps.map((id) => GAP_PROMPTS[id]);
 
+    // Should we ask permission to move on? Only for core gaps after MAX_FAILS_CORE
+    // vague answers, and only once per gap.
+    const topGapGs = topGapId ? (gapState[topGapId] ?? { asks: 0, fails: 0 }) : null;
+    const shouldAskPermission =
+      topGapId !== null &&
+      CORE_GAPS.has(topGapId) &&
+      !captured[topGapId] &&
+      (topGapGs?.fails ?? 0) >= MAX_FAILS_CORE &&
+      !topGapGs?.permissionAsked;
+
     // ── Stop condition ────────────────────────────────────────────────────────
-    // The chat ends when we have ENOUGH to recommend — not at a fixed count.
-    // CORE (subjects + interest + goal) is strongly preferred but the chat can
-    // still end if those gaps have been soft-skipped (student won't answer) and
-    // the rest is covered. The assessment quiz backstops un-captured core dims.
-    //   • core captured AND 5+ of 8 dimensions AND priorities+family covered → stop.
-    //   • core captured AND priorities covered AND 8+ questions answered → stop.
-    //   • no askable gaps remain (all captured or soft-skipped) → stop.
-    //   • hard ceiling of 14 answered questions → stop no matter what.
     const capturedCount = countCaptured(ctxProfile);
     const coreCaptured = captured.subjects && captured.interest && captured.goal;
     const answeredCount = (history ?? []).filter((h) => h.role === "user").length;
@@ -517,8 +481,7 @@ export async function POST(req: NextRequest) {
       askableGaps.length === 0 ||
       answeredCount >= HARD_TURN_CEILING;
 
-    // Persist the updated gap state + lastGap marker before deciding next step.
-    // This must happen whether or not we stop, so a resumed session is consistent.
+    // Persist updated gap state, lastGap, and permission flag before responding.
     if (answered) {
       const { data: profRow } = await db
         .from("student_profiles")
@@ -527,14 +490,13 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
       const cur = (profRow?.profile ?? {}) as Record<string, unknown>;
       cur._gapState = gapState;
-      cur._lastGap = topGapId; // remember which gap the NEXT question targets
+      cur._lastGap = topGapId;
+      cur._askingPermission = shouldAskPermission;
       await db.from("student_profiles")
         .update({ profile: cur, updated_at: new Date().toISOString() })
         .eq("session_id", sessionId);
     }
 
-    // When enough is captured, end the chat without burning an LLM call on a
-    // question the student would never see. The client moves to the assessment.
     if (answered && done) {
       await db.from("sessions")
         .update({ status: "in_chat", updated_at: new Date().toISOString() })
@@ -542,10 +504,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ done: true, stage });
     }
 
-    // A follow-up = the student answered but captured nothing new, AND the same
-    // gap is still askable (within its follow-up budget). Tell the AI to rephrase
-    // the SAME gap with concrete examples instead of a fresh topic.
-    const isFollowUp = answered && !filledThisTurn && topGapId !== null;
+    // ── Permission question ───────────────────────────────────────────────────
+    // After MAX_FAILS_CORE vague answers on a core gap, ask the student whether
+    // they want to keep exploring or move on. This is hardcoded — no LLM needed.
+    if (shouldAskPermission) {
+      const permQ = "That's completely fine — it's a big decision! Should we keep exploring this, or move on for now?";
+      await db.from("conversations").insert({
+        session_id: sessionId, role: "assistant", stage, content: permQ, model: "hardcoded",
+      });
+      await db.from("sessions")
+        .update({ status: "in_chat", updated_at: new Date().toISOString() })
+        .eq("id", sessionId);
+      return NextResponse.json({
+        question: permQ,
+        stage,
+        choices: ["Keep exploring this", "Let's move on"],
+        gapId: topGapId,
+        done: false,
+      });
+    }
+
+    // A follow-up = the student answered but captured nothing new AND the same gap
+    // is still open. Tell the AI to build on what they said with a different angle,
+    // not rephrase the same question. Skip after a permission turn — the student
+    // already indicated they want to keep going, so start fresh.
+    const isFollowUp = answered && !filledThisTurn && topGapId !== null && !wasAskingPermissionLastTurn;
 
     const rawStream = ctxProfile?.academic?.stream as string | undefined;
     const studentContext: StudentContext = {
@@ -566,8 +549,6 @@ export async function POST(req: NextRequest) {
       remainingGaps: remainingGaps.length > 0 ? remainingGaps : undefined,
       relevantExams: relevantExamsList.length > 0 ? relevantExamsList : undefined,
       capturedFamilyExpectations: capturedFamilyExpectations || undefined,
-      // When set, the AI rephrases the same gap with concrete examples because
-      // the student's previous answer was too vague to capture.
       followUp: isFollowUp || undefined,
     };
 
@@ -582,12 +563,8 @@ export async function POST(req: NextRequest) {
       .update({ status: "in_chat", updated_at: new Date().toISOString() })
       .eq("id", sessionId);
 
-    // PINNED INTEREST CHOICES OVERRIDE: when the next gap is interest, we ignore
-    // whatever choices the AI generated and return the curated stream-tailored
-    // (phase 1) or drawn-to (phase 2) set. This guarantees the student always
-    // sees consistent, stream-appropriate activities and a button click maps
-    // directly to a cluster (no LLM extraction). The AI still writes the question
-    // wording, but the options are ours.
+    // PINNED INTEREST CHOICES OVERRIDE: when the next gap is interest, ignore
+    // whatever choices the AI generated and return the curated stream-tailored set.
     let choices = q.choices;
     if (topGapId === "interest" && !sc) {
       choices = interestChoiceSet.choices.map((c) => c.label);
