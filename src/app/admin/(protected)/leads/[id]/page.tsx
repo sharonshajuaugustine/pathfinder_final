@@ -281,7 +281,7 @@ function ScoreBar({ label, value, max }: { label: string; value: number; max: nu
   const display = max === 100 ? Math.round(value) : (value * 100).toFixed(0) + "%";
   return (
     <div className="flex items-center gap-3">
-      <span className="w-40 shrink-0 text-xs capitalize text-foreground">{label}</span>
+      <span className="w-28 shrink-0 text-xs capitalize text-foreground sm:w-40">{label}</span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
         <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
       </div>
@@ -301,14 +301,13 @@ const PERSONALITY_POLES: Record<string, [string, string]> = {
 };
 
 function PersonalityBar({ traitKey, value }: { traitKey: string; value: number }) {
-  // value is -1..1; center is 0
   const [posLabel, negLabel] = PERSONALITY_POLES[traitKey] ?? [traitKey, ""];
   const absPct = Math.round(Math.abs(value) * 100);
   const isPositive = value >= 0;
   const label = isPositive ? posLabel : negLabel;
   return (
     <div className="flex items-center gap-3">
-      <span className="w-40 shrink-0 text-xs text-foreground">{label}</span>
+      <span className="w-28 shrink-0 text-xs text-foreground sm:w-40">{label}</span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
         <div
           className={`h-full rounded-full ${isPositive ? "bg-blue-500" : "bg-orange-400"}`}

@@ -1,103 +1,90 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Protect /admin/** and /api/admin/** with HTTP Basic Auth.
-// Set ADMIN_SECRET in your environment. Any username + the correct password
-// grants access.
+// Protect /admin/** (except /admin/login) and /api/admin/** with Supabase
+// session auth. Unauthenticated UI requests redirect to /admin/login;
+// unauthenticated API requests get a 401. The RBAC check (admin_users row)
+// happens inside the individual pages/routes via requireCounsellor() — here
+// we only gate on "has a valid Supabase session at all."
 //
-// SECURITY (production hardening):
-//   • FAIL-CLOSED: if ADMIN_SECRET is unset, access is DENIED, not granted. The
-//     admin dashboard exposes student PII (phone, district, minors' data), so an
-//     open-by-default policy is unsafe. To make local dev convenient, explicitly
-//     set ADMIN_SECRET=dev in .env.local — it is never undefined by accident in
-//     production this way.
-//   • BRUTE-FORCE THROTTLE: in-memory fixed-window limit of 10 failed attempts
-//     per IP per 10 minutes. After the limit, the IP gets 429s until the window
-//     resets. NOTE: this is in-memory and therefore per-instance on serverless
-//     (Vercel); it raises the bar against casual brute force but is not a full
-//     distributed protection — pair with the Redis rate limiter (see rate-limit
-//     TODO) for production scale. Even so, fail-closed is the critical fix.
-//
-// Uses a timing-safe comparison so the password cannot be leaked via response
-// timing differences.
+// Brute-force throttle: 10 failed login attempts per IP per 10 minutes → 429.
+// The /api/admin/auth login route is also covered by this.
 
 const MAX_FAILS = 10;
-const WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const WINDOW_MS = 10 * 60 * 1000;
 const failBuckets = new Map<string, { count: number; resetAt: number }>();
 
-function timingSafeEqual(a: string, b: string): boolean {
-  // Constant-time string comparison. Compares the full length of the longer
-  // string so the duration does not reveal the length of a correct prefix.
-  const max = Math.max(a.length, b.length);
-  let diff = a.length ^ b.length;
-  for (let i = 0; i < max; i++) {
-    const ca = i < a.length ? a.charCodeAt(i) : 0;
-    const cb = i < b.length ? b.charCodeAt(i) : 0;
-    diff |= ca ^ cb;
-  }
-  return diff === 0;
-}
-
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
   const isAdminUi = pathname.startsWith("/admin");
   const isAdminApi = pathname.startsWith("/api/admin");
   if (!isAdminUi && !isAdminApi) return NextResponse.next();
 
-  // FAIL-CLOSED: deny by default if no secret is configured.
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) {
-    console.error("[admin] ADMIN_SECRET is not set — denying access (fail-closed).");
-    return unauthorized();
-  }
-
-  // Identify the client for throttling: hashed IP from x-forwarded-for (the
-  // raw IP is never stored). Fall back to a synthetic key if no header.
-  const fwd = req.headers.get("x-forwarded-for") ?? "";
-  const ip = fwd.split(",")[0]?.trim() || "unknown";
-  const key = `${ip}`;
-
-  // Throttle check.
-  const now = Date.now();
-  const bucket = failBuckets.get(key);
-  if (bucket && now < bucket.resetAt && bucket.count >= MAX_FAILS) {
-    return new NextResponse("Too many failed attempts. Try again later.", {
-      status: 429,
-      headers: { "Retry-After": String(Math.ceil((bucket.resetAt - now) / 1000)) },
+  // Let the login page and its POST endpoint through without an auth check.
+  const isLoginPage = pathname === "/admin/login";
+  const isLoginApi = pathname === "/api/admin/auth";
+  if (isLoginPage || isLoginApi) {
+    // Still apply brute-force throttle on the login API.
+    if (isLoginApi && req.method === "POST") {
+      const fwd = req.headers.get("x-forwarded-for") ?? "";
+      const ip = fwd.split(",")[0]?.trim() || "unknown";
+      const now = Date.now();
+      const bucket = failBuckets.get(ip);
+      if (bucket && now < bucket.resetAt && bucket.count >= MAX_FAILS) {
+        return new NextResponse("Too many login attempts. Try again later.", {
+          status: 429,
+          headers: { "Retry-After": String(Math.ceil((bucket.resetAt - now) / 1000)) },
+        });
+      }
+    }
+    // Forward pathname so the layout always knows which page it's rendering.
+    return NextResponse.next({
+      request: { headers: new Headers({ ...Object.fromEntries(req.headers), "x-pathname": pathname }) },
     });
   }
 
-  const auth = req.headers.get("authorization") ?? "";
-  let passwordOk = false;
-  if (auth.startsWith("Basic ")) {
-    try {
-      const decoded = atob(auth.slice(6));
-      const password = decoded.slice(decoded.indexOf(":") + 1);
-      passwordOk = timingSafeEqual(password, secret);
-    } catch {
-      // malformed base64 — treat as a failure
-    }
-  }
-
-  if (passwordOk) {
-    // Clear any half-built bucket on success so a legit user isn't penalised.
-    failBuckets.delete(key);
-    return NextResponse.next();
-  }
-
-  // Record a failure.
-  const b = bucket && now < bucket.resetAt ? bucket : { count: 0, resetAt: now + WINDOW_MS };
-  b.count += 1;
-  if (!bucket || now >= (bucket.resetAt ?? 0)) b.resetAt = now + WINDOW_MS;
-  failBuckets.set(key, b);
-  return unauthorized();
-}
-
-function unauthorized() {
-  return new NextResponse("Unauthorized", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="PathFinder Admin"' },
+  // Build a response object so Supabase SSR can refresh the session cookie.
+  // Also forward the pathname so layouts can detect the login page reliably,
+  // even when a stale session cookie is still present after sign-out.
+  const res = NextResponse.next({
+    request: { headers: new Headers({ ...Object.fromEntries(req.headers), "x-pathname": pathname }) },
   });
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return req.cookies.getAll();
+      },
+      setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          res.cookies.set(name, value, options as Parameters<typeof res.cookies.set>[2]);
+        });
+      },
+    },
+  });
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    if (isAdminApi) {
+      return NextResponse.json(
+        { error: "Unauthorized. Sign in at /admin/login." },
+        { status: 401 }
+      );
+    }
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = "/admin/login";
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return res;
 }
 
-export const config = { matcher: ["/admin", "/admin/:path*", "/api/admin/:path*"] };
+export const config = {
+  matcher: ["/admin", "/admin/:path*", "/api/admin/:path*"],
+};
