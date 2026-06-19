@@ -259,12 +259,12 @@ export async function nextQuestion(params: {
         "Humanities: 'History / Political Science', 'English / Literature', 'Psychology', 'Economics'.\n" +
         "  • If asking what matters most in a career → use EXACTLY these four: " +
         "'High salary and fast growth', 'Stable job and job security', 'Work I am passionate about', 'Government or public service job'.\n" +
-        "  • INTEREST/ACTIVITY questions (any question about what they enjoy, like, or are drawn to): " +
-        "choices MUST be real activities or scenarios — NEVER bare field or domain names. " +
-        "GOOD choices: 'Caring for sick people and their families', 'Building apps and writing code', " +
-        "'Doing experiments and lab research', 'Teaching and helping students learn', " +
-        "'Managing and growing a business', 'Designing visuals and creative work'. " +
-        "BAD choices: 'Medicine', 'Technology', 'Science', 'Business', 'Engineering' — these are labels, not activities.\n" +
+        "  • INTEREST/ACTIVITY questions: the system captures interest in TWO phases and " +
+        "provides the exact choice set in your GAP #1 instruction. USE THOSE EXACT CHOICES — do not invent " +
+        "your own activities. Phase 1 asks 'which activity would you most enjoy doing regularly?' with " +
+        "stream-tailored activities. Phase 2 asks 'what are you drawn to watching, reading, or following?' " +
+        "with cross-domain options. Write your question to match whichever phase GAP #1 describes. " +
+        "Choices MUST be real activities/scenarios — NEVER bare field names ('Medicine', 'Technology').\n" +
         "  • If asking about their goal → use EXACTLY these four: 'Study a degree further', 'Get a job quickly', 'Prepare for govt exams (PSC/UPSC)', 'Start a business or an independent project'.\n" +
         "  • If asking about budget → use EXACTLY these four: 'Family can manage it', 'Manageable with effort', 'Need a scholarship or loan', 'Not sure about costs'.\n" +
         "  • If asking about location → use EXACTLY these four: 'Stay in Kerala', 'Anywhere in India', 'Open to studying abroad', 'Depends on the course'.\n" +

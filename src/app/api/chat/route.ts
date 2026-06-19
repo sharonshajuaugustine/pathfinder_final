@@ -4,6 +4,9 @@ import { getServiceClient } from "@/lib/supabase/admin";
 import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { nextQuestion, extractProfileDelta, type StudentContext } from "@/core/ai";
 import { mergeProfile, computeCompleteness, type ProfileDelta } from "@/core/profile-builder";
+import {
+  activitiesForStream, drawnToChoices, choiceLabelToCluster,
+} from "@/core/interest-questions";
 import type { ChatMessage } from "@/lib/groq";
 import type { StudentProfile } from "@/types/profile";
 
@@ -79,6 +82,13 @@ function directDeltaFromChoice(message: string): ProfileDelta | null {
     "Defence / adventure": "defence_adventure",
   };
   if (fieldMap[message]) return { interests: { [fieldMap[message]]: 0.7 } };
+
+  // Two-phase pinned interest choices (stream-tailored activities + drawn-to).
+  // These map DIRECTLY to a cluster — no LLM call, zero ambiguity, ~600ms saved.
+  // Pinned at 0.8: strong enough to clear the 0.3 capture threshold alone, and a
+  // matching answer across both phases reinforces via mergeProfile to ~0.9+.
+  const pinnedCluster = choiceLabelToCluster(message);
+  if (pinnedCluster) return { interests: { [pinnedCluster]: 0.8 } };
 
   // Common subject names → strongSubjects (avoids LLM call for simple subject answers)
   const subjectMap: Record<string, string> = {
@@ -402,11 +412,30 @@ export async function POST(req: NextRequest) {
 
     // Each gap: a stable id (shared with the client for follow-up capping) and
     // the instruction the AI uses to phrase the question.
+    // NOTE on interest: this is a TWO-PHASE capture (see interest-questions.ts).
+    //   • Phase 1 (interest not yet asked): "which activities do you enjoy?" —
+    //     stream-tailored activity choices.
+    //   • Phase 2 (interest asked once, still open): "what are you drawn to
+    //     watching/reading?" — a second, different angle so the two answers
+    //     triangulate the cluster. Phase is resolved below from gapState.
+    // The PINNED choices for the current phase are injected into the AI context
+    // and override whatever the AI generates, so the student always sees the
+    // curated stream-tailored set and a click maps directly to a cluster.
+    const interestAskedCount = readGapState(ctxProfile).interest?.asks ?? 0;
+    const interestPhase: "activities" | "drawnTo" = interestAskedCount >= 1 ? "drawnTo" : "activities";
+    const streamKey = ctxProfile?.academic?.stream;
+    const interestChoiceSet = interestPhase === "activities"
+      ? activitiesForStream(streamKey)
+      : drawnToChoices();
+    const interestPrompt = interestPhase === "activities"
+      ? `which ACTIVITY they would most enjoy doing regularly — use EXACTLY these 4 choices in this order: ${interestChoiceSet.choices.map((c) => `'${c.label}'`).join(", ")}`
+      : `what they are naturally DRAWN TO watching, reading, or following — use EXACTLY these choices: ${interestChoiceSet.choices.map((c) => `'${c.label}'`).join(", ")}`;
+
     const GAP_PROMPTS: Record<GapId, string> = {
       subjects: "which specific subjects they enjoy most or score best in — give 4 stream-appropriate subject names as choices",
       interest: sc
-        ? `what specifically draws them to "${sc}" and what daily activities in that field excite them`
-        : "what ACTIVITIES or TYPE OF DAILY WORK genuinely excites them — choices must describe real activities (e.g. 'Caring for patients', 'Building software', 'Running a business'), NOT bare field names",
+        ? `what specifically draws them to "${sc}" and what daily activities in that field excite them — use EXACTLY these 4 choices in this order: ${activitiesForStream(streamKey).choices.map((c) => `'${c.label}'`).join(", ")}`
+        : interestPrompt,
       goal: "their goal after school — study further, get a job, govt exams (PSC/UPSC), or start a business",
       priorities: "what matters most to them in a career — high salary and growth, job stability and security, following their passion, or government/public service",
       budget: "whether study costs are a concern for their family",
@@ -448,14 +477,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // A gap is ASKABLE if it's not yet captured AND has not exhausted its
-    // follow-up budget (fails > MAX_FAILS_PER_GAP means "rephrased once, still
-    // vague → soft-skip"). Core gaps get one extra attempt before soft-skip
-    // because they feed the engine directly.
+    // A gap is ASKABLE if it's not yet captured AND has not exhausted its budget.
+    //   • INTEREST is two-phase: it always gets exactly 2 asks (phase 1 activities,
+    //     phase 2 drawn-to) before it can be soft-skipped — UNLESS the student is
+    //     vague on both, in which case a third ask would nag, so we still cap.
+    //   • Other core gaps (subjects, goal): 1 follow-up after a vague answer.
+    //   • Soft gaps: 1 ask, soft-skip on a single vague answer.
     const askableGaps = GAP_IDS.filter((id) => {
       if (captured[id]) return false;
       const gs = gapState[id];
       if (!gs) return true;
+      if (id === "interest") {
+        // Allow up to 2 asks for the two phases; soft-skip if BOTH failed to
+        // capture anything (the student gave no usable signal either way).
+        if (gs.asks >= 2 && gs.fails >= 2) return false;
+        return gs.asks < 2 || gs.fails < 2;
+      }
       const budget = CORE_GAPS.has(id) ? MAX_FAILS_PER_GAP + 1 : MAX_FAILS_PER_GAP;
       return gs.fails <= budget;
     });
@@ -545,9 +582,18 @@ export async function POST(req: NextRequest) {
       .update({ status: "in_chat", updated_at: new Date().toISOString() })
       .eq("id", sessionId);
 
-    // gapId lets the client cap follow-ups: if the same gapId comes back twice,
-    // the student isn't answering it, so the client adds it to skipGaps.
-    return NextResponse.json({ question: q.content, stage, choices: q.choices, gapId: topGapId, done: false });
+    // PINNED INTEREST CHOICES OVERRIDE: when the next gap is interest, we ignore
+    // whatever choices the AI generated and return the curated stream-tailored
+    // (phase 1) or drawn-to (phase 2) set. This guarantees the student always
+    // sees consistent, stream-appropriate activities and a button click maps
+    // directly to a cluster (no LLM extraction). The AI still writes the question
+    // wording, but the options are ours.
+    let choices = q.choices;
+    if (topGapId === "interest" && !sc) {
+      choices = interestChoiceSet.choices.map((c) => c.label);
+    }
+
+    return NextResponse.json({ question: q.content, stage, choices, gapId: topGapId, done: false });
   } catch (e) {
     console.error(e);
     return serverError("Chat failed");
