@@ -277,7 +277,13 @@ export async function POST(req: NextRequest) {
       if (delta) {
         const merged = mergeProfile(prevProfile, delta);
         filledThisTurn = countCaptured(merged) > countCaptured(prevProfile);
-        const mergedWithState = { ...merged, _gapState: readGapState(prevProfile) };
+        const prevMeta = prevProfile as Record<string, unknown> | null;
+        const mergedWithState = {
+          ...merged,
+          _gapState: readGapState(prevProfile),
+          _lastGap: prevMeta?._lastGap,
+          _askingPermission: prevMeta?._askingPermission,
+        };
         await db.from("student_profiles").upsert(
           {
             session_id: sessionId,
@@ -397,7 +403,32 @@ export async function POST(req: NextRequest) {
     const captured = capturedDims(ctxProfile);
     const sc = ctxProfile?.aspiration?.statedCareer;
 
-    const interestAskedCount = readGapState(ctxProfile).interest?.asks ?? 0;
+    const CORE_GAPS = new Set<GapId>(["subjects", "interest", "goal"]);
+
+    // ── Server-side gap state ────────────────────────────────────────────────
+    // Update gap state BEFORE computing interestPhase so the phase advances
+    // correctly after the student answers a phase-1 question.
+    const gapState = readGapState(ctxProfile);
+    const wasAskingPermissionLastTurn = !!(ctxProfile as Record<string, unknown> | null)?._askingPermission;
+
+    if (answered) {
+      const lastGap = (ctxProfile as { _lastGap?: GapId } | null)?._lastGap;
+      if (lastGap && GAP_IDS.includes(lastGap)) {
+        const gs = (gapState[lastGap] ??= { asks: 0, fails: 0 });
+        if (wasAskingPermissionLastTurn) {
+          gs.permissionAsked = true;
+          if (message === "Let's move on") gs.permissionGranted = true;
+        } else {
+          gs.asks += 1;
+          if (!filledThisTurn) gs.fails += 1;
+        }
+      }
+    }
+
+    // Interest phase is determined by how many times the student has answered
+    // an interest question so far (after this turn's update). Phase 1 = activities
+    // (stream-tailored); phase 2+ = drawnTo (cross-domain drawn-to categories).
+    const interestAskedCount = gapState["interest"]?.asks ?? 0;
     const interestPhase: "activities" | "drawnTo" = interestAskedCount >= 1 ? "drawnTo" : "activities";
     const streamKey = ctxProfile?.academic?.stream;
     const interestChoiceSet = interestPhase === "activities"
@@ -419,28 +450,6 @@ export async function POST(req: NextRequest) {
       family: "whether their family has strong expectations about their career choice",
       workstyle: "how they prefer to work — with people, solo / focused, or outdoors / hands-on",
     };
-
-    const CORE_GAPS = new Set<GapId>(["subjects", "interest", "goal"]);
-
-    // ── Server-side gap state ────────────────────────────────────────────────
-    const gapState = readGapState(ctxProfile);
-    const wasAskingPermissionLastTurn = !!(ctxProfile as Record<string, unknown> | null)?._askingPermission;
-
-    if (answered) {
-      const lastGap = (ctxProfile as { _lastGap?: GapId } | null)?._lastGap;
-      if (lastGap && GAP_IDS.includes(lastGap)) {
-        const gs = (gapState[lastGap] ??= { asks: 0, fails: 0 });
-        if (wasAskingPermissionLastTurn) {
-          // Permission response — mark asked, grant if student said yes.
-          gs.permissionAsked = true;
-          if (message === "Let's move on") gs.permissionGranted = true;
-          // Don't increment asks/fails; this wasn't a content question.
-        } else {
-          gs.asks += 1;
-          if (!filledThisTurn) gs.fails += 1;
-        }
-      }
-    }
 
     // ── Askable gaps ─────────────────────────────────────────────────────────
     // Core gaps: always askable until captured or permission granted.
