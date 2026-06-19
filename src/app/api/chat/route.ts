@@ -14,12 +14,27 @@ const bodySchema = z.object({
   // true when the student clicked a predefined choice button — skips LLM extraction
   // and writes the profile delta directly, saving ~600ms per turn.
   isChoice: z.boolean().optional(),
-  // Gap ids the client wants skipped because they've already been asked the
-  // capped number of times without the student giving a captureable answer.
-  // The server filters these out of the gap list so the chat moves on instead
-  // of nagging the student about the same topic.
-  skipGaps: z.array(z.string().max(40)).max(12).optional(),
 });
+
+// ── Gap state machine (SERVER-SIDE, single source of truth) ───────────────────
+// The previous design split gap tracking across client + server, which caused
+// the bot to over-drill one topic or drift from the priority order. Now the
+// server tracks, per gap:
+//   asks   — how many times the gap has been posed as a question
+//   fails  — how many times the student answered but captured nothing (vague)
+// Each gap gets ONE follow-up: if the first answer captures nothing, the SAME
+// gap is rephrased with concrete examples exactly once. A second failure (or a
+// second ask) SOFT-SKIPS the gap — it's dropped from the askable list so the
+// conversation moves on and every gap still gets touched. State rides inside
+// the profile JSON (`_gapState`) so it survives across the stateless turns.
+const MAX_FAILS_PER_GAP = 1; // 1 follow-up, then soft-skip
+const HARD_TURN_CEILING = 14; // safety ceiling for the longest conversation
+type GapState = Record<string, { asks: number; fails: number }>;
+
+function readGapState(profile: unknown): GapState {
+  const g = (profile as { _gapState?: GapState } | null)?._gapState;
+  return g && typeof g === "object" ? g : {};
+}
 
 // The eight profile dimensions the chat tries to fill, in priority order.
 // Each maps a stable `id` (shared with the client for follow-up capping) to the
@@ -205,8 +220,7 @@ export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) return badRequest("Invalid chat payload", parsed.error.flatten());
 
-  const { sessionId, stage, message, isChoice, skipGaps } = parsed.data;
-  const skipSet = new Set<string>(skipGaps ?? []);
+  const { sessionId, stage, message, isChoice } = parsed.data;
   const limited = await enforceRateLimit(limiters.chat, "chat", [sessionId, ipHash]);
   if (limited) return limited;
 
@@ -255,10 +269,13 @@ export async function POST(req: NextRequest) {
         // Did this answer actually capture a new dimension? If not, the next
         // turn rephrases the same question with concrete examples.
         filledThisTurn = countCaptured(merged) > countCaptured(prevProfile);
+        // Preserve the engine bookkeeping field that mergeProfile drops (it
+        // returns a clean StudentProfile). Re-attach so gap state survives.
+        const mergedWithState = { ...merged, _gapState: readGapState(prevProfile) };
         await db.from("student_profiles").upsert(
           {
             session_id: sessionId,
-            profile: merged,
+            profile: mergedWithState,
             completeness_pct: computeCompleteness(merged),
             updated_at: new Date().toISOString(),
           },
@@ -398,38 +415,86 @@ export async function POST(req: NextRequest) {
       workstyle: "how they prefer to work — with people, solo / focused, or outdoors / hands-on",
     };
 
-    // Core gaps (subjects/interest/goal) feed the recommendation engine and must
-    // never be skipped — only the softer dimensions can be capped and dropped.
+    // Core gaps (subjects/interest/goal) feed the recommendation engine and are
+    // the highest priority — but they are NOT exempt from the follow-up cap. A
+    // student who simply won't answer "which subjects?" after a rephrased attempt
+    // should not stall the whole conversation. The assessment quiz + stream act
+    // as a backstop for un-captured core dimensions.
     const CORE_GAPS = new Set<GapId>(["subjects", "interest", "goal"]);
-    // Open gaps in priority order, minus any the client asked us to skip because
-    // they've already been asked the capped number of times.
-    const openGaps = GAP_IDS.filter(
-      (id) => !captured[id] && (CORE_GAPS.has(id) || !skipSet.has(id))
-    );
-    const topGapId: GapId | null = openGaps[0] ?? null;
-    const remainingGaps: string[] = openGaps.map((id) => GAP_PROMPTS[id]);
+
+    // ── Server-side gap state ────────────────────────────────────────────────
+    // gapState tracks how many times each gap has been asked and how many times
+    // the student's answer failed to capture a dimension. This is the single
+    // source of truth — the client no longer sends skipGaps.
+    const gapState = readGapState(ctxProfile);
+    // Update state for the gap that was JUST asked (the one the AI posed last
+    // turn, which the student just answered). We know a capture-failure happened
+    // when the student answered but filledThisTurn is false.
+    if (answered) {
+      const lastAsked = (history ?? [])
+        .filter((h) => h.role === "assistant")
+        .map((h) => h.content as string)
+        .slice(-1)[0];
+      // The assistant message we're about to record carries no gapId, but the
+      // client echoes back via stage; instead, infer the asked gap from GAP_PROMPTS
+      // by matching. Simpler + robust: track the LAST gap we returned last turn.
+      // We persist gapState with a `lastGap` marker set when we emit a question.
+      const lastGap = (ctxProfile as { _lastGap?: GapId } | null)?._lastGap;
+      if (lastGap && GAP_IDS.includes(lastGap)) {
+        const gs = (gapState[lastGap] ??= { asks: 0, fails: 0 });
+        gs.asks += 1;
+        if (!filledThisTurn) gs.fails += 1;
+        void lastAsked; // (kept for future richer inference; not needed now)
+      }
+    }
+
+    // A gap is ASKABLE if it's not yet captured AND has not exhausted its
+    // follow-up budget (fails > MAX_FAILS_PER_GAP means "rephrased once, still
+    // vague → soft-skip"). Core gaps get one extra attempt before soft-skip
+    // because they feed the engine directly.
+    const askableGaps = GAP_IDS.filter((id) => {
+      if (captured[id]) return false;
+      const gs = gapState[id];
+      if (!gs) return true;
+      const budget = CORE_GAPS.has(id) ? MAX_FAILS_PER_GAP + 1 : MAX_FAILS_PER_GAP;
+      return gs.fails <= budget;
+    });
+    const topGapId: GapId | null = askableGaps[0] ?? null;
+    const remainingGaps: string[] = askableGaps.map((id) => GAP_PROMPTS[id]);
 
     // ── Stop condition ────────────────────────────────────────────────────────
     // The chat ends when we have ENOUGH to recommend — not at a fixed count.
-    // CORE (subjects + interest + goal) is mandatory for a "satisfied" stop: these
-    // feed aptitude and the recommendation engine, so we never end without them
-    // unless the student simply won't answer (exhaustion / hard ceiling).
-    //   • core captured AND 5+ of 8 dimensions → plenty of signal, stop.
-    //   • core captured AND 7+ questions answered → stop.
-    //   • no askable gaps remain (all captured or skipped) → stop.
-    //   • hard ceiling of 12 answered questions → stop no matter what.
+    // CORE (subjects + interest + goal) is strongly preferred but the chat can
+    // still end if those gaps have been soft-skipped (student won't answer) and
+    // the rest is covered. The assessment quiz backstops un-captured core dims.
+    //   • core captured AND 5+ of 8 dimensions AND priorities+family covered → stop.
+    //   • core captured AND priorities covered AND 8+ questions answered → stop.
+    //   • no askable gaps remain (all captured or soft-skipped) → stop.
+    //   • hard ceiling of 14 answered questions → stop no matter what.
     const capturedCount = countCaptured(ctxProfile);
     const coreCaptured = captured.subjects && captured.interest && captured.goal;
     const answeredCount = (history ?? []).filter((h) => h.role === "user").length;
-    // Require core + priorities + family before the count-based stop.
-    // Priorities feeds the recommendation engine directly; family is soft but
-    // always askable in 1 turn. This prevents stopping after 2–3 turns when
-    // the LLM infers budget/location from stream context, leaving these dims uncovered.
     const done =
       (coreCaptured && captured.priorities && captured.family && capturedCount >= 5) ||
       (coreCaptured && captured.priorities && answeredCount >= 8) ||
-      openGaps.length === 0 ||
-      answeredCount >= 12;
+      askableGaps.length === 0 ||
+      answeredCount >= HARD_TURN_CEILING;
+
+    // Persist the updated gap state + lastGap marker before deciding next step.
+    // This must happen whether or not we stop, so a resumed session is consistent.
+    if (answered) {
+      const { data: profRow } = await db
+        .from("student_profiles")
+        .select("profile")
+        .eq("session_id", sessionId)
+        .maybeSingle();
+      const cur = (profRow?.profile ?? {}) as Record<string, unknown>;
+      cur._gapState = gapState;
+      cur._lastGap = topGapId; // remember which gap the NEXT question targets
+      await db.from("student_profiles")
+        .update({ profile: cur, updated_at: new Date().toISOString() })
+        .eq("session_id", sessionId);
+    }
 
     // When enough is captured, end the chat without burning an LLM call on a
     // question the student would never see. The client moves to the assessment.
@@ -440,8 +505,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ done: true, stage });
     }
 
-    // A follow-up = the student answered but captured nothing new. Tell the AI to
-    // rephrase the SAME gap with concrete examples instead of a fresh topic.
+    // A follow-up = the student answered but captured nothing new, AND the same
+    // gap is still askable (within its follow-up budget). Tell the AI to rephrase
+    // the SAME gap with concrete examples instead of a fresh topic.
     const isFollowUp = answered && !filledThisTurn && topGapId !== null;
 
     const rawStream = ctxProfile?.academic?.stream as string | undefined;

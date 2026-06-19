@@ -244,10 +244,12 @@ export async function nextQuestion(params: {
       role: "user",
       content:
         'Respond with valid JSON: { "question": "...", "choices": ["...", "...", "...", "..."] }\n\n' +
-        "STEP 1 — Look at the GAPS list above. Your next question MUST fill GAP #1. This is mandatory — the GAPS list decides your topic, NOT the student's last answer.\n\n" +
-        "STEP 2 — Do NOT drill deeper into a topic that is already captured. If interest/field is already known, do NOT ask more about subjects, fields, or what they enjoy — move on to their goal, budget, or location. One light acknowledgement of their last answer is fine, but the QUESTION must target GAP #1.\n\n" +
-        "STEP 3 — Check history: never repeat a topic already asked. Never ask a hyper-specific follow-up (e.g. 'which hospital ward' or 'which exact task') — stay at the level of choosing a direction, goal, or practical constraint.\n\n" +
-        'STEP 4 — Write the JSON:\n' +
+        "STEP 1 — THE MOST IMPORTANT RULE: Your next question MUST be about GAP #1 ONLY. The GAPS list (above, in priority order) decides your topic. NOT the student's last answer. If GAP #1 is 'goal', you ask about goal. If it is 'budget', you ask about budget. Do not let the conversation drift onto any other topic.\n\n" +
+        "STEP 2 — NEVER re-ask a captured topic. If the context says a dimension is ALREADY CAPTURED (interest known, subjects known, goal known), you are FORBIDDEN from asking anything more about it. Even if their last answer was interesting, move to GAP #1. Re-exploring a captured topic is the single worst mistake you can make.\n\n" +
+        "STEP 3 — NEVER drill into sub-details. Stay at the level of 'choose a direction'. Do NOT ask 'which hospital ward?', 'which programming language?', 'which type of patients?' — those are too deep. One question per topic, then move on. If GAP #1 is already broadly answered by something they said, treat it as captured and the system will give you the next gap.\n\n" +
+        "STEP 4 — FOLLOW-UP mode (only when 'FOLLOW-UP NEEDED' appears in context): the student's last answer to GAP #1 was too vague. Ask about GAP #1 AGAIN, but rephrase it more simply with 4 concrete everyday example choices to make it easy. Do NOT repeat the same wording. This rephrase happens AT MOST ONCE — if they are still vague after this, the system moves on for you.\n\n" +
+        "STEP 5 — Check history: never repeat a question already asked in this conversation. Never repeat a topic.\n\n" +
+        'STEP 6 — Write the JSON:\n' +
         '  "question": A single, direct question about GAP #1. Max 20 words. MUST end with "?". No preamble, no acknowledgement of their previous answer — just ask the question cleanly.\n' +
         '  "choices": exactly 4 options that DIRECTLY answer your question.\n' +
         "  • If asking which subjects they enjoy or score best in → give 4 subject names from their stream. " +
@@ -268,10 +270,12 @@ export async function nextQuestion(params: {
         "  • If asking about location → use EXACTLY these four: 'Stay in Kerala', 'Anywhere in India', 'Open to studying abroad', 'Depends on the course'.\n" +
         "  • If asking about family expectations → use EXACTLY these four: " +
         "'They are fully supportive of my choice', 'They have some preferences', 'They have strong career expectations', 'We haven\\'t discussed it yet'.\n" +
+        "  • If asking about work style → use EXACTLY these four: 'With people (patients / students / clients)', 'Solo work (coding / writing / research)', 'Outdoors / fieldwork / hands-on', 'Mix of both'.\n" +
         "  • Keep every option realistic for the student's stream.\n\n" +
         "GUARDRAILS:\n" +
         "• One question only. Never recommend careers or colleges.\n" +
-        "• The GAPS list is authoritative. Never re-explore a captured topic just because the last answer was interesting.\n" +
+        "• The GAPS list is authoritative and ordered. GAP #1 is your ONLY topic. Never re-explore a captured topic.\n" +
+        "• Never drill into sub-details of a topic (no 'which exact...', 'which specific kind of...').\n" +
         "• If statedCareer is known, do not ask 'what do you want to be?' — target the next gap instead.\n" +
         "• If the student said their FAMILY has a preference: ask what the STUDENT personally enjoys.",
     },

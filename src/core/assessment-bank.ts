@@ -1,11 +1,93 @@
 import type { AssessmentItem } from "@/types/assessment";
 
-// 10 general interest-discovery questions.
-// Choices describe values, activities, and feelings — never field names or careers.
-// The signal system maps each choice to interest clusters behind the scenes.
+// ---------------------------------------------------------------------------
+// Assessment bank — a BLEND of real aptitude tests and interest discovery.
 //
-// Server-only. GET /api/assessment strips signals before sending to the client.
+// Design rationale:
+//   • 5 APTITUDE questions (one per dimension: numerical, logical, verbal,
+//     spatial, scientific). Each has exactly one correct answer scored 100 and
+//     distractors scored 0. This gives the scoring engine DIRECT, reliable
+//     aptitude signals instead of inferring them all from subjects. Aptitude is
+//     25% of the fit score, so measuring it directly materially improves
+//     recommendation accuracy.
+//   • 5 INTEREST questions (the strongest activity/scenario-based ones). These
+//     supplement chat interest capture and add personality + RIASEC signals.
+//     Each choice maps to interest clusters (0..1), so the engine gets real
+//     interest data even if chat capture was thin.
+//
+// Questions are short and written for a 16–18 year old in Kerala. Aptitude items
+// are calibrated to be solvable in ~30s — they distinguish aptitude, not speed
+// of complex calculation. Server-only: GET /api/assessment strips signals.
+// ---------------------------------------------------------------------------
+
 export const ASSESSMENT_ITEMS: AssessmentItem[] = [
+
+  // ── APTITUDE: NUMERICAL ──────────────────────────────────────────────────────
+  {
+    id: "apt_numerical",
+    dimension: "numerical",
+    questionText: "A shop gives 20% off, then another 10% off the new price. What single discount is that overall?",
+    choices: [
+      { id: "a", text: "28%", signals: [{ score: 100 }] }, // 0.8 * 0.9 = 0.72 → 28% off (correct)
+      { id: "b", text: "30%", signals: [{ score: 0 }] },   // naive add
+      { id: "c", text: "32%", signals: [{ score: 0 }] },
+      { id: "d", text: "26%", signals: [{ score: 0 }] },
+    ],
+  },
+
+  // ── APTITUDE: LOGICAL ────────────────────────────────────────────────────────
+  {
+    id: "apt_logical",
+    dimension: "logical",
+    questionText: "If all 'Blins' are 'Frops', and some 'Frops' are 'Kazz', which MUST be true?",
+    choices: [
+      { id: "a", text: "Some Blins might be Kazz", signals: [{ score: 0 }] },   // 'might' — not a MUST
+      { id: "b", text: "No Blin is a Kazz", signals: [{ score: 0 }] },
+      { id: "c", text: "None of these must be true", signals: [{ score: 100 }] }, // overlap need not include Blins
+      { id: "d", text: "All Frops are Blins", signals: [{ score: 0 }] },
+    ],
+  },
+
+  // ── APTITUDE: VERBAL ─────────────────────────────────────────────────────────
+  {
+    id: "apt_verbal",
+    dimension: "verbal",
+    questionText: "Pick the word most nearly OPPOSITE in meaning to 'TRANSPARENT' (as in a transparent excuse).",
+    choices: [
+      { id: "a", text: "Deceptive", signals: [{ score: 100 }] }, // correct antonym in this sense
+      { id: "b", text: "Clear", signals: [{ score: 0 }] },
+      { id: "c", text: "Visible", signals: [{ score: 0 }] },
+      { id: "d", text: "Honest", signals: [{ score: 0 }] },
+    ],
+  },
+
+  // ── APTITUDE: SPATIAL ────────────────────────────────────────────────────────
+  {
+    id: "apt_spatial",
+    dimension: "spatial",
+    questionText: "A square paper is folded once in half, then a small triangle is cut from one corner of the folded edge. Unfolded, how many triangular holes appear?",
+    choices: [
+      { id: "a", text: "1", signals: [{ score: 0 }] },
+      { id: "b", text: "2", signals: [{ score: 100 }] }, // symmetric across the fold → 2 holes
+      { id: "c", text: "3", signals: [{ score: 0 }] },
+      { id: "d", text: "4", signals: [{ score: 0 }] },
+    ],
+  },
+
+  // ── APTITUDE: SCIENTIFIC ─────────────────────────────────────────────────────
+  {
+    id: "apt_scientific",
+    dimension: "scientific",
+    questionText: "A metal ball and a feather are dropped inside a sealed tube with all air removed. What happens?",
+    choices: [
+      { id: "a", text: "The ball hits the bottom first", signals: [{ score: 0 }] },
+      { id: "b", text: "The feather hits the bottom first", signals: [{ score: 0 }] },
+      { id: "c", text: "They hit the bottom at the same time", signals: [{ score: 100 }] }, // no air resistance
+      { id: "d", text: "The feather floats and never falls", signals: [{ score: 0 }] },
+    ],
+  },
+
+  // ── INTEREST: activity scenarios (also yield personality + RIASEC) ───────────
 
   {
     id: "int_01",
@@ -141,98 +223,6 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
   {
     id: "int_04",
     dimension: "personality",
-    questionText: "Which kind of mistake bothers you the most when you make it?",
-    choices: [
-      {
-        id: "a",
-        text: "A mistake that hurt someone's feelings or made their situation worse",
-        signals: [
-          { trait: "social", traitValue: 0.9 },
-          { interest: "helping_teaching", interestValue: 0.6 },
-          { interest: "health_medicine", interestValue: 0.4 },
-        ],
-      },
-      {
-        id: "b",
-        text: "A mistake that broke a system or process others were depending on",
-        signals: [
-          { interest: "technology_coding", interestValue: 0.5 },
-          { interest: "building_engineering", interestValue: 0.5 },
-          { trait: "analytical", traitValue: 0.7 },
-          { trait: "structured", traitValue: 0.6 },
-        ],
-      },
-      {
-        id: "c",
-        text: "A mistake that missed a good opportunity to earn or grow",
-        signals: [
-          { interest: "business_money", interestValue: 0.8 },
-          { trait: "risk_taking", traitValue: 0.6 },
-          { riasec: "enterprising", riasecValue: 0.7 },
-        ],
-      },
-      {
-        id: "d",
-        text: "A mistake that made something look, sound, or feel wrong or ugly",
-        signals: [
-          { interest: "design_visual", interestValue: 0.8 },
-          { interest: "media_communication", interestValue: 0.5 },
-          { riasec: "artistic", riasecValue: 0.7 },
-        ],
-      },
-    ],
-  },
-
-  {
-    id: "int_05",
-    dimension: "personality",
-    questionText: "Which type of school day would you enjoy the most?",
-    choices: [
-      {
-        id: "a",
-        text: "Doing a lab experiment or studying how the human body works",
-        signals: [
-          { interest: "science_research", interestValue: 0.7 },
-          { interest: "health_medicine", interestValue: 0.6 },
-          { trait: "analytical", traitValue: 0.6 },
-          { riasec: "investigative", riasecValue: 0.7 },
-        ],
-      },
-      {
-        id: "b",
-        text: "Building or assembling something in a workshop or computer lab",
-        signals: [
-          { interest: "building_engineering", interestValue: 0.7 },
-          { interest: "technology_coding", interestValue: 0.6 },
-          { trait: "practical", traitValue: 0.7 },
-        ],
-      },
-      {
-        id: "c",
-        text: "Debating, performing, or presenting in front of the class",
-        signals: [
-          { interest: "law_justice", interestValue: 0.5 },
-          { interest: "media_communication", interestValue: 0.6 },
-          { trait: "social", traitValue: 0.7 },
-          { riasec: "enterprising", riasecValue: 0.6 },
-        ],
-      },
-      {
-        id: "d",
-        text: "Organising a school event, fundraiser, or team activity",
-        signals: [
-          { interest: "business_money", interestValue: 0.6 },
-          { interest: "helping_teaching", interestValue: 0.5 },
-          { trait: "social", traitValue: 0.6 },
-          { riasec: "enterprising", riasecValue: 0.7 },
-        ],
-      },
-    ],
-  },
-
-  {
-    id: "int_06",
-    dimension: "personality",
     questionText: "Which person's real-life story would you most enjoy reading about?",
     choices: [
       {
@@ -275,52 +265,7 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
   },
 
   {
-    id: "int_07",
-    dimension: "personality",
-    questionText: "What does your ideal workplace look and feel like?",
-    choices: [
-      {
-        id: "a",
-        text: "A place where people come to you for care, advice, or support",
-        signals: [
-          { interest: "health_medicine", interestValue: 0.6 },
-          { interest: "helping_teaching", interestValue: 0.6 },
-          { trait: "social", traitValue: 0.8 },
-        ],
-      },
-      {
-        id: "b",
-        text: "A screen, tools, and a quiet space to build or solve something",
-        signals: [
-          { interest: "technology_coding", interestValue: 0.7 },
-          { interest: "building_engineering", interestValue: 0.5 },
-          { trait: "analytical", traitValue: 0.6 },
-        ],
-      },
-      {
-        id: "c",
-        text: "A creative studio with cameras, canvases, or design tools around you",
-        signals: [
-          { interest: "design_visual", interestValue: 0.8 },
-          { interest: "media_communication", interestValue: 0.6 },
-          { riasec: "artistic", riasecValue: 0.8 },
-        ],
-      },
-      {
-        id: "d",
-        text: "Outdoors or on the move — nature, construction sites, or the field",
-        signals: [
-          { interest: "nature_agriculture", interestValue: 0.7 },
-          { interest: "defence_adventure", interestValue: 0.5 },
-          { interest: "building_engineering", interestValue: 0.4 },
-          { trait: "practical", traitValue: 0.7 },
-        ],
-      },
-    ],
-  },
-
-  {
-    id: "int_08",
+    id: "int_05",
     dimension: "personality",
     questionText: "If you volunteered for a community project, which would feel most meaningful?",
     choices: [
@@ -355,97 +300,6 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
         signals: [
           { interest: "nature_agriculture", interestValue: 0.9 },
           { trait: "practical", traitValue: 0.5 },
-        ],
-      },
-    ],
-  },
-
-  {
-    id: "int_09",
-    dimension: "personality",
-    questionText: "You finish a big task and feel genuinely proud. Which scenario is it?",
-    choices: [
-      {
-        id: "a",
-        text: "Someone is healthier, safer, or happier directly because of what you did",
-        signals: [
-          { interest: "health_medicine", interestValue: 0.7 },
-          { interest: "helping_teaching", interestValue: 0.6 },
-          { trait: "social", traitValue: 0.8 },
-        ],
-      },
-      {
-        id: "b",
-        text: "A product, tool, or system you built is now being used by real people",
-        signals: [
-          { interest: "technology_coding", interestValue: 0.8 },
-          { interest: "building_engineering", interestValue: 0.5 },
-          { trait: "analytical", traitValue: 0.5 },
-        ],
-      },
-      {
-        id: "c",
-        text: "Something you created — a design, story, or video — got people talking",
-        signals: [
-          { interest: "media_communication", interestValue: 0.7 },
-          { interest: "design_visual", interestValue: 0.7 },
-          { riasec: "artistic", riasecValue: 0.7 },
-        ],
-      },
-      {
-        id: "d",
-        text: "A case was won, a wrong was corrected, or justice was served",
-        signals: [
-          { interest: "law_justice", interestValue: 0.9 },
-          { trait: "analytical", traitValue: 0.6 },
-          { riasec: "enterprising", riasecValue: 0.5 },
-        ],
-      },
-    ],
-  },
-
-  {
-    id: "int_10",
-    dimension: "personality",
-    questionText: "Which statement sounds most like the real you?",
-    choices: [
-      {
-        id: "a",
-        text: "I feel happiest when I directly help someone and can see they're better for it",
-        signals: [
-          { interest: "helping_teaching", interestValue: 0.7 },
-          { interest: "health_medicine", interestValue: 0.6 },
-          { trait: "social", traitValue: 0.9 },
-        ],
-      },
-      {
-        id: "b",
-        text: "I feel happiest when I figure out how something works or build something that functions",
-        signals: [
-          { interest: "science_research", interestValue: 0.5 },
-          { interest: "technology_coding", interestValue: 0.6 },
-          { interest: "building_engineering", interestValue: 0.5 },
-          { trait: "analytical", traitValue: 0.8 },
-          { riasec: "investigative", riasecValue: 0.7 },
-        ],
-      },
-      {
-        id: "c",
-        text: "I feel happiest when I create something that people enjoy, admire, or are moved by",
-        signals: [
-          { interest: "design_visual", interestValue: 0.7 },
-          { interest: "media_communication", interestValue: 0.7 },
-          { riasec: "artistic", riasecValue: 0.9 },
-        ],
-      },
-      {
-        id: "d",
-        text: "I feel happiest when I take charge, make things happen, and see real results",
-        signals: [
-          { interest: "business_money", interestValue: 0.7 },
-          { interest: "defence_adventure", interestValue: 0.4 },
-          { trait: "risk_taking", traitValue: 0.8 },
-          { riasec: "enterprising", riasecValue: 0.8 },
         ],
       },
     ],

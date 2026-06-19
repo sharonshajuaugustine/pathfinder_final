@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --import tsx src/core/__tests__/*.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -33,6 +34,7 @@
     "eslint-config-next": "^14.2.35",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
+    "tsx": "^4.22.4",
     "typescript": "^5.6.2"
   }
 }

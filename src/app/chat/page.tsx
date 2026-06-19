@@ -12,8 +12,8 @@ import type { AssessmentItemPublic } from "@/types/assessment";
 // ceiling so a student who never answers clearly still finishes.
 const STAGES = ["interests", "aspiration", "constraints"];
 const STAGE_LABELS = ["Your direction", "Your goals", "Practicalities"];
-const TURNS_PER_STAGE = 3;
-const HARD_MAX_TURNS = 12;
+const TURNS_PER_STAGE = 4;
+const HARD_MAX_TURNS = 14;
 
 type Msg = { role: "assistant" | "user"; content: string };
 
@@ -34,11 +34,9 @@ function ChatInner() {
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const startedRef = useRef(false);
-  // Follow-up capping: count how many times each gap has been asked. When a gap
-  // is asked twice without being answered, add it to skipGaps so the server
-  // moves on instead of nagging the student about the same topic.
-  const asksByGapRef = useRef<Record<string, number>>({});
-  const skipGapsRef = useRef<string[]>([]);
+  // NOTE: gap follow-up capping is now SERVER-SIDE (see /api/chat). The server is
+  // the single source of truth for which gap to ask and when to soft-skip, so the
+  // client no longer tracks skipGaps or asksByGap.
 
   // ── Assessment state ────────────────────────────────────────────────────────
   const [assessmentItems, setAssessmentItems] = useState<AssessmentItemPublic[]>([]);
@@ -94,7 +92,7 @@ function ChatInner() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId, stage, message, isChoice, skipGaps: skipGapsRef.current }),
+        body: JSON.stringify({ sessionId, stage, message, isChoice }),
       });
       if (res.status === 429) {
         setChatError("The AI is busy right now. Please wait a moment and try again.");
@@ -113,15 +111,6 @@ function ChatInner() {
       if (data.question) {
         setMessages((m) => [...m, { role: "assistant", content: data.question }]);
         setChoices(data.choices ?? []);
-        // Cap follow-ups: a gap asked twice without an answer is added to
-        // skipGaps so the next request moves the conversation on.
-        if (data.gapId) {
-          const n = (asksByGapRef.current[data.gapId] ?? 0) + 1;
-          asksByGapRef.current[data.gapId] = n;
-          if (n >= 2 && !skipGapsRef.current.includes(data.gapId)) {
-            skipGapsRef.current.push(data.gapId);
-          }
-        }
       }
     } catch {
       setChatError("Connection error. Please check your internet and try again.");
