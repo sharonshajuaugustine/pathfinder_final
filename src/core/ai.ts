@@ -217,10 +217,12 @@ export async function nextQuestion(params: {
   }
   if (ctx?.followUp) {
     contextLines.push(
-      `FOLLOW-UP NEEDED — the student's last answer was vague or unclear, so GAP #1 is still empty. ` +
-      `Ask about GAP #1 AGAIN, but rephrase it more simply and give 4 concrete, everyday example choices ` +
-      `to make it easy to answer. Warmly acknowledge what they did say, then re-ask with examples. ` +
-      `Do NOT just repeat the same wording.`
+      `FOLLOW-UP NEEDED — the student's last answer did not fill GAP #1. ` +
+      `Do NOT repeat or rephrase the same question. Try a completely different angle that approaches the same gap from another direction:\n` +
+      `  • If they said "I don't have any" or "I don't know" about subjects → ask what subject feels LEAST boring to them, or what they are best at even if they don't love it, or what they do after school.\n` +
+      `  • If they said "I don't know" about their interest or goal → give a completely different scenario or activity as an example, or ask what kind of people they admire.\n` +
+      `  • If they said they are still figuring it out → try narrowing: "What do you spend most time on when you're not studying?"\n` +
+      `  A different angle means a DIFFERENT QUESTION TYPE — not just different words for the same question.`
     );
   }
   if (ctx?.remainingGaps?.length) {
@@ -247,10 +249,10 @@ export async function nextQuestion(params: {
         "STEP 1 — THE MOST IMPORTANT RULE: Your next question MUST be about GAP #1 ONLY. The GAPS list (above, in priority order) decides your topic. NOT the student's last answer. If GAP #1 is 'goal', you ask about goal. If it is 'budget', you ask about budget. Do not let the conversation drift onto any other topic.\n\n" +
         "STEP 2 — NEVER re-ask a captured topic. If the context says a dimension is ALREADY CAPTURED (interest known, subjects known, goal known), you are FORBIDDEN from asking anything more about it. Even if their last answer was interesting, move to GAP #1. Re-exploring a captured topic is the single worst mistake you can make.\n\n" +
         "STEP 3 — NEVER drill into sub-details. Stay at the level of 'choose a direction'. Do NOT ask 'which hospital ward?', 'which programming language?', 'which type of patients?' — those are too deep. One question per topic, then move on. If GAP #1 is already broadly answered by something they said, treat it as captured and the system will give you the next gap.\n\n" +
-        "STEP 4 — FOLLOW-UP mode (only when 'FOLLOW-UP NEEDED' appears in context): the student's last answer to GAP #1 was too vague. Ask about GAP #1 AGAIN, but rephrase it more simply with 4 concrete everyday example choices to make it easy. Do NOT repeat the same wording. This rephrase happens AT MOST ONCE — if they are still vague after this, the system moves on for you.\n\n" +
+        "STEP 4 — FOLLOW-UP mode (only when 'FOLLOW-UP NEEDED' appears in context): the student's last answer to GAP #1 was not enough. Do NOT rephrase the same question — try a genuinely different angle. If they said they have no subjects they like, ask what they are best at even if they don't enjoy it, or what they do after school. If they said 'I don't know' about their interest, give a concrete scenario from a different direction. Build on exactly what they told you — a different question type, not the same question with new words.\n\n" +
         "STEP 5 — Check history: never repeat a question already asked in this conversation. Never repeat a topic.\n\n" +
         'STEP 6 — Write the JSON:\n' +
-        '  "question": A single, direct question about GAP #1. Max 20 words. MUST end with "?". No preamble, no acknowledgement of their previous answer — just ask the question cleanly.\n' +
+        '  "question": A single, direct question about GAP #1. Max 25 words. MUST end with "?". In FOLLOW-UP mode you may open with one very short phrase that acknowledges what they said (e.g. "That\'s okay —" or "Fair enough —") before asking from the new angle. Otherwise no preamble.\n' +
         '  "choices": exactly 4 options that DIRECTLY answer your question.\n' +
         "  • If asking which subjects they enjoy or score best in → give 4 subject names from their stream. " +
         "Science (Bio): 'Biology', 'Chemistry', 'Physics', 'Mathematics'. " +
