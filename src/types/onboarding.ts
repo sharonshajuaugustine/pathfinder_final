@@ -21,15 +21,13 @@ export const KERALA_DISTRICTS = [
 ] as const;
 
 // Onboarding form schema. Validated on the SERVER before any PII write.
+// name, age, stream, and percentage are captured earlier in the start quiz and
+// fetched from student_profiles at submission time — not re-collected here.
 export const onboardingSchema = z.object({
   sessionId: z.string().uuid(),
-  name: z.string().min(2).max(80),
   phone: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"),
   email: z.string().email(),
-  age: z.number().int().min(14).max(30),
   district: z.enum(KERALA_DISTRICTS),
-  stream: z.enum(STREAMS),
-  percentage: z.number().min(0).max(100),
   gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(),
   preferredLanguage: z.enum(LANGUAGES).default("en"),
   consentGiven: z.literal(true, {

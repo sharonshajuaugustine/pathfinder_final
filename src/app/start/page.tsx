@@ -95,6 +95,8 @@ const PRIORITY_CHOICES = [
   { label: "Government or public service", value: "government_service" },
 ];
 
+const TOTAL_QUESTIONS = 6;
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Phase = "questions" | "loading" | "result";
@@ -140,10 +142,17 @@ export default function StartPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState(false);
 
-  // Subject multi-select
+  // Q0: name + age
+  const [name, setName] = useState("");
+  const [age, setAge] = useState("");
+
+  // Q1: stream + percentage
+  const [percentage, setPercentage] = useState("");
+
+  // Q2: subject multi-select
   const [selectedSubjects, setSelectedSubjects] = useState<Set<string>>(new Set());
 
-  // Free-text input
+  // Free-text input (Q2–Q5)
   const [showText, setShowText] = useState(false);
   const [textVal, setTextVal] = useState("");
   const textRef = useRef<HTMLInputElement>(null);
@@ -170,35 +179,39 @@ export default function StartPage() {
       .catch(() => setSessionError(true));
   }, []);
 
-  function getChoices() {
-    const s = stream ?? "science_bio";
-    switch (qIndex) {
-      case 0: return STREAM_CHOICES;
-      case 1: return SUBJECT_CHOICES[s];
-      case 2: return INTEREST_CHOICES[s];
-      case 3: return GOAL_CHOICES;
-      case 4: return PRIORITY_CHOICES;
-      default: return [];
-    }
+  function getLabel() {
+    return ["About You", "Your Stream", "Your Subjects", "Your Interests", "Your Goal", "Your Priorities"][qIndex] ?? "";
   }
 
   function getQuestion() {
     switch (qIndex) {
-      case 0: return "Which Plus Two stream are you in?";
-      case 1: return "Which subjects are you strongest in? (pick up to 2)";
-      case 2: return "Which of these would you most enjoy doing every day?";
-      case 3: return "What's your main plan after Plus Two?";
-      case 4: return "What matters most in a career for you?";
+      case 0: return "What's your name and age?";
+      case 1: return "Which Plus Two stream are you in?";
+      case 2: return "Which subjects are you strongest in? (pick up to 2)";
+      case 3: return "Which of these would you most enjoy doing every day?";
+      case 4: return "What's your main plan after Plus Two?";
+      case 5: return "What matters most in a career for you?";
       default: return "";
+    }
+  }
+
+  function getChoices() {
+    const s = stream ?? "science_bio";
+    switch (qIndex) {
+      case 2: return SUBJECT_CHOICES[s];
+      case 3: return INTEREST_CHOICES[s];
+      case 4: return GOAL_CHOICES;
+      case 5: return PRIORITY_CHOICES;
+      default: return [];
     }
   }
 
   function getTextPlaceholder() {
     switch (qIndex) {
-      case 1: return "e.g. Applied Statistics, Physical Education…";
-      case 2: return "e.g. I love designing posters, writing stories…";
-      case 3: return "e.g. I want to go abroad for studies…";
-      case 4: return "e.g. Work-life balance matters most to me…";
+      case 2: return "e.g. Applied Statistics, Physical Education…";
+      case 3: return "e.g. I love designing posters, writing stories…";
+      case 4: return "e.g. I want to go abroad for studies…";
+      case 5: return "e.g. Work-life balance matters most to me…";
       default: return "Type your answer…";
     }
   }
@@ -210,7 +223,6 @@ export default function StartPage() {
         next.delete(value);
       } else {
         if (next.size >= 2) {
-          // Replace the oldest selection
           const first = next.values().next().value as string;
           next.delete(first);
         }
@@ -224,6 +236,9 @@ export default function StartPage() {
     value?: string;
     values?: string[];
     text?: string;
+    name?: string;
+    age?: number;
+    percentage?: number;
     isChoice: boolean;
   }) {
     if (!sessionId || busy) return;
@@ -246,17 +261,15 @@ export default function StartPage() {
   }
 
   function advance() {
-    // Fade out
     setVisible(false);
     setTimeout(() => {
-      if (qIndex < 4) {
+      if (qIndex < TOTAL_QUESTIONS - 1) {
         setQIndex((i) => i + 1);
         setSelectedSubjects(new Set());
         setShowText(false);
         setTextVal("");
         setVisible(true);
       } else {
-        // Last question answered — fetch mini-rec
         setPhase("loading");
         fetchMiniRec();
       }
@@ -281,17 +294,22 @@ export default function StartPage() {
     }
   }
 
-  function onChoiceClick(value: string) {
-    if (qIndex === 0) {
-      setStream(value as Stream);
-    }
-    if (qIndex === 1) {
-      toggleSubject(value);
-      return; // subjects need explicit Continue
-    }
-    void postAnswer({ value, isChoice: true });
+  // Q0: name + age continue
+  function onNameAgeContinue() {
+    const parsedAge = parseInt(age, 10);
+    if (!name.trim() || isNaN(parsedAge) || parsedAge < 10 || parsedAge > 30) return;
+    void postAnswer({ name: name.trim(), age: parsedAge, isChoice: false });
   }
 
+  // Q1: stream + percentage continue
+  function onStreamContinue() {
+    if (!stream) return;
+    const pct = parseFloat(percentage);
+    if (isNaN(pct) || pct < 0 || pct > 100) return;
+    void postAnswer({ value: stream, percentage: pct, isChoice: true });
+  }
+
+  // Q2: subjects continue
   function onSubjectContinue() {
     if (selectedSubjects.size === 0 && !textVal.trim()) return;
     if (showText && textVal.trim()) {
@@ -301,12 +319,23 @@ export default function StartPage() {
     }
   }
 
+  function onChoiceClick(value: string) {
+    if (qIndex === 2) {
+      toggleSubject(value);
+      return; // subjects need explicit Continue
+    }
+    void postAnswer({ value, isChoice: true });
+  }
+
   function onTextSubmit(e: React.FormEvent) {
     e.preventDefault();
     const t = textVal.trim();
     if (!t || busy) return;
     void postAnswer({ text: t, isChoice: false });
   }
+
+  const nameAgeValid = name.trim().length >= 2 && parseInt(age, 10) >= 10 && parseInt(age, 10) <= 30;
+  const streamPctValid = !!stream && parseFloat(percentage) >= 0 && parseFloat(percentage) <= 100;
 
   if (sessionError) {
     return (
@@ -332,7 +361,9 @@ export default function StartPage() {
             <span className="text-sm font-semibold">PathFinder</span>
           </Link>
           {phase === "questions" && (
-            <span className="text-xs text-muted-foreground">Question {qIndex + 1} of 5</span>
+            <span className="text-xs text-muted-foreground">
+              Question {qIndex + 1} of {TOTAL_QUESTIONS}
+            </span>
           )}
         </div>
       </header>
@@ -341,7 +372,7 @@ export default function StartPage() {
       {phase === "questions" && (
         <div className="border-b bg-white px-5 py-3">
           <div className="mx-auto flex max-w-lg items-center gap-1.5">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: TOTAL_QUESTIONS }).map((_, i) => (
               <div
                 key={i}
                 className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
@@ -363,44 +394,130 @@ export default function StartPage() {
             style={{ opacity: visible ? 1 : 0, transition: "opacity 0.22s ease" }}
           >
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-primary">
-              {["Your stream", "Your subjects", "Your interests", "Your goal", "Your priorities"][qIndex]}
+              {getLabel()}
             </p>
             <h2 className="mb-6 text-xl font-bold leading-snug text-foreground sm:text-2xl">
               {getQuestion()}
             </h2>
 
-            {/* Choice buttons */}
-            <div className="space-y-2.5">
-              {getChoices().map((c) => {
-                const isSelected = qIndex === 1 && selectedSubjects.has(c.value);
-                return (
-                  <button
-                    key={c.value}
-                    disabled={busy}
-                    onClick={() => onChoiceClick(c.value)}
-                    className={`w-full rounded-xl border px-4 py-3.5 text-left text-sm font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
-                      isSelected
-                        ? "border-primary bg-primary/8 text-primary ring-1 ring-primary"
-                        : "border-border bg-white text-foreground hover:border-primary hover:bg-primary/5"
-                    }`}
-                  >
-                    {qIndex === 1 && (
-                      <span
-                        className={`mr-2.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] font-bold ${
-                          isSelected ? "border-primary bg-primary text-white" : "border-muted-foreground"
-                        }`}
-                      >
-                        {isSelected ? "✓" : ""}
-                      </span>
-                    )}
-                    {c.label}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Q0: Name + Age */}
+            {qIndex === 0 && (
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Full name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Akhil Kumar"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter" && nameAgeValid) onNameAgeContinue(); }}
+                    className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Age</label>
+                  <input
+                    type="number"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="e.g. 17"
+                    min={10}
+                    max={30}
+                    onKeyDown={(e) => { if (e.key === "Enter" && nameAgeValid) onNameAgeContinue(); }}
+                    className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <button
+                  disabled={!nameAgeValid || busy}
+                  onClick={onNameAgeContinue}
+                  className="mt-2 h-11 w-full rounded-xl bg-primary text-sm font-semibold text-white shadow transition-all hover:bg-primary/90 disabled:opacity-40"
+                >
+                  {busy ? "Saving…" : "Continue →"}
+                </button>
+              </div>
+            )}
 
-            {/* Subject Continue button */}
-            {qIndex === 1 && (selectedSubjects.size > 0 || (showText && textVal.trim())) && (
+            {/* Q1: Stream cards + percentage */}
+            {qIndex === 1 && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  {STREAM_CHOICES.map((c) => (
+                    <button
+                      key={c.value}
+                      disabled={busy}
+                      onClick={() => setStream(c.value as Stream)}
+                      className={`w-full rounded-xl border px-4 py-3.5 text-left text-sm font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        stream === c.value
+                          ? "border-primary bg-primary/8 text-primary ring-1 ring-primary"
+                          : "border-border bg-white text-foreground hover:border-primary hover:bg-primary/5"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="pt-1">
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                    Plus Two percentage (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={percentage}
+                    onChange={(e) => setPercentage(e.target.value)}
+                    placeholder="e.g. 85"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                {streamPctValid && (
+                  <button
+                    disabled={busy}
+                    onClick={onStreamContinue}
+                    className="h-11 w-full rounded-xl bg-primary text-sm font-semibold text-white shadow transition-all hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {busy ? "Saving…" : "Continue →"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Q2–Q5: Regular choice buttons */}
+            {qIndex >= 2 && (
+              <div className="space-y-2.5">
+                {getChoices().map((c) => {
+                  const isSelected = qIndex === 2 && selectedSubjects.has(c.value);
+                  return (
+                    <button
+                      key={c.value}
+                      disabled={busy}
+                      onClick={() => onChoiceClick(c.value)}
+                      className={`w-full rounded-xl border px-4 py-3.5 text-left text-sm font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        isSelected
+                          ? "border-primary bg-primary/8 text-primary ring-1 ring-primary"
+                          : "border-border bg-white text-foreground hover:border-primary hover:bg-primary/5"
+                      }`}
+                    >
+                      {qIndex === 2 && (
+                        <span
+                          className={`mr-2.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] font-bold ${
+                            isSelected ? "border-primary bg-primary text-white" : "border-muted-foreground"
+                          }`}
+                        >
+                          {isSelected ? "✓" : ""}
+                        </span>
+                      )}
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Subjects Continue button (Q2) */}
+            {qIndex === 2 && (selectedSubjects.size > 0 || (showText && textVal.trim())) && (
               <button
                 disabled={busy}
                 onClick={onSubjectContinue}
@@ -410,8 +527,8 @@ export default function StartPage() {
               </button>
             )}
 
-            {/* "Type your own" toggle (Q1–Q4) */}
-            {qIndex > 0 && !showText && (
+            {/* "Type your own" toggle (Q2–Q5) */}
+            {qIndex >= 2 && !showText && (
               <button
                 onClick={() => {
                   setShowText(true);
@@ -423,8 +540,8 @@ export default function StartPage() {
               </button>
             )}
 
-            {/* Free-text input */}
-            {showText && qIndex > 0 && (
+            {/* Free-text input (Q2–Q5) */}
+            {showText && qIndex >= 2 && (
               <form onSubmit={onTextSubmit} className="mt-4 flex gap-2">
                 <input
                   ref={textRef}
@@ -444,9 +561,7 @@ export default function StartPage() {
               </form>
             )}
 
-            {error && (
-              <p className="mt-3 text-xs text-destructive">{error}</p>
-            )}
+            {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
           </div>
         )}
 
@@ -481,7 +596,6 @@ export default function StartPage() {
               </div>
             ) : (
               <>
-                {/* Card */}
                 <div className="rounded-2xl border bg-white p-6 shadow-lg">
                   <div className="mb-5 flex items-start justify-between">
                     <div>
@@ -520,7 +634,7 @@ export default function StartPage() {
                   </div>
 
                   <p className="mt-5 rounded-lg bg-muted/50 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-                    These are early estimates based on 5 answers. A short conversation — about 15 minutes —
+                    These are early estimates based on 6 quick answers. A short conversation — about 15 minutes —
                     will sharpen them significantly and explain the reasoning behind each match.
                   </p>
                 </div>

@@ -7,15 +7,7 @@ import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import type { AssessmentItemPublic } from "@/types/assessment";
-import { KERALA_DISTRICTS, STREAMS } from "@/types/onboarding";
-
-const STREAM_LABELS: Record<string, string> = {
-  science_bio: "Science (Biology)",
-  science_maths: "Science (Maths)",
-  science_cs: "Science (Computer Science)",
-  commerce: "Commerce",
-  humanities: "Humanities / Arts",
-};
+import { KERALA_DISTRICTS } from "@/types/onboarding";
 
 // The chat is adaptive: the server decides when enough is captured and returns
 // `done: true`, at which point the interview ends. Stages only rotate the AI's
@@ -227,14 +219,10 @@ function ChatInner() {
     const fd = new FormData(e.currentTarget);
     const payload = {
       sessionId,
-      name: String(fd.get("name") ?? ""),
       phone: String(fd.get("phone") ?? ""),
       email: String(fd.get("email") ?? ""),
-      age: Number(fd.get("age")),
       gender: String(fd.get("gender") ?? "") || undefined,
       district: String(fd.get("district") ?? ""),
-      stream: String(fd.get("stream") ?? ""),
-      percentage: Number(fd.get("percentage")),
       preferredLanguage: "en",
       consentGiven: fd.get("consentGiven") === "on",
     };
@@ -450,35 +438,15 @@ function ChatInner() {
             <form onSubmit={submitDataForm} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Full name</label>
-                  <Input name="name" required minLength={2} placeholder="Your name" className="h-9 text-sm" />
-                </div>
-                <div>
                   <label className="mb-1 block text-xs font-medium text-foreground">Phone</label>
                   <Input name="phone" required inputMode="numeric" pattern="[6-9][0-9]{9}" placeholder="9XXXXXXXXX" className="h-9 text-sm" />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-foreground">Email</label>
                   <Input name="email" type="email" required placeholder="you@example.com" className="h-9 text-sm" />
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Age</label>
-                  <Input name="age" type="number" required min={14} max={30} placeholder="17" className="h-9 text-sm" />
-                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Gender (optional)</label>
-                  <Select name="gender" defaultValue="" className="h-9 text-sm">
-                    <option value="">Prefer not to say</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
-                  </Select>
-                </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-foreground">District</label>
                   <Select name="district" required defaultValue="" className="h-9 text-sm">
@@ -488,20 +456,15 @@ function ChatInner() {
                     ))}
                   </Select>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Stream</label>
-                  <Select name="stream" required defaultValue="" className="h-9 text-sm">
-                    <option value="" disabled>Select</option>
-                    {STREAMS.map((s) => (
-                      <option key={s} value={s}>{STREAM_LABELS[s]}</option>
-                    ))}
+                  <label className="mb-1 block text-xs font-medium text-foreground">Gender (optional)</label>
+                  <Select name="gender" defaultValue="" className="h-9 text-sm">
+                    <option value="">Prefer not to say</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
                   </Select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Plus Two %</label>
-                  <Input name="percentage" type="number" required min={0} max={100} step="0.01" placeholder="e.g. 85" className="h-9 text-sm" />
                 </div>
               </div>
               <label className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-3 text-xs">

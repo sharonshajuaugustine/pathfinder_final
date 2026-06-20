@@ -503,9 +503,11 @@ export async function POST(req: NextRequest) {
       !wasAskingPermissionLastTurn;
 
     const rawStream = ctxProfile?.academic?.stream as string | undefined;
+    const studentName = (ctxProfile as Record<string, unknown> | null)?._name as string | undefined;
     const studentContext: StudentContext = {
       stream: rawStream ? (STREAM_LABELS[rawStream] ?? rawStream) : undefined,
       percentage: ctxProfile?.academic?.percentage,
+      studentName: studentName || undefined,
       statedCareer: statedCareer || undefined,
       knownGoal: ctxProfile?.aspiration?.goalOrientation,
       knownBudget: ctxProfile?.constraints?.budgetBand,

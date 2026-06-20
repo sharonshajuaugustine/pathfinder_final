@@ -93,6 +93,7 @@ Be gentle. If they don't want to answer, move on.`,
 export interface StudentContext {
   stream?: string;
   percentage?: number;
+  studentName?: string;
   // Career the student explicitly said they want (e.g. "doctor", "software engineer").
   // When set, the AI must NOT ask "what do you want to be?" — it already knows.
   statedCareer?: string;
@@ -128,6 +129,47 @@ export interface AIChoice {
   value: string;
 }
 
+// Constraint-gap questions use fixed choices — no AI call needed.
+// Values must match the VALUE SCHEMA in the prompt so the existing extractor still works.
+const HARDCODED_CONSTRAINTS: Record<string, { question: string; choices: AIChoice[] }> = {
+  budget: {
+    question: "What's your family's rough budget for education after Plus Two?",
+    choices: [
+      { label: "Family can manage it comfortably", value: "no_constraint" },
+      { label: "Manageable with some effort", value: "medium" },
+      { label: "Need a scholarship or loan", value: "low" },
+      { label: "Not sure about costs yet", value: "medium" },
+    ],
+  },
+  location: {
+    question: "How open are you to studying outside Kerala?",
+    choices: [
+      { label: "Stay within Kerala", value: "kerala" },
+      { label: "Anywhere in India", value: "india" },
+      { label: "Open to going abroad", value: "abroad" },
+      { label: "Depends on the course", value: "india" },
+    ],
+  },
+  family: {
+    question: "What does your family expect from your career choice?",
+    choices: [
+      { label: "Fully supportive of my choice", value: "none" },
+      { label: "They have some preferences", value: "some_preference" },
+      { label: "They have strong expectations", value: "family_preference" },
+      { label: "Haven't discussed it yet", value: "none" },
+    ],
+  },
+  workstyle: {
+    question: "What kind of work environment appeals to you most?",
+    choices: [
+      { label: "With people — patients, students, clients", value: "social" },
+      { label: "Solo — coding, writing, or research", value: "analytical_solo" },
+      { label: "Outdoors, fieldwork, or hands-on", value: "practical_outdoor" },
+      { label: "Mix of people and independent work", value: "mixed" },
+    ],
+  },
+};
+
 // --- interviewer ---------------------------------------------------------------
 export async function nextQuestion(params: {
   stage: string;
@@ -162,6 +204,14 @@ export async function nextQuestion(params: {
     };
   }
 
+  // Constraint gaps (budget / location / family / workstyle) use fixed choices —
+  // no AI call needed, answers are predictable and fast.
+  const topGap = params.studentContext?.remainingGaps?.[0];
+  if (topGap && HARDCODED_CONSTRAINTS[topGap]) {
+    const hc = HARDCODED_CONSTRAINTS[topGap];
+    return { content: hc.question, choices: hc.choices, model: "hardcoded" };
+  }
+
   // Build context block: what the AI already knows, and what gaps remain.
   // Stream/marks are background only — never the basis of a question.
   const ctx = params.studentContext;
@@ -175,6 +225,9 @@ export async function nextQuestion(params: {
       `Explore it: what draws them to it, what they picture doing day-to-day, ` +
       `the strengths it needs, or gently widen to closely related fields.`
     );
+  }
+  if (ctx?.studentName) {
+    contextLines.push(`STUDENT NAME: ${ctx.studentName}. You may address them by name once or twice naturally.`);
   }
   if (ctx?.stream) {
     contextLines.push(
