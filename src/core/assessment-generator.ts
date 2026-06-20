@@ -1,0 +1,119 @@
+import "server-only";
+import { getServiceClient } from "@/lib/supabase/admin";
+import { extractJson, type ChatMessage } from "@/lib/groq";
+import type { StudentProfile } from "@/types/profile";
+import type { AssessmentItemPublic, AssessmentDimension } from "@/types/assessment";
+
+const STREAM_LABELS: Record<string, string> = {
+  science_bio: "Science (Biology)",
+  science_maths: "Science (Maths)",
+  science_cs: "Science (Computer Science)",
+  commerce: "Commerce",
+  humanities: "Humanities / Arts",
+};
+
+export type AiItem = {
+  id: string;
+  dimension: string;
+  questionText: string;
+  choices: { id: string; text: string }[];
+};
+
+export async function generateAiAssessmentItems(profile: Partial<StudentProfile> | null): Promise<AiItem[]> {
+  const stream = profile?.academic?.stream;
+  const streamLabel = stream ? (STREAM_LABELS[stream] ?? stream) : "Plus Two";
+  const subjects = profile?.academic?.strongSubjects ?? [];
+  const interests = Object.entries(profile?.interests ?? {})
+    .filter(([, v]) => (v ?? 0) >= 0.2)
+    .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
+    .slice(0, 2)
+    .map(([k]) => k);
+  const goal = profile?.aspiration?.goalOrientation ?? "";
+  const goalLabels: Record<string, string> = {
+    higher_study: "pursue a degree",
+    job_soon: "get a job quickly",
+    business: "start a business",
+    government: "prepare for govt exams",
+  };
+
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content: "You generate personalised MCQ assessment questions for a career guidance app. Return only valid JSON — no extra text.",
+    },
+    {
+      role: "user",
+      content:
+        `Generate exactly 10 multiple-choice questions to assess this Kerala Plus Two student.\n\n` +
+        `Student profile:\n` +
+        `- Stream: ${streamLabel}\n` +
+        `- Strong subjects: ${subjects.length ? subjects.join(", ") : "not specified"}\n` +
+        `- Primary interests: ${interests.length ? interests.join(", ") : "not specified"}\n` +
+        `- Goal after Plus Two: ${goalLabels[goal] || goal || "not specified"}\n\n` +
+        `Rules:\n` +
+        `- Generate 5 aptitude questions, one per dimension: numerical, logical, verbal, spatial, scientific\n` +
+        `- Generate 5 personality/interest questions focused on their interests (${interests.join(", ") || "general"}) and stream\n` +
+        `- Personalise to their profile — a biology+medicine student gets medical scenarios, not IT scenarios\n` +
+        `- Use real-world, relatable scenarios (not abstract symbols)\n` +
+        `- Each question has exactly 4 choices: a, b, c, d\n` +
+        `- For aptitude questions: 'a' should be the best/correct answer\n` +
+        `- For interest/personality questions: choices should reflect different work styles or preferences\n\n` +
+        `Return this exact JSON (no markdown, no extra keys):\n` +
+        `{ "items": [ { "id": "ai_1", "dimension": "numerical", "questionText": "...", "choices": [{ "id": "a", "text": "..." }, { "id": "b", "text": "..." }, { "id": "c", "text": "..." }, { "id": "d", "text": "..." }] }, ... ] }`,
+    },
+  ];
+
+  const { data } = await extractJson<{ items: AiItem[] }>(messages, { temperature: 0.7 });
+  const items = data?.items;
+  if (!Array.isArray(items) || items.length < 8) throw new Error("AI returned too few items");
+
+  return items.slice(0, 10).map((item, i) => ({ ...item, id: `ai_${i + 1}` }));
+}
+
+export function toPublicItems(aiItems: AiItem[]): AssessmentItemPublic[] {
+  return aiItems.map((item) => ({
+    id: item.id,
+    dimension: item.dimension as AssessmentDimension,
+    questionText: item.questionText,
+    choices: item.choices.map((c) => ({ id: c.id, text: c.text })),
+  }));
+}
+
+// Generates and caches AI assessment items for a session when not already present.
+// Safe to call with void — designed to run concurrently in the background.
+export async function generateAndCacheAiAssessment(
+  sessionId: string,
+  profile: Partial<StudentProfile> | null
+): Promise<void> {
+  try {
+    const db = getServiceClient();
+
+    // Re-read profile to get the freshest version (caller's copy may be stale).
+    const { data: row } = await db
+      .from("student_profiles")
+      .select("profile")
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    const current = row?.profile as Record<string, unknown> | null;
+
+    // Skip if already cached.
+    const existing = current?._aiAssessmentItems;
+    if (Array.isArray(existing) && existing.length >= 8) return;
+
+    const freshProfile = (current as Partial<StudentProfile> | null) ?? profile;
+    const items = await generateAiAssessmentItems(freshProfile);
+
+    await db.from("student_profiles").upsert(
+      {
+        session_id: sessionId,
+        profile: { ...(current ?? {}), _aiAssessmentItems: items },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "session_id" }
+    );
+  } catch (e) {
+    // Non-fatal — GET /api/assessment will regenerate if this fails.
+    console.error("[assessment-generator] background generation failed", e);
+  }
+}

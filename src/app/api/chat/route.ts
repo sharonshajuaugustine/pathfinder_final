@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServiceClient } from "@/lib/supabase/admin";
 import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { nextQuestion, extractProfileDelta, type StudentContext } from "@/core/ai";
+import { generateAndCacheAiAssessment } from "@/core/assessment-generator";
 import { mergeProfile, computeCompleteness, type ProfileDelta } from "@/core/profile-builder";
 import type { ChatMessage } from "@/lib/groq";
 import type { StudentProfile, InterestCluster, GoalOrientation, BudgetBand, LocationPref } from "@/types/profile";
@@ -467,6 +468,17 @@ export async function POST(req: NextRequest) {
       (coreCaptured && captured.priorities && answeredCount >= 8) ||
       askableGaps.length === 0 ||
       answeredCount >= HARD_TURN_CEILING;
+
+    // Pre-generate personalised assessment questions when ≤ 2 gaps remain.
+    // Runs in the background (void) so the chat response is not delayed.
+    // By the time the student answers the last 1–2 questions, the items
+    // are cached and GET /api/assessment returns instantly.
+    if (!done && askableGaps.length <= 2) {
+      const hasAssessmentCache = !!(ctxProfile as Record<string, unknown> | null)?._aiAssessmentItems;
+      if (!hasAssessmentCache) {
+        void generateAndCacheAiAssessment(sessionId, ctxProfile);
+      }
+    }
 
     // Early return: done — persist gap state before returning.
     if (answered && done) {
