@@ -4,7 +4,7 @@ import { getServiceClient } from "@/lib/supabase/admin";
 import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { ASSESSMENT_ITEMS, APTITUDE_ITEM_IDS } from "@/core/assessment-bank";
 import { computeAssessmentDelta } from "@/core/assessment-scorer";
-import { mergeProfile, computeCompleteness } from "@/core/profile-builder";
+import { mergeProfile, computeCompleteness, type ProfileDelta } from "@/core/profile-builder";
 import {
   generateAiAssessmentItems,
   generateAndCacheAiAssessment,
@@ -13,7 +13,7 @@ import {
 } from "@/core/assessment-generator";
 import type { AssessmentItemPublic } from "@/types/assessment";
 import type { StudentProfile, InterestCluster } from "@/types/profile";
-import { APTITUDES } from "@/types/profile";
+import { APTITUDES, INTEREST_CLUSTERS } from "@/types/profile";
 
 const INTEREST_ITEMS_TO_SHOW = 5;
 
@@ -138,8 +138,10 @@ export async function POST(req: NextRequest) {
       const aiItem = aiItems?.find((i) => i.id === itemId);
       if (!aiItem) return badRequest("Unknown assessment item");
 
-      // Score aptitude items: generation prompt guarantees "a" is the correct answer.
-      // a=80, b=60, c=40, d=20 maps to a 0-100 aptitude scale per dimension.
+      const selectedChoice = aiItem.choices.find((c) => c.id === choiceId);
+
+      // Aptitude items (numerical/logical/verbal/spatial/scientific):
+      // generation prompt guarantees "a" is the correct answer → a=80, b=60, c=40, d=20.
       const isAptitude = (APTITUDES as readonly string[]).includes(aiItem.dimension);
       const aptitudeScoreMap: Record<string, number> = { a: 80, b: 60, c: 40, d: 20 };
       const score = isAptitude ? (aptitudeScoreMap[choiceId] ?? 40) : null;
@@ -153,12 +155,25 @@ export async function POST(req: NextRequest) {
         score,
       });
 
-      // For aptitude items, update the student profile so the recommendation
-      // engine has accurate aptitude scores — AI items previously left this null.
+      // Build a combined profile delta for this answer:
+      //   • Aptitude items → update the aptitude dimension score
+      //   • Personality/interest items → update the interest cluster the student chose
+      // Both feed into the recommendation engine via student_profiles.profile.
+      const profileDelta: ProfileDelta = {};
+
       if (isAptitude && score !== null) {
-        const merged = mergeProfile(profJson as Partial<StudentProfile> | null, {
-          aptitude: { [aiItem.dimension]: score },
-        });
+        profileDelta.aptitude = { [aiItem.dimension]: score };
+      } else {
+        // Personality item: the selected choice carries an interestCluster field
+        // set by the generator. Confirm it's valid before writing.
+        const cluster = selectedChoice?.interestCluster;
+        if (cluster && (INTEREST_CLUSTERS as readonly string[]).includes(cluster)) {
+          profileDelta.interests = { [cluster as InterestCluster]: 0.7 };
+        }
+      }
+
+      if (Object.keys(profileDelta).length > 0) {
+        const merged = mergeProfile(profJson as Partial<StudentProfile> | null, profileDelta);
         await db.from("student_profiles").upsert(
           {
             session_id: sessionId,
