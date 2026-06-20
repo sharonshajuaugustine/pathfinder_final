@@ -102,6 +102,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    // Collect all _* metadata keys from prevProfile so they survive mergeProfile()
+    // (mergeProfile returns a typed StudentProfile which strips non-schema keys like _name, _age).
+    const prevRaw = prevProfile as Record<string, unknown> | null;
+    const metaKeys = prevRaw
+      ? Object.fromEntries(Object.entries(prevRaw).filter(([k]) => k.startsWith("_")))
+      : {};
+
     // Q1: stream + percentage — mirror to denormalized columns
     if (questionIndex === 1 && value) {
       const delta: ProfileDelta = {
@@ -112,7 +119,7 @@ export async function POST(req: NextRequest) {
           ...(percentage != null ? { percentage } : {}),
         },
       };
-      const merged = mergeProfile(prevProfile, delta);
+      const merged = { ...mergeProfile(prevProfile, delta), ...metaKeys };
       await db.from("student_profiles").upsert(
         {
           session_id: sessionId,
@@ -147,7 +154,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (delta) {
-      const merged = mergeProfile(prevProfile, delta);
+      const merged = { ...mergeProfile(prevProfile, delta), ...metaKeys };
       await db.from("student_profiles").upsert(
         {
           session_id: sessionId,

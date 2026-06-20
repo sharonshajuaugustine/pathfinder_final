@@ -155,19 +155,21 @@ export default async function LeadDetailPage({ params }: Props) {
                 {recResults.map((career, i) => (
                   <div key={career.careerId ?? i} className="rounded-lg border bg-muted/20 p-4">
                     {/* Career header */}
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-muted-foreground">#{i + 1}</span>
-                          <span className="font-semibold">{career.name}</span>
-                          <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground capitalize">
-                            {career.domain?.replace(/_/g, " ")}
-                          </span>
-                        </div>
+                    <div className="mb-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-bold text-muted-foreground">#{i + 1}</span>
+                        <span className="font-semibold">{career.name}</span>
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground capitalize">
+                          {career.domain?.replace(/_/g, " ")}
+                        </span>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-base font-bold">{Math.round(career.fitScore * 100)}%</p>
-                        <p className="text-[10px] text-muted-foreground">fit · {Math.round(career.confidence * 100)}% confidence</p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-bold text-primary">
+                          {Math.round(career.fitScore * 100)}% <span className="text-xs font-normal text-muted-foreground">fit</span>
+                        </span>
+                        <span className="text-sm font-semibold text-foreground">
+                          {Math.round(career.confidence * 100)}% <span className="text-xs font-normal text-muted-foreground">confidence</span>
+                        </span>
                       </div>
                     </div>
 
