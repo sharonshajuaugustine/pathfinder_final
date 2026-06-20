@@ -100,11 +100,11 @@ function ResultInner() {
           </div>
         </div>
 
-        {/* AI explanation */}
-        {data.explanation && (
-          <div className="mb-6 rounded-2xl border-l-4 border-primary bg-primary/5 px-5 py-4">
-            <p className="text-sm leading-relaxed text-foreground">{data.explanation}</p>
-          </div>
+        {/* Short summary — one line max; full detail is in the cards below */}
+        {data.top.length > 0 && (
+          <p className="mb-6 text-sm text-muted-foreground">
+            Based on your interests, aptitude, and goals, here are your top career matches.
+          </p>
         )}
 
         {/* Career cards */}

@@ -153,7 +153,7 @@ export default async function LeadsPage({ searchParams }: Props) {
                       href={`/admin/leads/${r.id}`}
                       className="font-medium text-primary hover:underline"
                     >
-                      {r.name}
+                      {r.name && r.name !== "Unknown" ? r.name : r.phone}
                     </Link>
                     <p className="text-xs text-muted-foreground sm:hidden">{r.phone}</p>
                   </td>

@@ -189,21 +189,19 @@ function inferInterestFromCareer(career: string): Record<string, number> | null 
   return null;
 }
 
-// Persist gap state, lastGap, permission flag, and pending choices to the profile.
+// Persist gap state, lastGap, permission flag, and pending choices into the profile.
+// Takes the current in-memory profile to avoid a DB re-read that could race with
+// the preceding profile upsert (e.g. losing familyExpectations written in step 1).
 async function persistGapState(
   db: ReturnType<typeof getServiceClient>,
   sessionId: string,
+  currentProfile: Record<string, unknown>,
   gapState: GapState,
   topGapId: GapId | null,
   askingPermission: boolean,
   pendingChoices: PendingChoices = {}
 ) {
-  const { data: profRow } = await db
-    .from("student_profiles")
-    .select("profile")
-    .eq("session_id", sessionId)
-    .maybeSingle();
-  const cur = (profRow?.profile ?? {}) as Record<string, unknown>;
+  const cur = { ...currentProfile };
   cur._gapState = gapState;
   cur._lastGap = topGapId;
   cur._askingPermission = askingPermission;
@@ -482,7 +480,7 @@ export async function POST(req: NextRequest) {
 
     // Early return: done — persist gap state before returning.
     if (answered && done) {
-      await persistGapState(db, sessionId, gapState, topGapId, false);
+      await persistGapState(db, sessionId, ctxProfile as Record<string, unknown>, gapState, topGapId, false);
       await db.from("sessions")
         .update({ status: "in_chat", updated_at: new Date().toISOString() })
         .eq("id", sessionId);
@@ -491,7 +489,7 @@ export async function POST(req: NextRequest) {
 
     // Permission question — hardcoded, no AI call. Persist gap state before returning.
     if (shouldAskPermission) {
-      await persistGapState(db, sessionId, gapState, topGapId, true);
+      await persistGapState(db, sessionId, ctxProfile as Record<string, unknown>, gapState, topGapId, true);
       const permQ = "That's completely fine — it's a big decision! Should we keep exploring this, or move on for now?";
       await db.from("conversations").insert({
         session_id: sessionId, role: "assistant", stage, content: permQ, model: "hardcoded",
@@ -553,7 +551,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Persist gap state + pending choices together (one DB write).
-    await persistGapState(db, sessionId, gapState, topGapId, false, newPendingChoices);
+    await persistGapState(db, sessionId, ctxProfile as Record<string, unknown>, gapState, topGapId, false, newPendingChoices);
 
     await db.from("conversations").insert({
       session_id: sessionId, role: "assistant", stage, content: q.content,

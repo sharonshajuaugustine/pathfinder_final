@@ -85,7 +85,7 @@ function LeadsTable({ rows }: { rows: import("@/lib/admin-data").LeadRow[] }) {
                 href={`/admin/leads/${r.id}`}
                 className="font-medium text-primary hover:underline"
               >
-                {r.name}
+                {r.name && r.name !== "Unknown" ? r.name : r.phone}
               </Link>
               <div className="text-xs text-muted-foreground">{fmtFunnel(r.funnel_status)}</div>
             </td>
