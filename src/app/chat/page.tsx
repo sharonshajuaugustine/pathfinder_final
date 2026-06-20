@@ -67,9 +67,61 @@ function ChatInner() {
   useEffect(() => {
     if (!sessionId || startedRef.current) return;
     startedRef.current = true;
-    void send(undefined, false);
+    void initChatSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  async function initChatSession() {
+    if (!sessionId) return;
+    try {
+      const res = await fetch(`/api/chat-resume?session=${sessionId}`);
+      if (!res.ok) throw new Error("resume fetch failed");
+      const data = await res.json() as {
+        status: string;
+        messages: { role: "assistant" | "user"; content: string }[];
+        turns: number;
+        lastChoices: string[];
+        assessmentAnswered: number;
+      };
+
+      // Already onboarded — send to results page
+      if (data.status === "onboarded") {
+        router.replace(`/result?session=${sessionId}`);
+        return;
+      }
+
+      // Assessment fully answered — skip chat AND assessment, show data form
+      if (data.status === "assessment" && data.assessmentAnswered >= 10) {
+        setMessages(data.messages);
+        setTurns(data.turns);
+        assessmentLoadedRef.current = true; // block the assessment-load effect
+        setAssessmentDone(true);
+        setServerDone(true);
+        return;
+      }
+
+      // Mid-assessment — skip chat, load assessment from scratch
+      if (data.status === "assessment") {
+        setMessages(data.messages);
+        setTurns(data.turns);
+        setServerDone(true);
+        return;
+      }
+
+      // Mid-chat with existing messages — restore state, don't re-ask
+      if (data.status === "in_chat" && data.messages.length > 0) {
+        setMessages(data.messages);
+        setTurns(data.turns);
+        setStageIdx(Math.min(Math.floor(data.turns / TURNS_PER_STAGE), STAGES.length - 1));
+        setChoices(data.lastChoices);
+        return;
+      }
+    } catch {
+      // Network error or bad response — fall through to normal first-question flow
+    }
+
+    void send(undefined, false);
+  }
 
   useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
 
