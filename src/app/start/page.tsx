@@ -447,7 +447,7 @@ export default function StartPage() {
                       key={c.value}
                       disabled={busy}
                       onClick={() => setStream(c.value as Stream)}
-                      className={`w-full rounded-xl border px-4 py-3.5 text-left text-sm font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      className={`w-full rounded-xl border px-4 py-3.5 text-left text-sm font-medium transition-all duration-150 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
                         stream === c.value
                           ? "border-primary bg-primary/8 text-primary ring-1 ring-primary"
                           : "border-border bg-white text-foreground hover:border-primary hover:bg-primary/5"
