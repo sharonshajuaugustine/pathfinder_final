@@ -112,6 +112,10 @@ export interface StudentContext {
   relevantExams?: string[];
   // True if at least one family expectation has been captured — prevents re-asking.
   capturedFamilyExpectations?: boolean;
+  // Interest cluster known from the 5-question start quiz but not yet deepened
+  // via conversation (value 0.2–0.59). AI should explore WHAT SPECIFICALLY draws
+  // them to this cluster rather than closing the gap or re-asking the same question.
+  shallowInterest?: string;
   // True when the student's previous answer was too vague to capture, so the AI
   // should rephrase the SAME gap with concrete examples rather than move on.
   followUp?: boolean;
@@ -136,8 +140,16 @@ export async function nextQuestion(params: {
     STAGE_GOALS[params.stage] ??
     "Continue understanding the student's direction, goals, and practical constraints after Plus Two.";
 
-  // First question: hardcoded so the page opens instantly with zero LLM latency.
-  if (isFirstQuestion) {
+  // First question: hardcoded only for cold-start (no prior context).
+  // When the student comes from the 5-question start quiz they already gave us
+  // stream / subjects / interest / goal / priorities — skip the generic opener
+  // and let the AI generate a personalised question that dives deeper.
+  const hasStartContext = !!(
+    params.studentContext?.shallowInterest ||
+    params.studentContext?.detectedInterests?.length ||
+    params.studentContext?.strongSubjects?.length
+  );
+  if (isFirstQuestion && !hasStartContext) {
     return {
       content: "Hi! Do you already have some idea of what you'd like to do after Plus Two, or are you still figuring it out?",
       choices: [
@@ -187,12 +199,21 @@ export async function nextQuestion(params: {
       `This gap is CLOSED. Move to the next gap in the GAPS list.`
     );
   }
+  if (ctx?.shallowInterest) {
+    contextLines.push(
+      `INTEREST PARTIALLY KNOWN — the student picked "${ctx.shallowInterest}" in a quick pre-quiz. ` +
+      `This is surface-level only. Your job is to DEEPEN it: ask what specifically draws them to ` +
+      `"${ctx.shallowInterest}" — e.g. a concrete activity, role, or daily task within that field. ` +
+      `Do NOT re-ask "what field do you like?" — you already know. Narrow it down with 4 specific ` +
+      `activity-level choices (e.g. "Diagnosing illness" vs "Research in a lab" vs "Working in a pharmacy"). ` +
+      `The value for each choice should still be the most fitting interest cluster ID.`
+    );
+  }
   if (ctx?.detectedInterests?.length) {
     contextLines.push(
-      `INTEREST ALREADY CAPTURED (${ctx.detectedInterests.join(", ")}). ` +
+      `INTEREST DEEPLY CAPTURED (${ctx.detectedInterests.join(", ")}). ` +
       `Do NOT ask about fields, subjects, or what they enjoy — this gap is CLOSED. ` +
-      `Do NOT drill into sub-specialties (e.g. which ward, which kind of code, which type of doctor). ` +
-      `Your next question MUST target a different GAP from the GAPS list.`
+      `Do NOT drill into sub-specialties. Your next question MUST target a different GAP.`
     );
   }
   if (ctx?.careerPriorities?.length) {

@@ -35,9 +35,9 @@ function buildDirectDelta(questionIndex: number, value: string, values?: string[
         return { academic: { strongSubjects: values } };
       }
       return { academic: { strongSubjects: [value] } };
-    case 2: // interest cluster
+    case 2: // interest cluster — saved at 0.5 so the chat can deepen it
       if (INTEREST_CLUSTERS.includes(value as InterestCluster)) {
-        return { interests: { [value]: 0.8 } };
+        return { interests: { [value]: 0.5 } };
       }
       return null;
     case 3: // goal

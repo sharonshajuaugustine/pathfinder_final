@@ -142,7 +142,9 @@ type GapId = (typeof GAP_IDS)[number];
 function capturedDims(p?: Partial<StudentProfile> | null) {
   return {
     subjects: (p?.academic?.strongSubjects?.length ?? 0) > 0,
-    interest: Object.values(p?.interests ?? {}).some((v) => (v ?? 0) >= 0.3),
+    // Threshold 0.6: start-quiz saves at 0.5 (shallow, needs chat deepening).
+    // Chat extractions land at 0.6+ once the student says something concrete.
+    interest: Object.values(p?.interests ?? {}).some((v) => (v ?? 0) >= 0.6),
     goal: !!p?.aspiration?.goalOrientation,
     priorities: (p?.aspiration?.careerPriorities?.length ?? 0) > 0,
     budget: !!p?.constraints?.budgetBand,
@@ -362,9 +364,16 @@ export async function POST(req: NextRequest) {
       numbers_analysis: "mathematics / data analysis",
     };
 
+    // Deep interests (>= 0.6): gap is closed — AI must not re-ask.
+    // Shallow interests (0.2–0.59): captured from start quiz, needs chat deepening.
     const detectedInterests = Object.entries(ctxProfile?.interests ?? {})
-      .filter(([, v]) => (v ?? 0) >= 0.2)
+      .filter(([, v]) => (v ?? 0) >= 0.6)
       .map(([k]) => INTEREST_LABELS[k] ?? k);
+    const shallowInterestEntry = Object.entries(ctxProfile?.interests ?? {})
+      .find(([, v]) => (v ?? 0) >= 0.2 && (v ?? 0) < 0.6);
+    const shallowInterest = shallowInterestEntry
+      ? (INTEREST_LABELS[shallowInterestEntry[0]] ?? shallowInterestEntry[0])
+      : undefined;
 
     const statedCareer = ctxProfile?.aspiration?.statedCareer ?? undefined;
 
@@ -502,6 +511,7 @@ export async function POST(req: NextRequest) {
       knownBudget: ctxProfile?.constraints?.budgetBand,
       knownLocation: ctxProfile?.constraints?.locationPref,
       detectedInterests: detectedInterests.length > 0 ? detectedInterests : undefined,
+      shallowInterest: shallowInterest || undefined,
       strongSubjects: (ctxProfile?.academic?.strongSubjects?.length ?? 0) > 0
         ? (ctxProfile?.academic?.strongSubjects ?? undefined)
         : undefined,
