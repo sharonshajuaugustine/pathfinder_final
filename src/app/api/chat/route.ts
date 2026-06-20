@@ -105,29 +105,59 @@ function findClosestCluster(value: string): InterestCluster | null {
     if (lower === c.replace(/_/g, " ")) return c;
   }
   const keywords: Record<string, InterestCluster> = {
+    // technology
     tech: "technology_coding", coding: "technology_coding", software: "technology_coding",
     computer: "technology_coding", programming: "technology_coding", it: "technology_coding",
+    app: "technology_coding", web: "technology_coding", digital: "technology_coding",
+    cyber: "technology_coding", database: "technology_coding", cloud: "technology_coding",
+    // health
     health: "health_medicine", medicine: "health_medicine", medical: "health_medicine",
     doctor: "health_medicine", nurse: "health_medicine", hospital: "health_medicine",
+    pharmacy: "health_medicine", clinical: "health_medicine", patient: "health_medicine",
+    // business
     business: "business_money", money: "business_money", finance: "business_money",
-    commerce: "business_money", entrepreneur: "business_money",
+    commerce: "business_money", entrepreneur: "business_money", startup: "business_money",
+    marketing: "business_money", management: "business_money", economic: "business_money",
+    // science
     science: "science_research", research: "science_research", lab: "science_research",
+    biology: "science_research", chemistry: "science_research", experiment: "science_research",
+    biotech: "science_research", marine: "science_research", observ: "science_research",
+    // design
     design: "design_visual", art: "design_visual", visual: "design_visual",
-    creative: "design_visual", drawing: "design_visual",
+    creative: "design_visual", drawing: "design_visual", graphic: "design_visual",
+    animation: "design_visual", fashion: "design_visual", interior: "design_visual",
+    // helping/teaching
     teach: "helping_teaching", education: "helping_teaching", counsel: "helping_teaching",
-    social: "helping_teaching", welfare: "helping_teaching",
+    welfare: "helping_teaching", community: "helping_teaching",
+    training: "helping_teaching", mentor: "helping_teaching",
+    // law
     law: "law_justice", legal: "law_justice", justice: "law_justice",
-    advocate: "law_justice", rights: "law_justice",
+    advocate: "law_justice", rights: "law_justice", civil: "law_justice",
+    // engineering
     build: "building_engineering", engineer: "building_engineering",
     construct: "building_engineering", architecture: "building_engineering",
+    mechanical: "building_engineering", electrical: "building_engineering",
+    structural: "building_engineering", infrastructure: "building_engineering",
+    // media
     media: "media_communication", journalism: "media_communication",
     film: "media_communication", content: "media_communication",
+    writing: "media_communication", broadcast: "media_communication",
+    communication: "media_communication", publishing: "media_communication",
+    // nature/agriculture — broad to catch AI variants like ecology/conservation
     nature: "nature_agriculture", farm: "nature_agriculture", agri: "nature_agriculture",
     environment: "nature_agriculture", wildlife: "nature_agriculture",
+    ecology: "nature_agriculture", ecosystem: "nature_agriculture",
+    conservation: "nature_agriculture", forest: "nature_agriculture",
+    botanical: "nature_agriculture", plant: "nature_agriculture",
+    animal: "nature_agriculture", veterinar: "nature_agriculture",
+    // defence
     defence: "defence_adventure", defense: "defence_adventure", army: "defence_adventure",
     military: "defence_adventure", adventure: "defence_adventure", police: "defence_adventure",
+    navy: "defence_adventure", pilot: "defence_adventure", nda: "defence_adventure",
+    // numbers
     number: "numbers_analysis", math: "numbers_analysis", stat: "numbers_analysis",
     data: "numbers_analysis", analys: "numbers_analysis", account: "numbers_analysis",
+    actuari: "numbers_analysis", quantit: "numbers_analysis",
   };
   for (const [kw, cluster] of Object.entries(keywords)) {
     if (lower.includes(kw)) return cluster;
@@ -262,6 +292,12 @@ export async function POST(req: NextRequest) {
           const match = pending[message];
           if (match) {
             delta = pendingChoiceToProfile(match.value, match.gapId);
+            // If value didn't map (e.g. AI used "ecology" instead of "nature_agriculture"),
+            // try fuzzy-matching the button label itself as a last resort.
+            if (!delta && match.gapId === "interest") {
+              const cluster = findClosestCluster(message);
+              if (cluster) delta = { interests: { [cluster]: 0.8 } };
+            }
           }
         }
         if (!delta) {
@@ -275,12 +311,18 @@ export async function POST(req: NextRequest) {
         const merged = mergeProfile(prevProfile, delta);
         filledThisTurn = countCaptured(merged) > countCaptured(prevProfile);
         const prevMeta = prevProfile as Record<string, unknown> | null;
+        // Preserve ALL _* metadata keys so nothing is accidentally wiped.
+        // mergeProfile() returns a typed StudentProfile which strips _* keys;
+        // we must re-spread them before overriding specific ones below.
+        const prevMetaAll = prevMeta
+          ? Object.fromEntries(Object.entries(prevMeta).filter(([k]) => k.startsWith("_")))
+          : {};
         const mergedWithState = {
           ...merged,
+          ...prevMetaAll,
           _gapState: readGapState(prevProfile),
           _lastGap: prevMeta?._lastGap,
           _askingPermission: prevMeta?._askingPermission,
-          // Clear pending choices after they've been consumed.
           _pendingChoices: {},
         };
         await db.from("student_profiles").upsert(
@@ -326,16 +368,21 @@ export async function POST(req: NextRequest) {
         const inferred = inferInterestFromCareer(sc);
         if (inferred) {
           const merged = mergeProfile(ctxProfile, { interests: inferred });
+          const ctxMeta = ctxProfile as Record<string, unknown> | null;
+          const ctxMetaAll = ctxMeta
+            ? Object.fromEntries(Object.entries(ctxMeta).filter(([k]) => k.startsWith("_")))
+            : {};
+          const mergedWithMeta = { ...merged, ...ctxMetaAll };
           await db.from("student_profiles").upsert(
             {
               session_id: sessionId,
-              profile: merged,
+              profile: mergedWithMeta,
               completeness_pct: computeCompleteness(merged),
               updated_at: new Date().toISOString(),
             },
             { onConflict: "session_id" }
           );
-          ctxProfile = merged;
+          ctxProfile = mergedWithMeta as Partial<StudentProfile>;
         }
       }
     }
@@ -467,11 +514,12 @@ export async function POST(req: NextRequest) {
       askableGaps.length === 0 ||
       answeredCount >= HARD_TURN_CEILING;
 
-    // Pre-generate personalised assessment questions when ≤ 2 gaps remain.
-    // Runs in the background (void) so the chat response is not delayed.
-    // By the time the student answers the last 1–2 questions, the items
-    // are cached and GET /api/assessment returns instantly.
-    if (!done && askableGaps.length <= 3) {
+    // Pre-generate personalised assessment questions as soon as core info is known.
+    // Runs in the background so the chat response is never delayed.
+    // coreCaptured + priorities = we have subjects, interest, goal, and priorities —
+    // enough for a personalised assessment; constraint questions can still be asked
+    // in parallel while the assessment generates in the background.
+    if (!done && coreCaptured && captured.priorities) {
       const hasAssessmentCache = !!(ctxProfile as Record<string, unknown> | null)?._aiAssessmentItems;
       if (!hasAssessmentCache) {
         void generateAndCacheAiAssessment(sessionId, ctxProfile);
@@ -543,10 +591,17 @@ export async function POST(req: NextRequest) {
 
     // Build the pending choices map from the AI's structured response.
     // This is saved to profile so the next button click can skip LLM extraction.
+    // For the interest gap, normalize the value at save time so clicks always
+    // produce a valid cluster ID regardless of what the AI generates.
     const newPendingChoices: PendingChoices = {};
     for (const c of q.choices) {
       if (c.label && c.value && topGapId) {
-        newPendingChoices[c.label] = { value: c.value, gapId: topGapId };
+        let normalizedValue = c.value;
+        if (topGapId === "interest" && !INTEREST_CLUSTERS.includes(c.value as InterestCluster)) {
+          const cluster = findClosestCluster(c.value) ?? findClosestCluster(c.label);
+          if (cluster) normalizedValue = cluster;
+        }
+        newPendingChoices[c.label] = { value: normalizedValue, gapId: topGapId };
       }
     }
 
