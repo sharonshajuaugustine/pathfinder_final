@@ -473,7 +473,7 @@ export async function POST(req: NextRequest) {
     // Runs in the background (void) so the chat response is not delayed.
     // By the time the student answers the last 1–2 questions, the items
     // are cached and GET /api/assessment returns instantly.
-    if (!done && askableGaps.length <= 2) {
+    if (!done && askableGaps.length <= 3) {
       const hasAssessmentCache = !!(ctxProfile as Record<string, unknown> | null)?._aiAssessmentItems;
       if (!hasAssessmentCache) {
         void generateAndCacheAiAssessment(sessionId, ctxProfile);
@@ -534,6 +534,7 @@ export async function POST(req: NextRequest) {
         : undefined,
       hasPersonalityData,
       remainingGaps: remainingGaps.length > 0 ? remainingGaps : undefined,
+      topGapId: topGapId || undefined,
       relevantExams: relevantExamsList.length > 0 ? relevantExamsList : undefined,
       capturedFamilyExpectations: capturedFamilyExpectations || undefined,
       followUp: isFollowUp || undefined,

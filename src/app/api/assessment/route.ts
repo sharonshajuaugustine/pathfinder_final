@@ -133,9 +133,16 @@ export async function POST(req: NextRequest) {
         .select("profile")
         .eq("session_id", sessionId)
         .maybeSingle();
-      const aiItems = (profRow?.profile as Record<string, unknown> | null)?._aiAssessmentItems as AiItem[] | undefined;
+      const profJson = profRow?.profile as Record<string, unknown> | null;
+      const aiItems = profJson?._aiAssessmentItems as AiItem[] | undefined;
       const aiItem = aiItems?.find((i) => i.id === itemId);
       if (!aiItem) return badRequest("Unknown assessment item");
+
+      // Score aptitude items: generation prompt guarantees "a" is the correct answer.
+      // a=80, b=60, c=40, d=20 maps to a 0-100 aptitude scale per dimension.
+      const isAptitude = (APTITUDES as readonly string[]).includes(aiItem.dimension);
+      const aptitudeScoreMap: Record<string, number> = { a: 80, b: 60, c: 40, d: 20 };
+      const score = isAptitude ? (aptitudeScoreMap[choiceId] ?? 40) : null;
 
       await db.from("assessment_responses").delete().eq("session_id", sessionId).eq("item_id", itemId);
       await db.from("assessment_responses").insert({
@@ -143,14 +150,32 @@ export async function POST(req: NextRequest) {
         item_id: itemId,
         dimension: aiItem.dimension,
         answer: choiceId,
-        score: null,
+        score,
       });
+
+      // For aptitude items, update the student profile so the recommendation
+      // engine has accurate aptitude scores — AI items previously left this null.
+      if (isAptitude && score !== null) {
+        const merged = mergeProfile(profJson as Partial<StudentProfile> | null, {
+          aptitude: { [aiItem.dimension]: score },
+        });
+        await db.from("student_profiles").upsert(
+          {
+            session_id: sessionId,
+            profile: merged,
+            completeness_pct: computeCompleteness(merged),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "session_id" }
+        );
+      }
+
       await db
         .from("sessions")
         .update({ status: "assessment", updated_at: new Date().toISOString() })
         .eq("id", sessionId)
         .eq("status", "in_chat");
-      return NextResponse.json({ ok: true, dimension: aiItem.dimension, score: null });
+      return NextResponse.json({ ok: true, dimension: aiItem.dimension, score });
     } catch (e) {
       console.error(e);
       return serverError("Could not save assessment response");

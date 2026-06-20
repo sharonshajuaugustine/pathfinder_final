@@ -108,6 +108,9 @@ export interface StudentContext {
   hasPersonalityData?: boolean;
   // Profile sections still empty — the AI uses this to focus its next question.
   remainingGaps?: string[];
+  // Raw gap ID of the top remaining gap (e.g. "budget", "location"). Used to
+  // look up HARDCODED_CONSTRAINTS without needing to parse the prompt string.
+  topGapId?: string;
   // Entrance exams relevant to this student's detected interests. The AI MUST
   // only mention exams from this list — prevents CLAT being asked to bio students.
   relevantExams?: string[];
@@ -206,7 +209,7 @@ export async function nextQuestion(params: {
 
   // Constraint gaps (budget / location / family / workstyle) use fixed choices —
   // no AI call needed, answers are predictable and fast.
-  const topGap = params.studentContext?.remainingGaps?.[0];
+  const topGap = params.studentContext?.topGapId;
   if (topGap && HARDCODED_CONSTRAINTS[topGap]) {
     const hc = HARDCODED_CONSTRAINTS[topGap];
     return { content: hc.question, choices: hc.choices, model: "hardcoded" };
@@ -536,7 +539,11 @@ function sanitizeDelta(
   const allowSignals = !opts.isReflection;
 
   if (allowSignals) {
-    if (data.interests) out.interests = pick(data.interests, INTEREST_CLUSTERS as readonly string[], 0, 1);
+    // Cap at 0.5 — deep interest (0.6+) only reaches that level through button
+    // clicks (pendingChoiceToProfile → 0.8) or career name inference
+    // (inferInterestFromCareer → 0.7). Free-text answers like "I like planting"
+    // are shallow signals that need chat deepening via the shallowInterest path.
+    if (data.interests) out.interests = pick(data.interests, INTEREST_CLUSTERS as readonly string[], 0, 0.5);
     if (data.aptitude) out.aptitude = pick(data.aptitude, APTITUDES as readonly string[], 0, 100);
     if (data.personality) out.personality = pick(data.personality, PERSONALITY_TRAITS as readonly string[], -1, 1);
 
