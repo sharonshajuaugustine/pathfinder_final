@@ -3,8 +3,19 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import type { AssessmentItemPublic } from "@/types/assessment";
+import { KERALA_DISTRICTS, STREAMS } from "@/types/onboarding";
+
+const STREAM_LABELS: Record<string, string> = {
+  science_bio: "Science (Biology)",
+  science_maths: "Science (Maths)",
+  science_cs: "Science (Computer Science)",
+  commerce: "Commerce",
+  humanities: "Humanities / Arts",
+};
 
 // The chat is adaptive: the server decides when enough is captured and returns
 // `done: true`, at which point the interview ends. Stages only rotate the AI's
@@ -45,6 +56,14 @@ function ChatInner() {
   const [answering, setAnswering] = useState(false);
   const assessmentLoadedRef = useRef(false);
 
+  // ── Data collection form (shown after assessment) ────────────────────────────
+  const [dataPhase, setDataPhase] = useState<"hidden" | "collecting" | "submitting">("hidden");
+  const [dataErr, setDataErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (assessmentDone && dataPhase === "hidden") setDataPhase("collecting");
+  }, [assessmentDone, dataPhase]);
+
   useEffect(() => {
     if (!sessionId || startedRef.current) return;
     startedRef.current = true;
@@ -61,7 +80,7 @@ function ChatInner() {
   useEffect(() => {
     if (!chatDone || assessmentLoadedRef.current) return;
     assessmentLoadedRef.current = true;
-    fetch("/api/assessment")
+    fetch(`/api/assessment?session=${sessionId}`)
       .then((r) => r.json())
       .then((d) => {
         const items: AssessmentItemPublic[] = d.items ?? [];
@@ -148,12 +167,45 @@ function ChatInner() {
     setAnswering(false);
   }
 
+  async function submitDataForm(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!sessionId) return;
+    setDataPhase("submitting");
+    setDataErr(null);
+    const fd = new FormData(e.currentTarget);
+    const payload = {
+      sessionId,
+      name: String(fd.get("name") ?? ""),
+      phone: String(fd.get("phone") ?? ""),
+      email: String(fd.get("email") ?? ""),
+      age: Number(fd.get("age")),
+      gender: String(fd.get("gender") ?? "") || undefined,
+      district: String(fd.get("district") ?? ""),
+      stream: String(fd.get("stream") ?? ""),
+      percentage: Number(fd.get("percentage")),
+      preferredLanguage: "en",
+      consentGiven: fd.get("consentGiven") === "on",
+    };
+    const res = await fetch("/api/onboarding", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setDataErr(body.error ?? "Please check your details and try again.");
+      setDataPhase("collecting");
+      return;
+    }
+    router.push(`/result?session=${sessionId}`);
+  }
+
   if (!sessionId) {
     return (
       <main className="flex h-screen items-center justify-center px-6 text-center text-muted-foreground">
         Missing session. Please start from{" "}
-        <Link href="/onboarding" className="ml-1 underline">
-          onboarding
+        <Link href="/start" className="ml-1 underline">
+          the start page
         </Link>
         .
       </main>
@@ -333,19 +385,90 @@ function ChatInner() {
         </div>
       )}
 
-      {/* ── Result CTA ── */}
-      {assessmentDone && (
-        <div className="shrink-0 border-t bg-white px-4 py-4">
+      {/* ── Data collection form (after assessment) ── */}
+      {assessmentDone && dataPhase !== "hidden" && (
+        <div className="shrink-0 border-t bg-white px-4 py-5">
           <div className="mx-auto max-w-2xl">
-            <p className="mb-3 text-center text-sm text-muted-foreground">
-              Great — we have everything we need to build your personalised report.
-            </p>
-            <button
-              onClick={() => router.push(`/result?session=${sessionId}`)}
-              className="h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white shadow transition-all hover:bg-primary/90"
-            >
-              See my career recommendations →
-            </button>
+            <div className="mb-4 rounded-xl bg-primary/5 px-4 py-3 text-center">
+              <p className="text-sm font-semibold text-foreground">Almost there — save your results</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Enter your details to get your full personalised career report.
+              </p>
+            </div>
+            <form onSubmit={submitDataForm} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">Full name</label>
+                  <Input name="name" required minLength={2} placeholder="Your name" className="h-9 text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">Phone</label>
+                  <Input name="phone" required inputMode="numeric" pattern="[6-9][0-9]{9}" placeholder="9XXXXXXXXX" className="h-9 text-sm" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">Email</label>
+                  <Input name="email" type="email" required placeholder="you@example.com" className="h-9 text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">Age</label>
+                  <Input name="age" type="number" required min={14} max={30} placeholder="17" className="h-9 text-sm" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">Gender (optional)</label>
+                  <Select name="gender" defaultValue="" className="h-9 text-sm">
+                    <option value="">Prefer not to say</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">District</label>
+                  <Select name="district" required defaultValue="" className="h-9 text-sm">
+                    <option value="" disabled>Select</option>
+                    {KERALA_DISTRICTS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">Stream</label>
+                  <Select name="stream" required defaultValue="" className="h-9 text-sm">
+                    <option value="" disabled>Select</option>
+                    {STREAMS.map((s) => (
+                      <option key={s} value={s}>{STREAM_LABELS[s]}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">Plus Two %</label>
+                  <Input name="percentage" type="number" required min={0} max={100} step="0.01" placeholder="e.g. 85" className="h-9 text-sm" />
+                </div>
+              </div>
+              <label className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-3 text-xs">
+                <Checkbox name="consentGiven" required className="mt-0.5 shrink-0" />
+                <span className="text-muted-foreground">
+                  I agree to my data being processed for career guidance and may be shared with a counsellor.
+                </span>
+              </label>
+              {dataErr && (
+                <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{dataErr}</p>
+              )}
+              <button
+                type="submit"
+                disabled={dataPhase === "submitting"}
+                className="h-11 w-full rounded-xl bg-primary text-sm font-semibold text-white shadow transition-all hover:bg-primary/90 disabled:opacity-50"
+              >
+                {dataPhase === "submitting" ? "Saving…" : "Get my career report →"}
+              </button>
+            </form>
           </div>
         </div>
       )}

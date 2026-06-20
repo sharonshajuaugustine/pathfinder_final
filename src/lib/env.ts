@@ -24,16 +24,6 @@ export const serverEnv = {
   get groqModel() {
     return process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
   },
-  // GLM (Zhipu AI / Z.AI) — CROSS-PROVIDER fallback used when Groq is
-  // rate-limited (429) or down. GLM-4.7-Flash is a high-quality reasoning model,
-  // so it preserves extraction accuracy far better than falling back to a weaker
-  // model on the same Groq key. See src/lib/glm.ts.
-  get glmApiKey() {
-    return process.env.GLM_API_KEY ?? "";
-  },
-  get glmModel() {
-    return process.env.GLM_MODEL ?? "glm-4.7-flash";
-  },
   get kbVersion() {
     return process.env.KB_VERSION ?? "1";
   },

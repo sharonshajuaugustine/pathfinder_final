@@ -20,6 +20,8 @@ const STREAM_LABELS: Record<string, string> = {
 
 export default function OnboardingPage() {
   const router = useRouter();
+  // Old onboarding form is now replaced by the guided 5-question /start flow.
+  useEffect(() => { router.replace("/start"); }, [router]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

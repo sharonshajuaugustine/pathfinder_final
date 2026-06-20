@@ -4,7 +4,7 @@ const STEPS = [
   {
     num: "01",
     title: "Tell us about yourself",
-    desc: "A guided AI conversation explores your interests, strengths, and goals — in plain language, at your own pace.",
+    desc: "A guided AI conversation explores your interests, strengths, and goals — asking follow-up questions based on what you say until it really understands you.",
   },
   {
     num: "02",
@@ -20,8 +20,8 @@ const STEPS = [
 
 const WHY = [
   {
-    title: "We listen first",
-    desc: "A guided conversation — not a checkbox form. You answer in your own words, in English or Malayalam.",
+    title: "We listen, then dig deeper",
+    desc: "When your answer is vague, we ask from a different angle — not the same question again. You stay in control and can move on whenever you're ready.",
   },
   {
     title: "We measure, not guess",
@@ -68,7 +68,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-8">
             <Link
-              href="/onboarding"
+              href="/start"
               className="inline-flex h-12 items-center justify-center rounded-xl bg-white px-8 text-sm font-semibold text-primary shadow-lg transition-all hover:bg-white/95 hover:shadow-xl"
             >
               Start now — it&apos;s free
@@ -140,10 +140,10 @@ export default function LandingPage() {
         <div className="mx-auto max-w-xl">
           <h2 className="text-2xl font-bold sm:text-3xl">Ready to find your path?</h2>
           <p className="mt-3 text-sm text-muted-foreground">
-            Free, in about 20 minutes. Available in English and Malayalam.
+            Free, in about 20 minutes. No account needed.
           </p>
           <Link
-            href="/onboarding"
+            href="/start"
             className="mt-6 inline-flex h-12 items-center justify-center rounded-xl bg-primary px-8 text-sm font-semibold text-primary-foreground shadow transition-all hover:bg-primary/90"
           >
             Get started for free

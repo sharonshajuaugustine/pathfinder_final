@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
         preferred_language: d.preferredLanguage,
         consent_given: d.consentGiven,
         consent_at: new Date().toISOString(),
+        ...(d.gender ? { gender: d.gender } : {}),
       })
       .select("id")
       .single();

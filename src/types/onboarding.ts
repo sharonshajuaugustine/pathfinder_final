@@ -30,6 +30,7 @@ export const onboardingSchema = z.object({
   district: z.enum(KERALA_DISTRICTS),
   stream: z.enum(STREAMS),
   percentage: z.number().min(0).max(100),
+  gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(),
   preferredLanguage: z.enum(LANGUAGES).default("en"),
   consentGiven: z.literal(true, {
     errorMap: () => ({ message: "Consent is required to continue" }),

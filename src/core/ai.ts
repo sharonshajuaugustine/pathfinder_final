@@ -117,12 +117,19 @@ export interface StudentContext {
   followUp?: boolean;
 }
 
+// Structured choice returned by the AI — label is what the student sees (button
+// text), value is the semantic key the server uses to update the profile.
+export interface AIChoice {
+  label: string;
+  value: string;
+}
+
 // --- interviewer ---------------------------------------------------------------
 export async function nextQuestion(params: {
   stage: string;
   history: ChatMessage[];
   studentContext?: StudentContext;
-}): Promise<{ content: string; choices: string[]; model: string; promptTokens?: number; outputTokens?: number }> {
+}): Promise<{ content: string; choices: AIChoice[]; model: string; promptTokens?: number; outputTokens?: number }> {
   const isFirstQuestion = params.history.length === 0;
 
   const goal =
@@ -134,10 +141,10 @@ export async function nextQuestion(params: {
     return {
       content: "Hi! Do you already have some idea of what you'd like to do after Plus Two, or are you still figuring it out?",
       choices: [
-        "I already have a career in mind",
-        "Still figuring it out",
-        "A few options, not sure which",
-        "My family has a preference",
+        { label: "I already have a career in mind", value: "has_career" },
+        { label: "Still figuring it out", value: "figuring_out" },
+        { label: "A few options, not sure which", value: "few_options" },
+        { label: "My family has a preference", value: "family_preference" },
       ],
       model: "hardcoded",
     };
@@ -245,35 +252,49 @@ export async function nextQuestion(params: {
     {
       role: "user",
       content:
-        'Respond with valid JSON: { "question": "...", "choices": ["...", "...", "...", "..."] }\n\n' +
+        'Respond with valid JSON: { "question": "...", "choices": [{ "label": "...", "value": "..." }, ...] }\n\n' +
         "STEP 1 — THE MOST IMPORTANT RULE: Your next question MUST be about GAP #1 ONLY. The GAPS list (above, in priority order) decides your topic. NOT the student's last answer. If GAP #1 is 'goal', you ask about goal. If it is 'budget', you ask about budget. Do not let the conversation drift onto any other topic.\n\n" +
         "STEP 2 — NEVER re-ask a captured topic. If the context says a dimension is ALREADY CAPTURED (interest known, subjects known, goal known), you are FORBIDDEN from asking anything more about it. Even if their last answer was interesting, move to GAP #1. Re-exploring a captured topic is the single worst mistake you can make.\n\n" +
         "STEP 3 — NEVER drill into sub-details. Stay at the level of 'choose a direction'. Do NOT ask 'which hospital ward?', 'which programming language?', 'which type of patients?' — those are too deep. One question per topic, then move on. If GAP #1 is already broadly answered by something they said, treat it as captured and the system will give you the next gap.\n\n" +
         "STEP 4 — FOLLOW-UP mode (only when 'FOLLOW-UP NEEDED' appears in context): the student's last answer to GAP #1 was not enough. Do NOT rephrase the same question — try a genuinely different angle. If they said they have no subjects they like, ask what they are best at even if they don't enjoy it, or what they do after school. If they said 'I don't know' about their interest, give a concrete scenario from a different direction. Build on exactly what they told you — a different question type, not the same question with new words.\n\n" +
         "STEP 5 — Check history: never repeat a question already asked in this conversation. Never repeat a topic.\n\n" +
-        'STEP 6 — Write the JSON:\n' +
+        'STEP 6 — Write the JSON. Each choice has two fields:\n' +
+        '  • "label": the button text the student sees — must be a short, concrete phrase (max 10 words)\n' +
+        '  • "value": the semantic key the server uses to update the profile (see VALUE SCHEMA below)\n\n' +
         '  "question": A single, direct question about GAP #1. Max 25 words. MUST end with "?". In FOLLOW-UP mode you may open with one very short phrase that acknowledges what they said (e.g. "That\'s okay —" or "Fair enough —") before asking from the new angle. Otherwise no preamble.\n' +
-        '  "choices": exactly 4 options that DIRECTLY answer your question.\n' +
-        "  • If asking which subjects they enjoy or score best in → give 4 subject names from their stream. " +
-        "Science (Bio): 'Biology', 'Chemistry', 'Physics', 'Mathematics'. " +
-        "Science (Maths/CS): 'Mathematics', 'Physics', 'Computer Science', 'Chemistry'. " +
-        "Commerce: 'Accountancy', 'Business Studies', 'Economics', 'Mathematics'. " +
-        "Humanities: 'History / Political Science', 'English / Literature', 'Psychology', 'Economics'.\n" +
-        "  • If asking what matters most in a career → use EXACTLY these four: " +
-        "'High salary and fast growth', 'Stable job and job security', 'Work I am passionate about', 'Government or public service job'.\n" +
-        "  • INTEREST/ACTIVITY questions: the system captures interest in TWO phases and " +
-        "provides the exact choice set in your GAP #1 instruction. USE THOSE EXACT CHOICES — do not invent " +
-        "your own activities. Phase 1 asks 'which activity would you most enjoy doing regularly?' with " +
-        "stream-tailored activities. Phase 2 asks 'what are you drawn to watching, reading, or following?' " +
-        "with cross-domain options. Write your question to match whichever phase GAP #1 describes. " +
-        "Choices MUST be real activities/scenarios — NEVER bare field names ('Medicine', 'Technology').\n" +
-        "  • If asking about their goal → use EXACTLY these four: 'Study a degree further', 'Get a job quickly', 'Prepare for govt exams (PSC/UPSC)', 'Start a business or an independent project'.\n" +
-        "  • If asking about budget → use EXACTLY these four: 'Family can manage it', 'Manageable with effort', 'Need a scholarship or loan', 'Not sure about costs'.\n" +
-        "  • If asking about location → use EXACTLY these four: 'Stay in Kerala', 'Anywhere in India', 'Open to studying abroad', 'Depends on the course'.\n" +
-        "  • If asking about family expectations → use EXACTLY these four: " +
-        "'They are fully supportive of my choice', 'They have some preferences', 'They have strong career expectations', 'We haven\\'t discussed it yet'.\n" +
-        "  • If asking about work style → use EXACTLY these four: 'With people (patients / students / clients)', 'Solo work (coding / writing / research)', 'Outdoors / fieldwork / hands-on', 'Mix of both'.\n" +
-        "  • Keep every option realistic for the student's stream.\n\n" +
+        '  "choices": exactly 4 options that DIRECTLY answer your question.\n\n' +
+        "VALUE SCHEMA — use the correct 'value' for GAP #1:\n" +
+        "  GAP: subjects → value = exact subject name. Stream defaults:\n" +
+        "    Science (Bio): Biology, Chemistry, Physics, Mathematics\n" +
+        "    Science (Maths/CS): Mathematics, Physics, Computer Science, Chemistry\n" +
+        "    Commerce: Accountancy, Business Studies, Economics, Mathematics\n" +
+        "    Humanities: History, English, Psychology, Economics\n" +
+        "  GAP: interest → value = one of these 12 cluster IDs ONLY:\n" +
+        "    health_medicine, technology_coding, business_money, science_research,\n" +
+        "    design_visual, helping_teaching, law_justice, building_engineering,\n" +
+        "    media_communication, nature_agriculture, defence_adventure, numbers_analysis\n" +
+        "    IMPORTANT: label must be a concrete activity phrase (e.g. 'Building apps and websites',\n" +
+        "    'Caring for sick people', 'Growing crops and farming') — NEVER a bare field name.\n" +
+        "    Tailor choices to the student's stream and subjects. Include clusters most likely to fit.\n" +
+        "  GAP: goal → value = one of: higher_study, job_soon, business, government\n" +
+        "    Suggested labels: 'Study a degree further', 'Get a job quickly',\n" +
+        "    'Prepare for govt exams (PSC/UPSC)', 'Start a business or project'\n" +
+        "  GAP: priorities → value = one of: high_salary, job_security, passion, government_service\n" +
+        "    Suggested labels: 'High salary and fast growth', 'Stable job and security',\n" +
+        "    'Work I am passionate about', 'Government or public service'\n" +
+        "  GAP: budget → value = one of: no_constraint, medium, low\n" +
+        "    Suggested labels: 'Family can manage it', 'Manageable with effort', 'Need a scholarship or loan'\n" +
+        "    Add a 4th option with value 'medium' and label 'Not sure about costs'\n" +
+        "  GAP: location → value = one of: kerala, india, abroad\n" +
+        "    Suggested labels: 'Stay in Kerala', 'Anywhere in India', 'Open to studying abroad'\n" +
+        "    Add a 4th option with value 'india' and label 'Depends on the course'\n" +
+        "  GAP: family → value = one of: none, some_preference, family_preference\n" +
+        "    Suggested labels: 'Fully supportive of my choice', 'They have some preferences',\n" +
+        "    'They have strong expectations', 'Haven't discussed it yet'\n" +
+        "    4th option: value = 'none', label = \"Haven't discussed it yet\"\n" +
+        "  GAP: workstyle → value = one of: social, analytical_solo, practical_outdoor, mixed\n" +
+        "    Suggested labels: 'With people (patients / students / clients)',\n" +
+        "    'Solo work (coding / writing / research)', 'Outdoors / fieldwork / hands-on', 'Mix of both'\n\n" +
         "GUARDRAILS:\n" +
         "• One question only. Never recommend careers or colleges.\n" +
         "• The GAPS list is authoritative and ordered. GAP #1 is your ONLY topic. Never re-explore a captured topic.\n" +
@@ -282,10 +303,14 @@ export async function nextQuestion(params: {
         "• If the student said their FAMILY has a preference: ask what the STUDENT personally enjoys.",
     },
   ];
-  const { data, raw, model } = await extractJson<{ question: string; choices?: string[] }>(messages, { temperature: 0.5 });
+  const { data, raw, model } = await extractJson<{ question: string; choices?: AIChoice[] }>(messages, { temperature: 0.5 });
+  const rawChoices = Array.isArray(data?.choices) ? data.choices : [];
+  const choices = rawChoices
+    .filter((c): c is AIChoice => c !== null && typeof c === "object" && typeof c.label === "string" && typeof c.value === "string")
+    .slice(0, 6);
   return {
     content: data?.question?.trim() || raw.trim() || "Could you share a bit more about what interests you?",
-    choices: Array.isArray(data?.choices) ? data.choices.slice(0, 6) : [],
+    choices,
     model,
   };
 }

@@ -1,80 +1,69 @@
 import type { AssessmentItem } from "@/types/assessment";
 
 // ---------------------------------------------------------------------------
-// Assessment bank — a BLEND of real aptitude tests and interest discovery.
+// Assessment bank — aptitude + interest questions.
 //
-// Design rationale:
-//   • 5 APTITUDE questions (one per dimension: numerical, logical, verbal,
-//     spatial, scientific). Each has exactly one correct answer scored 100 and
-//     distractors scored 0. This gives the scoring engine DIRECT, reliable
-//     aptitude signals instead of inferring them all from subjects. Aptitude is
-//     25% of the fit score, so measuring it directly materially improves
-//     recommendation accuracy.
-//   • 5 INTEREST questions (the strongest activity/scenario-based ones). These
-//     supplement chat interest capture and add personality + RIASEC signals.
-//     Each choice maps to interest clusters (0..1), so the engine gets real
-//     interest data even if chat capture was thin.
+// GET /api/assessment accepts ?session=<uuid> and returns the 5 aptitude
+// questions (always) plus the 5 most relevant interest questions based on
+// the student's captured clusters and subjects.
 //
-// Questions are short and written for a 16–18 year old in Kerala. Aptitude items
-// are calibrated to be solvable in ~30s — they distinguish aptitude, not speed
-// of complex calculation. Server-only: GET /api/assessment strips signals.
+// Aptitude items have a single correct answer (score: 100 | 0).
+// Interest items carry interest cluster + RIASEC + personality signals.
+// Each interest item is tagged with the clusters it best surfaces.
 // ---------------------------------------------------------------------------
 
 export const ASSESSMENT_ITEMS: AssessmentItem[] = [
 
-  // ── APTITUDE: NUMERICAL ──────────────────────────────────────────────────────
+  // ── APTITUDE (always shown, all 5) ──────────────────────────────────────────
+
   {
     id: "apt_numerical",
     dimension: "numerical",
     questionText: "A shop gives 20% off, then another 10% off the new price. What single discount is that overall?",
     choices: [
-      { id: "a", text: "28%", signals: [{ score: 100 }] }, // 0.8 * 0.9 = 0.72 → 28% off (correct)
-      { id: "b", text: "30%", signals: [{ score: 0 }] },   // naive add
+      { id: "a", text: "28%", signals: [{ score: 100 }] },
+      { id: "b", text: "30%", signals: [{ score: 0 }] },
       { id: "c", text: "32%", signals: [{ score: 0 }] },
       { id: "d", text: "26%", signals: [{ score: 0 }] },
     ],
   },
 
-  // ── APTITUDE: LOGICAL ────────────────────────────────────────────────────────
   {
     id: "apt_logical",
     dimension: "logical",
     questionText: "If all 'Blins' are 'Frops', and some 'Frops' are 'Kazz', which MUST be true?",
     choices: [
-      { id: "a", text: "Some Blins might be Kazz", signals: [{ score: 0 }] },   // 'might' — not a MUST
+      { id: "a", text: "Some Blins might be Kazz", signals: [{ score: 0 }] },
       { id: "b", text: "No Blin is a Kazz", signals: [{ score: 0 }] },
-      { id: "c", text: "None of these must be true", signals: [{ score: 100 }] }, // overlap need not include Blins
+      { id: "c", text: "None of these must be true", signals: [{ score: 100 }] },
       { id: "d", text: "All Frops are Blins", signals: [{ score: 0 }] },
     ],
   },
 
-  // ── APTITUDE: VERBAL ─────────────────────────────────────────────────────────
   {
     id: "apt_verbal",
     dimension: "verbal",
     questionText: "Pick the word most nearly OPPOSITE in meaning to 'TRANSPARENT' (as in a transparent excuse).",
     choices: [
-      { id: "a", text: "Deceptive", signals: [{ score: 100 }] }, // correct antonym in this sense
+      { id: "a", text: "Deceptive", signals: [{ score: 100 }] },
       { id: "b", text: "Clear", signals: [{ score: 0 }] },
       { id: "c", text: "Visible", signals: [{ score: 0 }] },
       { id: "d", text: "Honest", signals: [{ score: 0 }] },
     ],
   },
 
-  // ── APTITUDE: SPATIAL ────────────────────────────────────────────────────────
   {
     id: "apt_spatial",
     dimension: "spatial",
     questionText: "A square paper is folded once in half, then a small triangle is cut from one corner of the folded edge. Unfolded, how many triangular holes appear?",
     choices: [
       { id: "a", text: "1", signals: [{ score: 0 }] },
-      { id: "b", text: "2", signals: [{ score: 100 }] }, // symmetric across the fold → 2 holes
+      { id: "b", text: "2", signals: [{ score: 100 }] },
       { id: "c", text: "3", signals: [{ score: 0 }] },
       { id: "d", text: "4", signals: [{ score: 0 }] },
     ],
   },
 
-  // ── APTITUDE: SCIENTIFIC ─────────────────────────────────────────────────────
   {
     id: "apt_scientific",
     dimension: "scientific",
@@ -82,16 +71,17 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
     choices: [
       { id: "a", text: "The ball hits the bottom first", signals: [{ score: 0 }] },
       { id: "b", text: "The feather hits the bottom first", signals: [{ score: 0 }] },
-      { id: "c", text: "They hit the bottom at the same time", signals: [{ score: 100 }] }, // no air resistance
+      { id: "c", text: "They hit the bottom at the same time", signals: [{ score: 100 }] },
       { id: "d", text: "The feather floats and never falls", signals: [{ score: 0 }] },
     ],
   },
 
-  // ── INTEREST: activity scenarios (also yield personality + RIASEC) ───────────
+  // ── INTEREST (top 5 selected per student based on captured clusters) ─────────
 
   {
     id: "int_01",
     dimension: "personality",
+    tags: ["helping_teaching", "technology_coding", "design_visual", "science_research"],
     questionText: "After a long school day, which would help you relax AND feel productive?",
     choices: [
       {
@@ -138,6 +128,7 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
   {
     id: "int_02",
     dimension: "personality",
+    tags: ["health_medicine", "technology_coding", "helping_teaching", "business_money"],
     questionText: "A close friend needs help urgently. In which situation do you feel most useful?",
     choices: [
       {
@@ -181,6 +172,7 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
   {
     id: "int_03",
     dimension: "personality",
+    tags: ["health_medicine", "technology_coding", "design_visual", "business_money"],
     questionText: "You have ₹10,000 to spend on learning something new. What do you choose?",
     choices: [
       {
@@ -223,6 +215,7 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
   {
     id: "int_04",
     dimension: "personality",
+    tags: ["health_medicine", "science_research", "media_communication", "business_money"],
     questionText: "Which person's real-life story would you most enjoy reading about?",
     choices: [
       {
@@ -267,6 +260,7 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
   {
     id: "int_05",
     dimension: "personality",
+    tags: ["helping_teaching", "technology_coding", "design_visual", "nature_agriculture"],
     questionText: "If you volunteered for a community project, which would feel most meaningful?",
     choices: [
       {
@@ -305,4 +299,141 @@ export const ASSESSMENT_ITEMS: AssessmentItem[] = [
     ],
   },
 
+  {
+    id: "int_06",
+    dimension: "personality",
+    tags: ["law_justice", "numbers_analysis", "nature_agriculture", "defence_adventure"],
+    questionText: "Your school asks you to lead a project. Which one excites you most?",
+    choices: [
+      {
+        id: "a",
+        text: "Running a mock courtroom debate about a real social issue",
+        signals: [
+          { interest: "law_justice", interestValue: 0.9 },
+          { interest: "media_communication", interestValue: 0.4 },
+          { trait: "social", traitValue: 0.6 },
+        ],
+      },
+      {
+        id: "b",
+        text: "Analysing the school canteen's sales data and suggesting improvements",
+        signals: [
+          { interest: "numbers_analysis", interestValue: 0.9 },
+          { interest: "business_money", interestValue: 0.5 },
+          { trait: "analytical", traitValue: 0.8 },
+        ],
+      },
+      {
+        id: "c",
+        text: "Starting a school garden and teaching classmates about composting",
+        signals: [
+          { interest: "nature_agriculture", interestValue: 0.9 },
+          { interest: "helping_teaching", interestValue: 0.4 },
+          { trait: "practical", traitValue: 0.6 },
+        ],
+      },
+      {
+        id: "d",
+        text: "Organising a school safety drill and emergency response plan",
+        signals: [
+          { interest: "defence_adventure", interestValue: 0.8 },
+          { interest: "helping_teaching", interestValue: 0.3 },
+          { trait: "structured", traitValue: 0.6 },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "int_07",
+    dimension: "personality",
+    tags: ["building_engineering", "science_research", "numbers_analysis", "technology_coding"],
+    questionText: "Which school project would you find most satisfying to complete?",
+    choices: [
+      {
+        id: "a",
+        text: "Designing and building a small bridge out of popsicle sticks that holds the most weight",
+        signals: [
+          { interest: "building_engineering", interestValue: 0.9 },
+          { interest: "technology_coding", interestValue: 0.3 },
+          { trait: "practical", traitValue: 0.7 },
+        ],
+      },
+      {
+        id: "b",
+        text: "Running an experiment to test how plants grow in different soils",
+        signals: [
+          { interest: "science_research", interestValue: 0.9 },
+          { interest: "nature_agriculture", interestValue: 0.5 },
+          { riasec: "investigative", riasecValue: 0.8 },
+        ],
+      },
+      {
+        id: "c",
+        text: "Writing a program that automatically organises the school timetable",
+        signals: [
+          { interest: "technology_coding", interestValue: 0.9 },
+          { interest: "numbers_analysis", interestValue: 0.5 },
+          { trait: "analytical", traitValue: 0.8 },
+        ],
+      },
+      {
+        id: "d",
+        text: "Tracking and graphing weather data every day for a month and spotting patterns",
+        signals: [
+          { interest: "numbers_analysis", interestValue: 0.8 },
+          { interest: "science_research", interestValue: 0.5 },
+          { trait: "analytical", traitValue: 0.7 },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: "int_08",
+    dimension: "personality",
+    tags: ["media_communication", "law_justice", "business_money", "design_visual"],
+    questionText: "A documentary about which topic would you watch from start to finish without getting bored?",
+    choices: [
+      {
+        id: "a",
+        text: "How a journalist uncovered a major scandal step by step",
+        signals: [
+          { interest: "media_communication", interestValue: 0.9 },
+          { interest: "law_justice", interestValue: 0.5 },
+          { riasec: "investigative", riasecValue: 0.6 },
+        ],
+      },
+      {
+        id: "b",
+        text: "How a startup went from an idea to a billion-dollar company",
+        signals: [
+          { interest: "business_money", interestValue: 0.9 },
+          { interest: "technology_coding", interestValue: 0.3 },
+          { riasec: "enterprising", riasecValue: 0.8 },
+        ],
+      },
+      {
+        id: "c",
+        text: "How a landmark court case changed the rights of ordinary people",
+        signals: [
+          { interest: "law_justice", interestValue: 0.9 },
+          { trait: "social", traitValue: 0.5 },
+        ],
+      },
+      {
+        id: "d",
+        text: "How a legendary designer created an iconic logo, building, or product",
+        signals: [
+          { interest: "design_visual", interestValue: 0.9 },
+          { interest: "media_communication", interestValue: 0.4 },
+          { riasec: "artistic", riasecValue: 0.8 },
+        ],
+      },
+    ],
+  },
+
 ];
+
+// The 5 aptitude items are always shown; they have no tags.
+export const APTITUDE_ITEM_IDS = new Set(["apt_numerical", "apt_logical", "apt_verbal", "apt_spatial", "apt_scientific"]);

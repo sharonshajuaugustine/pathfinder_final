@@ -25,6 +25,7 @@ export interface AssessmentItem {
   dimension: AssessmentDimension;
   questionText: string;
   choices: AssessmentChoice[];
+  tags?: InterestCluster[]; // interest clusters this question is most relevant for
 }
 
 // Safe subset sent to the client — no scores or signals exposed.
