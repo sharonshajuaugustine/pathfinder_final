@@ -28,6 +28,8 @@ export type AdminFilters = {
   district?: string;
   from?: string;
   to?: string;
+  search?: string;
+  page?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -54,22 +56,30 @@ export async function getStats() {
 // Leads list (with optional filters)
 // ---------------------------------------------------------------------------
 
-export async function getLeads(filters: AdminFilters, limit = 100): Promise<LeadRow[]> {
+const PAGE_SIZE = 50;
+
+export async function getLeads(filters: AdminFilters, limit = PAGE_SIZE): Promise<{ rows: LeadRow[]; total: number }> {
   const db = getServiceClient();
+  const page = Math.max(1, filters.page ?? 1);
+  const offset = (page - 1) * limit;
 
   let query = db
     .from("leads")
-    .select("id, name, phone, stream, district, percentage, funnel_status, created_at, session_id")
+    .select("id, name, phone, stream, district, percentage, funnel_status, created_at, session_id", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (filters.stream)   query = query.eq("stream", filters.stream);
   if (filters.district) query = query.ilike("district", `%${filters.district}%`);
   if (filters.from)     query = query.gte("created_at", filters.from);
   if (filters.to)       query = query.lte("created_at", `${filters.to}T23:59:59Z`);
+  if (filters.search) {
+    const s = filters.search.replace(/[%_]/g, "\\$&");
+    query = query.or(`name.ilike.%${s}%,phone.ilike.%${s}%`);
+  }
 
-  const { data: leads } = await query;
-  if (!leads?.length) return [];
+  const { data: leads, count } = await query;
+  if (!leads?.length) return { rows: [], total: count ?? 0 };
 
   const sessionIds: string[] = leads.map((l: { session_id: string }) => l.session_id);
 
@@ -87,7 +97,7 @@ export async function getLeads(filters: AdminFilters, limit = 100): Promise<Lead
     ])
   );
 
-  return leads.map((l: {
+  const rows = leads.map((l: {
     id: string; name: string; phone: string; stream: string; district: string;
     percentage: number | null; funnel_status: string; created_at: string; session_id: string;
   }) => ({
@@ -103,6 +113,8 @@ export async function getLeads(filters: AdminFilters, limit = 100): Promise<Lead
     sessionStatus: sessionMap[l.session_id] ?? null,
     completeness:  profileMap[l.session_id] ?? 0,
   }));
+
+  return { rows, total: count ?? rows.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -117,7 +129,7 @@ export async function getLeadDetail(leadId: string) {
 
   const sessionId = (lead as { session_id: string }).session_id;
 
-  const [session, profile, assessments, recommendation] = await Promise.all([
+  const [session, profile, assessments, recommendation, conversations] = await Promise.all([
     db.from("sessions")
       .select("id, status, created_at, updated_at")
       .eq("id", sessionId).maybeSingle(),
@@ -132,6 +144,11 @@ export async function getLeadDetail(leadId: string) {
       .eq("session_id", sessionId)
       .order("created_at", { ascending: false })
       .limit(1).maybeSingle(),
+    db.from("conversations")
+      .select("role, content, created_at")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true })
+      .limit(60),
   ]);
 
   return {
@@ -140,6 +157,7 @@ export async function getLeadDetail(leadId: string) {
     profile:        profile.data,
     assessments:    assessments.data ?? [],
     recommendation: recommendation.data,
+    conversations:  conversations.data ?? [],
   };
 }
 

@@ -74,16 +74,17 @@ function ChatInner() {
         turns: number;
         lastChoices: string[];
         assessmentAnswered: number;
+        assessmentTotal: number;
       };
 
-      // Already onboarded — send to results page
-      if (data.status === "onboarded") {
+      // Already completed — send to results page
+      if (data.status === "completed" || data.status === "onboarded") {
         router.replace(`/result?session=${sessionId}`);
         return;
       }
 
       // Assessment fully answered — skip chat AND assessment, show data form
-      if (data.status === "assessment" && data.assessmentAnswered >= 10) {
+      if (data.status === "assessment" && data.assessmentAnswered >= (data.assessmentTotal ?? 10)) {
         setMessages(data.messages);
         setTurns(data.turns);
         assessmentLoadedRef.current = true; // block the assessment-load effect

@@ -3,7 +3,6 @@ import { getServiceClient } from "@/lib/supabase/admin";
 import { onboardingSchema } from "@/types/onboarding";
 import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { audit } from "@/lib/audit";
-import { normalizeProfile, computeCompleteness } from "@/core/profile-builder";
 
 // POST /api/onboarding — validate + persist PII (server-only, service role).
 // name, age, stream, and percentage were collected in the start quiz and are
@@ -21,6 +20,11 @@ export async function POST(req: NextRequest) {
   const db = getServiceClient();
 
   try {
+    // Guard against double-submit — return the existing lead if already created.
+    const { data: existingLead } = await db
+      .from("leads").select("id").eq("session_id", d.sessionId).maybeSingle();
+    if (existingLead) return NextResponse.json({ leadId: existingLead.id });
+
     // Fetch name, age, stream, and percentage captured during the start quiz.
     const { data: profRow } = await db
       .from("student_profiles")
@@ -62,19 +66,13 @@ export async function POST(req: NextRequest) {
       .update({ lead_id: lead.id, status: "onboarded", language: d.preferredLanguage, updated_at: new Date().toISOString() })
       .eq("id", d.sessionId);
 
-    // Seed the profile with mirrored academic hard-filter fields (no-op if already set).
+    // Mirror stream/percentage to denormalized columns only — never touch `profile`
+    // (it was built during chat + assessment and must not be overwritten here).
     if (stream) {
-      const seedProfile = { academic: { stream, percentage, strongSubjects: [], weakSubjects: [] } };
-      await db.from("student_profiles").upsert(
-        {
-          session_id: d.sessionId,
-          stream,
-          percentage: percentage ?? null,
-          profile: seedProfile,
-          completeness_pct: computeCompleteness(normalizeProfile(seedProfile)),
-        },
-        { onConflict: "session_id" }
-      );
+      await db
+        .from("student_profiles")
+        .update({ stream, percentage: percentage ?? null, updated_at: new Date().toISOString() })
+        .eq("session_id", d.sessionId);
     }
 
     await audit({ actorType: "student", action: "onboarding.submit", entity: "leads", entityId: lead.id, ipHash });

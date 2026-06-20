@@ -40,7 +40,7 @@ export default async function LeadDetailPage({ params }: Props) {
   const data = await getLeadDetail(params.id);
   if (!data) notFound();
 
-  const { lead, session, profile, assessments, recommendation } = data;
+  const { lead, session, profile, assessments, recommendation, conversations } = data;
   const p = profile?.profile as Record<string, unknown> | null ?? null;
 
   // Parse profile sub-sections once
@@ -98,7 +98,7 @@ export default async function LeadDetailPage({ params }: Props) {
             {(lead as Record<string, unknown>).email != null && (
               <Field label="Email"  value={(lead as Record<string, unknown>).email as string} />
             )}
-            <Field label="Age"      value={`${(lead as Record<string, unknown>).age} yrs${(lead as Record<string, unknown>).is_minor ? " (minor)" : ""}`} />
+            <Field label="Age"      value={(lead as Record<string, unknown>).age != null ? `${(lead as Record<string, unknown>).age} yrs${(lead as Record<string, unknown>).is_minor ? " (minor)" : ""}` : "—"} />
             <Field label="District" value={(lead as Record<string, unknown>).district as string} />
             <Field label="Language" value={(lead as Record<string, unknown>).preferred_language === "ml" ? "Malayalam" : "English"} />
             <Field label="Funnel"   value={fmtFunnel((lead as Record<string, unknown>).funnel_status as string)} />
@@ -233,6 +233,13 @@ export default async function LeadDetailPage({ params }: Props) {
           {assessments.length > 0 && (
             <Section title={`Assessment responses (${assessments.length})`}>
               <AssessmentView responses={assessments} />
+            </Section>
+          )}
+
+          {/* Conversation history */}
+          {conversations.length > 0 && (
+            <Section title={`Chat history (${conversations.length} messages)`}>
+              <ConversationView messages={conversations} />
             </Section>
           )}
         </div>
@@ -506,6 +513,33 @@ function SkillGroup({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+// ── Conversation history ──────────────────────────────────────────────────────
+
+function ConversationView({ messages }: {
+  messages: Array<{ role: string; content: string; created_at: string }>;
+}) {
+  return (
+    <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+      {messages.map((m, i) => (
+        <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div
+            className={`max-w-[80%] rounded-xl px-3 py-2 text-xs ${
+              m.role === "user"
+                ? "bg-primary text-white"
+                : "border bg-muted/40 text-foreground"
+            }`}
+          >
+            <p className="whitespace-pre-wrap">{m.content}</p>
+            <p className={`mt-0.5 text-[10px] ${m.role === "user" ? "text-white/70" : "text-muted-foreground"}`}>
+              {new Date(m.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

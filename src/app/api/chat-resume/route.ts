@@ -34,10 +34,13 @@ export async function GET(req: NextRequest) {
   }));
   const turns = messages.filter((m) => m.role === "user").length;
 
-  const pendingChoices = (
-    profRes.data?.profile as Record<string, unknown> | null
-  )?._pendingChoices as Record<string, unknown> | undefined;
+  const profJson = profRes.data?.profile as Record<string, unknown> | null;
+
+  const pendingChoices = profJson?._pendingChoices as Record<string, unknown> | undefined;
   const lastChoices = pendingChoices ? Object.keys(pendingChoices) : [];
+
+  const cachedItems = profJson?._aiAssessmentItems;
+  const assessmentTotal = Array.isArray(cachedItems) ? cachedItems.length : 10;
 
   return NextResponse.json({
     status: sessionRes.data.status,
@@ -45,5 +48,6 @@ export async function GET(req: NextRequest) {
     turns,
     lastChoices,
     assessmentAnswered: assessRes.count ?? 0,
+    assessmentTotal,
   });
 }

@@ -4,10 +4,11 @@ import { getStats, getLeads } from "@/lib/admin-data";
 import { fmtDate, fmtStream, fmtFunnel, statusPill, completenessBar } from "@/app/admin/_components";
 
 export default async function AdminOverview() {
-  const [stats, recent] = await Promise.all([
+  const [stats, recentResult] = await Promise.all([
     getStats(),
     getLeads({}, 10),
   ]);
+  const recent = recentResult.rows;
 
   const completionRate =
     stats.totalLeads > 0
@@ -58,7 +59,7 @@ function StatCard({ title, value }: { title: string; value: number | string }) {
   );
 }
 
-function LeadsTable({ rows }: { rows: Awaited<ReturnType<typeof getLeads>> }) {
+function LeadsTable({ rows }: { rows: import("@/lib/admin-data").LeadRow[] }) {
   if (!rows.length) {
     return (
       <p className="px-4 py-8 text-center text-sm text-muted-foreground">No leads yet.</p>
