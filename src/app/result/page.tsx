@@ -94,7 +94,7 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
           placeholder="Anything we should improve? (optional)"
           maxLength={1000}
           rows={3}
-          className="w-full resize-none rounded-lg border bg-muted/30 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full resize-none rounded-lg border bg-white px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <button
           onClick={handleSubmit}
@@ -208,7 +208,7 @@ function ResultInner() {
         </div>
 
         {/* Short summary — one line max; full detail is in the cards below */}
-        {data.top.length > 0 && (
+        {(data.top ?? []).length > 0 && (
           <p className="mb-6 text-sm text-muted-foreground">
             Based on your interests, aptitude, and goals, here are your top career matches.
           </p>
@@ -216,7 +216,7 @@ function ResultInner() {
 
         {/* Career cards */}
         <div className="space-y-5">
-          {data.top.map((c, i) => {
+          {(data.top ?? []).map((c, i) => {
             const rank = RANK_STYLES[i] ?? RANK_STYLES[2];
             return (
               <div key={c.careerId} className="overflow-hidden rounded-2xl border bg-white shadow-sm">
@@ -251,19 +251,19 @@ function ResultInner() {
 
                 {/* Card body */}
                 <div className="space-y-4 px-5 py-4 text-sm">
-                  {c.courses.length > 0 && (
+                  {(c.courses ?? []).length > 0 && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Course routes
                       </p>
                       <div className="space-y-1.5">
-                        {c.courses.map((co) => (
+                        {(c.courses ?? []).map((co) => (
                           <div key={co.courseId} className="rounded-lg border bg-muted/30 px-3 py-2">
                             <p className="font-medium text-foreground">{co.name}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
                               {co.routeType} · {co.eligibility}
-                              {co.exams.length > 0 && (
-                                <> · Exams: {co.exams.map((ex) => ex.name).join(", ")}</>
+                              {(co.exams ?? []).length > 0 && (
+                                <> · Exams: {(co.exams ?? []).map((ex) => ex.name).join(", ")}</>
                               )}
                             </p>
                           </div>
@@ -272,13 +272,13 @@ function ResultInner() {
                     </div>
                   )}
 
-                  {c.factors.length > 0 && (
+                  {(c.factors ?? []).length > 0 && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Why this fits you
                       </p>
                       <div className="flex flex-wrap gap-1.5">
-                        {c.factors.map((f, j) => (
+                        {(c.factors ?? []).map((f, j) => (
                           <span
                             key={j}
                             className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium"
@@ -290,19 +290,19 @@ function ResultInner() {
                     </div>
                   )}
 
-                  {c.skills.length > 0 && (
+                  {(c.skills ?? []).length > 0 && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Skill roadmap
                       </p>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {c.skills.map((s, si) => (
+                        {(c.skills ?? []).map((s, si) => (
                           <span key={si} className="flex items-center gap-1.5">
                             <span className="rounded-md bg-secondary px-2.5 py-1 text-xs font-medium">
                               {s.skillName}
                               <span className="ml-1 text-muted-foreground">({s.stage})</span>
                             </span>
-                            {si < c.skills.length - 1 && (
+                            {si < (c.skills ?? []).length - 1 && (
                               <span className="text-muted-foreground">→</span>
                             )}
                           </span>
@@ -311,13 +311,13 @@ function ResultInner() {
                     </div>
                   )}
 
-                  {c.alternatives.length > 0 && (
+                  {(c.alternatives ?? []).length > 0 && (
                     <div>
                       <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         You might also consider
                       </p>
                       <div className="flex flex-wrap gap-1.5">
-                        {c.alternatives.map((a) => (
+                        {(c.alternatives ?? []).map((a) => (
                           <span
                             key={a.careerId}
                             className="rounded-full border bg-white px-3 py-1 text-xs text-muted-foreground"
@@ -335,11 +335,11 @@ function ResultInner() {
         </div>
 
         {/* Caveats */}
-        {data.caveats.length > 0 && (
+        {(data.caveats ?? []).length > 0 && (
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm">
             <p className="font-semibold text-amber-900">Please keep in mind</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-amber-800">
-              {data.caveats.map((cv, i) => (
+              {(data.caveats ?? []).map((cv, i) => (
                 <li key={i}>{cv}</li>
               ))}
             </ul>
