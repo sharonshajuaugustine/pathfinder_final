@@ -20,12 +20,7 @@ export async function POST(req: NextRequest) {
   const db = getServiceClient();
 
   try {
-    // Guard against double-submit — return the existing lead if already created.
-    const { data: existingLead } = await db
-      .from("leads").select("id").eq("session_id", d.sessionId).maybeSingle();
-    if (existingLead) return NextResponse.json({ leadId: existingLead.id });
-
-    // Fetch name, age, stream, and percentage captured during the start quiz.
+    // Fetch profile for name/age/stream/phone captured during the start quiz.
     const { data: profRow } = await db
       .from("student_profiles")
       .select("profile, stream, percentage")
@@ -34,31 +29,58 @@ export async function POST(req: NextRequest) {
 
     const profJson = profRow?.profile as Record<string, unknown> | null;
     const name = (profJson?._name as string | undefined)?.trim() || "Unknown";
-    const age = (profJson?._age as number | undefined) ?? 0;
+    const age = (profJson?._age as number | undefined) ?? null;
+    const profilePhone = profJson?._phone as string | undefined;
     const stream = profRow?.stream ?? ((profJson?.academic as { stream?: string } | undefined)?.stream) ?? null;
     const percentage = profRow?.percentage ?? ((profJson?.academic as { percentage?: number } | undefined)?.percentage) ?? null;
 
-    // Persist PII in `leads`.
-    const { data: lead, error: leadErr } = await db
-      .from("leads")
-      .insert({
-        session_id: d.sessionId,
-        name,
-        phone: d.phone,
+    // Check if a partial lead already exists (created at Q0).
+    const { data: existingLead } = await db
+      .from("leads").select("id").eq("session_id", d.sessionId).maybeSingle();
+
+    let leadId: string;
+
+    if (existingLead) {
+      // Lead already exists (created at Q0) — update with remaining fields.
+      await db.from("leads").update({
         email: d.email,
-        age: age > 0 ? age : null,
-        is_minor: age > 0 ? age < 18 : null,
         district: d.district,
-        stream: stream ?? null,
-        percentage: percentage ?? null,
+        stream: stream ?? undefined,
+        percentage: percentage ?? undefined,
         preferred_language: d.preferredLanguage,
         consent_given: d.consentGiven,
         consent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         ...(d.gender ? { gender: d.gender } : {}),
-      })
-      .select("id")
-      .single();
-    if (leadErr) throw leadErr;
+      }).eq("session_id", d.sessionId);
+      leadId = existingLead.id;
+    } else {
+      // No lead yet (fallback for old sessions) — insert full lead.
+      const phone = d.phone ?? profilePhone ?? "";
+      const { data: lead, error: leadErr } = await db
+        .from("leads")
+        .insert({
+          session_id: d.sessionId,
+          name,
+          phone,
+          email: d.email,
+          age,
+          is_minor: age != null ? age < 18 : null,
+          district: d.district,
+          stream: stream ?? null,
+          percentage: percentage ?? null,
+          preferred_language: d.preferredLanguage,
+          consent_given: d.consentGiven,
+          consent_at: new Date().toISOString(),
+          ...(d.gender ? { gender: d.gender } : {}),
+        })
+        .select("id")
+        .single();
+      if (leadErr) throw leadErr;
+      leadId = lead.id;
+    }
+
+    const lead = { id: leadId };
 
     // Link session + advance status.
     await db

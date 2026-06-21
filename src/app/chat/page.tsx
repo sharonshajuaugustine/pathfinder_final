@@ -220,7 +220,6 @@ function ChatInner() {
     const fd = new FormData(e.currentTarget);
     const payload = {
       sessionId,
-      phone: String(fd.get("phone") ?? ""),
       email: String(fd.get("email") ?? ""),
       gender: String(fd.get("gender") ?? "") || undefined,
       district: String(fd.get("district") ?? ""),
@@ -448,15 +447,9 @@ function ChatInner() {
               </p>
             </div>
             <form onSubmit={submitDataForm} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Phone</label>
-                  <Input name="phone" required inputMode="numeric" pattern="[6-9][0-9]{9}" placeholder="9XXXXXXXXX" className="h-9 text-sm" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Email</label>
-                  <Input name="email" type="email" required placeholder="you@example.com" className="h-9 text-sm" />
-                </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground">Email</label>
+                <Input name="email" type="email" required placeholder="you@example.com" className="h-9 text-sm" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

@@ -24,6 +24,7 @@ const bodySchema = z.object({
   text: z.string().max(500).optional(),                   // free-text answer
   name: z.string().max(100).optional(),                   // Q0
   age: z.number().int().min(1).max(110).optional(),       // Q0
+  phone: z.string().regex(/^[6-9]\d{9}$/).optional(),    // Q0
   percentage: z.number().min(0).max(100).optional(),      // Q1
   isChoice: z.boolean(),
 });
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) return badRequest("Invalid start payload", parsed.error.flatten());
 
-  const { sessionId, questionIndex, value, values, text, name, age, percentage, isChoice } = parsed.data;
+  const { sessionId, questionIndex, value, values, text, name, age, phone, percentage, isChoice } = parsed.data;
   const limited = await enforceRateLimit(limiters.write, "start", [sessionId, ipHash]);
   if (limited) return limited;
 
@@ -83,12 +84,14 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     const prevProfile = row?.profile as Partial<StudentProfile> | null;
 
-    // Q0: name + age — stored as metadata in profile JSON (_name, _age)
+    // Q0: name + age + phone — stored as metadata in profile JSON (_name, _age, _phone)
+    // Also creates a partial lead immediately so partial completions are visible in admin.
     if (questionIndex === 0) {
       const updated = {
         ...(prevProfile ?? {}),
         _name: name?.trim() ?? "",
         _age: age ?? null,
+        _phone: phone ?? null,
       };
       await db.from("student_profiles").upsert(
         {
@@ -99,6 +102,23 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: "session_id" }
       );
+
+      // Create a partial lead so admin can see the student even if they drop off.
+      // Uses upsert to safely handle network retries (idempotent).
+      if (name?.trim() && phone) {
+        const parsedAge = age ?? null;
+        await db.from("leads").upsert(
+          {
+            session_id: sessionId,
+            name: name.trim(),
+            phone,
+            age: parsedAge,
+            is_minor: parsedAge != null ? parsedAge < 18 : null,
+          },
+          { onConflict: "session_id", ignoreDuplicates: false }
+        );
+      }
+
       return NextResponse.json({ ok: true });
     }
 
@@ -131,6 +151,12 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: "session_id" }
       );
+
+      // Update partial lead with stream now that it's known.
+      await db.from("leads")
+        .update({ stream: value, percentage: percentage ?? null, updated_at: new Date().toISOString() })
+        .eq("session_id", sessionId);
+
       return NextResponse.json({ ok: true });
     }
 

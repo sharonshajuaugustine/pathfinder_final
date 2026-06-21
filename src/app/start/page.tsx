@@ -142,9 +142,10 @@ export default function StartPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState(false);
 
-  // Q0: name + age
+  // Q0: name + age + phone
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
+  const [phone, setPhone] = useState("");
 
   // Q1: stream + percentage
   const [percentage, setPercentage] = useState("");
@@ -185,7 +186,7 @@ export default function StartPage() {
 
   function getQuestion() {
     switch (qIndex) {
-      case 0: return "What's your name and age?";
+      case 0: return "What's your name, age and phone number?";
       case 1: return "Which Plus Two stream are you in?";
       case 2: return "Which subjects are you strongest in? (pick up to 2)";
       case 3: return "Which of these would you most enjoy doing every day?";
@@ -238,6 +239,7 @@ export default function StartPage() {
     text?: string;
     name?: string;
     age?: number;
+    phone?: string;
     percentage?: number;
     isChoice: boolean;
   }) {
@@ -297,8 +299,8 @@ export default function StartPage() {
   // Q0: name + age continue
   function onNameAgeContinue() {
     const parsedAge = parseInt(age, 10);
-    if (!name.trim() || isNaN(parsedAge) || parsedAge < 10 || parsedAge > 30) return;
-    void postAnswer({ name: name.trim(), age: parsedAge, isChoice: false });
+    if (!name.trim() || isNaN(parsedAge) || parsedAge < 10 || parsedAge > 30 || !/^[6-9]\d{9}$/.test(phone)) return;
+    void postAnswer({ name: name.trim(), age: parsedAge, phone: phone.trim(), isChoice: false });
   }
 
   // Q1: stream + percentage continue
@@ -334,7 +336,7 @@ export default function StartPage() {
     void postAnswer({ text: t, isChoice: false });
   }
 
-  const nameAgeValid = name.trim().length >= 2 && parseInt(age, 10) >= 10 && parseInt(age, 10) <= 30;
+  const nameAgeValid = name.trim().length >= 2 && parseInt(age, 10) >= 10 && parseInt(age, 10) <= 30 && /^[6-9]\d{9}$/.test(phone);
   const streamPctValid = !!stream && parseFloat(percentage) >= 0 && parseFloat(percentage) <= 100;
 
   if (sessionError) {
@@ -400,7 +402,7 @@ export default function StartPage() {
               {getQuestion()}
             </h2>
 
-            {/* Q0: Name + Age */}
+            {/* Q0: Name + Age + Phone */}
             {qIndex === 0 && (
               <div className="space-y-3">
                 <div>
@@ -411,23 +413,35 @@ export default function StartPage() {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Akhil Kumar"
                     autoFocus
-                    onKeyDown={(e) => { if (e.key === "Enter" && nameAgeValid) onNameAgeContinue(); }}
                     className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
                   />
                 </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Age</label>
-                  <input
-                    type="number"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    placeholder="e.g. 17"
-                    min={10}
-                    max={30}
-                    onKeyDown={(e) => { if (e.key === "Enter" && nameAgeValid) onNameAgeContinue(); }}
-                    className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Age</label>
+                    <input
+                      type="number"
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      placeholder="e.g. 17"
+                      min={10}
+                      max={30}
+                      className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Phone number</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      placeholder="9XXXXXXXXX"
+                      inputMode="numeric"
+                      className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
                 </div>
+                <p className="text-[11px] text-muted-foreground">Your number is only used to share your report with a counsellor.</p>
                 <button
                   disabled={!nameAgeValid || busy}
                   onClick={onNameAgeContinue}
