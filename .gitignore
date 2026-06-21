@@ -33,3 +33,6 @@ yarn-error.log*
 
 # scratch / render artifacts
 /tmp/
+
+# Claude Code local config (not needed in repo)
+.claude/
