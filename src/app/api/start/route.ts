@@ -104,19 +104,20 @@ export async function POST(req: NextRequest) {
       );
 
       // Create a partial lead so admin can see the student even if they drop off.
-      // Uses upsert to safely handle network retries (idempotent).
+      // Check first to avoid duplicates (leads has no unique constraint on session_id).
       if (name?.trim() && phone) {
         const parsedAge = age ?? null;
-        await db.from("leads").upsert(
-          {
+        const { data: existingLead } = await db
+          .from("leads").select("id").eq("session_id", sessionId).maybeSingle();
+        if (!existingLead) {
+          await db.from("leads").insert({
             session_id: sessionId,
             name: name.trim(),
             phone,
             age: parsedAge,
             is_minor: parsedAge != null ? parsedAge < 18 : null,
-          },
-          { onConflict: "session_id", ignoreDuplicates: false }
-        );
+          });
+        }
       }
 
       return NextResponse.json({ ok: true });
