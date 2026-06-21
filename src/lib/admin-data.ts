@@ -129,7 +129,7 @@ export async function getLeadDetail(leadId: string) {
 
   const sessionId = (lead as { session_id: string }).session_id;
 
-  const [session, profile, assessments, recommendation, conversations] = await Promise.all([
+  const [session, profile, assessments, recommendation, conversations, feedback] = await Promise.all([
     db.from("sessions")
       .select("id, status, created_at, updated_at")
       .eq("id", sessionId).maybeSingle(),
@@ -149,6 +149,9 @@ export async function getLeadDetail(leadId: string) {
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true })
       .limit(60),
+    db.from("feedback")
+      .select("reaction, message, created_at")
+      .eq("session_id", sessionId).maybeSingle(),
   ]);
 
   return {
@@ -158,6 +161,7 @@ export async function getLeadDetail(leadId: string) {
     assessments:    assessments.data ?? [],
     recommendation: recommendation.data,
     conversations:  conversations.data ?? [],
+    feedback:       feedback.data ?? null,
   };
 }
 
@@ -300,7 +304,7 @@ export async function getAnalytics() {
 export async function getExportData() {
   const db = getServiceClient();
 
-  const [leadsRes, profilesRes, recsRes] = await Promise.all([
+  const [leadsRes, profilesRes, recsRes, feedbackRes] = await Promise.all([
     db.from("leads")
       .select("id, name, phone, email, age, district, stream, percentage, preferred_language, created_at, session_id")
       .order("created_at", { ascending: false }),
@@ -308,11 +312,17 @@ export async function getExportData() {
     db.from("recommendations")
       .select("session_id, results, overall_confidence, created_at")
       .order("created_at", { ascending: false }),
+    db.from("feedback").select("session_id, reaction, message"),
   ]);
 
   const leads    = leadsRes.data    ?? [];
   const profiles = profilesRes.data ?? [];
   const recs     = recsRes.data     ?? [];
+  const feedbackMap = new Map(
+    (feedbackRes.data ?? []).map((f: { session_id: string; reaction: string; message: string | null }) => [
+      f.session_id, f,
+    ])
+  );
 
   const profileMap = new Map(
     profiles.map((p) => [p.session_id, p.profile as Record<string, unknown> | null])
@@ -328,8 +338,9 @@ export async function getExportData() {
     percentage: number | null; preferred_language: string;
     created_at: string; session_id: string;
   }) => {
-    const profile = profileMap.get(lead.session_id);
-    const rec     = recMap.get(lead.session_id);
+    const profile  = profileMap.get(lead.session_id);
+    const rec      = recMap.get(lead.session_id);
+    const feedback = feedbackMap.get(lead.session_id);
 
     // Interests — sorted by score, threshold 0.1
     const interestMap = profile?.interests as Record<string, number> | undefined;
@@ -398,6 +409,8 @@ export async function getExportData() {
       "Career Goal":       careerGoal,
       "Work Preference":   workPref,
       "Aptitude Summary":  aptitudeSummary,
+      "Feedback Rating":   feedback?.reaction ?? "",
+      "Feedback Message":  feedback?.message  ?? "",
       "Created Date":      new Date(lead.created_at).toLocaleDateString("en-IN", {
         day: "2-digit", month: "short", year: "numeric",
       }),

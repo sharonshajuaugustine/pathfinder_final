@@ -31,7 +31,7 @@ export default async function LeadDetailPage({ params }: Props) {
   const data = await getLeadDetail(params.id);
   if (!data) notFound();
 
-  const { lead, session, profile, recommendation } = data;
+  const { lead, session, profile, recommendation, feedback } = data;
   const l = lead as Record<string, unknown>;
   const p = profile?.profile as Record<string, unknown> | null ?? null;
 
@@ -143,6 +143,29 @@ export default async function LeadDetailPage({ params }: Props) {
               )}
             </Section>
           )}
+
+          {/* Feedback */}
+          {feedback && (() => {
+            const fb = feedback as { reaction: string; message: string | null; created_at: string };
+            const emoji = fb.reaction === "love" ? "😍"
+              : fb.reaction === "good" ? "😊"
+              : fb.reaction === "okay" ? "😐"
+              : "😕";
+            return (
+              <Section title="Student feedback">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{emoji}</span>
+                  <span className="text-sm font-medium capitalize">{fb.reaction}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">{fmtDate(fb.created_at)}</span>
+                </div>
+                {fb.message && (
+                  <p className="mt-2 rounded-lg bg-muted/40 px-3 py-2.5 text-sm text-foreground">
+                    {fb.message}
+                  </p>
+                )}
+              </Section>
+            );
+          })()}
         </div>
 
         {/* ══ Right column ═════════════════════════════════════════════════════ */}
