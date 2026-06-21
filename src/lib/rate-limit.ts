@@ -57,6 +57,8 @@ export const limiters = {
   write: new MemoryLimiter(20, 60_000),
   // Recommendation generation — strict (most expensive).
   recommend: new MemoryLimiter(5, 60_000),
+  // Admin login — 10 attempts per 10 minutes per IP.
+  login: new MemoryLimiter(10, 10 * 60_000),
 };
 
 // Build a limiter key from session + hashed ip.

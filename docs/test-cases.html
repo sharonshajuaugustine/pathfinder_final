@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PathFinder — Test Cases</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #1a1a1a;
+    --bg3: #222;
+    --bg4: #2a2a2a;
+    --border: #2e2e2e;
+    --border2: #3a3a3a;
+    --text: #e8e8e8;
+    --text2: #999;
+    --text3: #666;
+    --accent: #7c6aff;
+    --accent-bg: #1e1a35;
+    --green: #22c55e;
+    --green-bg: #0d2118;
+    --red: #ef4444;
+    --red-bg: #2a0f0f;
+    --amber: #f59e0b;
+    --amber-bg: #241a06;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .logo-icon {
+    width: 30px;
+    height: 30px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pill {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border2);
+  }
+  .pill-pass { background: var(--green-bg); color: var(--green); border-color: #1a4a2e; }
+  .pill-fail { background: var(--red-bg); color: var(--red); border-color: #4a1a1a; }
+  .pill-skip { background: var(--bg3); color: var(--text2); }
+  .pill-pending { background: var(--bg3); color: var(--text3); }
+
+  /* ── Layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 60px);
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: sticky;
+    top: 60px;
+    height: calc(100vh - 60px);
+    overflow-y: auto;
+  }
+  .sidebar-section {
+    margin-bottom: 8px;
+  }
+  .sidebar-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    padding: 0 20px 8px;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 20px;
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 13px;
+    border-left: 2px solid transparent;
+    transition: all .15s;
+  }
+  .sidebar-item:hover { background: var(--bg3); color: var(--text); }
+  .sidebar-item.active { background: var(--accent-bg); color: var(--accent); border-left-color: var(--accent); }
+  .sidebar-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border2);
+    flex-shrink: 0;
+  }
+  .sidebar-item.active .sidebar-dot { background: var(--accent); }
+  .sidebar-count {
+    margin-left: auto;
+    font-size: 11px;
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    padding: 1px 7px;
+    border-radius: 20px;
+    color: var(--text3);
+  }
+
+  /* ── Progress bar ── */
+  .progress-wrap {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    margin-top: 16px;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+  .progress-bar-bg {
+    height: 4px;
+    background: var(--bg4);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 2px;
+    transition: width .3s ease;
+    width: 0%;
+  }
+
+  /* ── Main content ── */
+  main {
+    padding: 32px;
+    max-width: 860px;
+  }
+
+  /* ── Stats row ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .stat-pass .stat-value { color: var(--green); }
+  .stat-fail .stat-value { color: var(--red); }
+  .stat-skip .stat-value { color: var(--text3); }
+  .stat-total .stat-value { color: var(--text); }
+
+  /* ── Section heading ── */
+  .section-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-top: 8px;
+  }
+  .section-heading h2 {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .07em;
+  }
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .section-count {
+    font-size: 11px;
+    color: var(--text3);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  /* ── Test card ── */
+  .tc-section { margin-bottom: 28px; }
+
+  .tc-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    overflow: hidden;
+    transition: border-color .15s;
+  }
+  .tc-card:hover { border-color: var(--border2); }
+  .tc-card.status-pass { border-left: 3px solid var(--green); }
+  .tc-card.status-fail { border-left: 3px solid var(--red); }
+  .tc-card.status-skip { border-left: 3px solid var(--text3); }
+
+  .tc-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tc-header:hover { background: rgba(255,255,255,.02); }
+
+  .tc-id {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    font-family: monospace;
+    min-width: 44px;
+  }
+  .tc-title {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text);
+    font-weight: 400;
+  }
+
+  .status-btns {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .status-btn {
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text3);
+    transition: all .1s;
+    font-family: inherit;
+  }
+  .status-btn:hover { background: var(--bg4); color: var(--text2); }
+  .status-btn.active-pass { background: var(--green-bg); color: var(--green); border-color: #1a4a2e; }
+  .status-btn.active-fail { background: var(--red-bg); color: var(--red); border-color: #4a1a1a; }
+  .status-btn.active-skip { background: var(--bg4); color: var(--text2); border-color: var(--border2); }
+
+  .chevron {
+    color: var(--text3);
+    font-size: 13px;
+    transition: transform .15s;
+    margin-left: 4px;
+  }
+  .chevron.open { transform: rotate(180deg); }
+
+  /* ── TC body ── */
+  .tc-body {
+    display: none;
+    padding: 0 18px 18px 18px;
+    border-top: 1px solid var(--border);
+  }
+  .tc-body.open { display: block; }
+
+  .tc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .tc-field { }
+  .tc-field-full { grid-column: 1 / -1; }
+
+  .tc-field-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 8px;
+  }
+  .tc-field-value {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.55;
+  }
+
+  .steps-list {
+    list-style: none;
+    counter-reset: steps;
+  }
+  .steps-list li {
+    counter-increment: steps;
+    display: flex;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.5;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .steps-list li:last-child { border-bottom: none; }
+  .steps-list li::before {
+    content: counter(steps);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: var(--bg4);
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .expect-box {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  .tc-notes {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .notes-input {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 12px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    min-height: 36px;
+    line-height: 1.5;
+  }
+  .notes-input:focus { border-color: var(--border2); }
+  .notes-input::placeholder { color: var(--text3); }
+
+  /* ── Filter bar ── */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    align-items: center;
+  }
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .1s;
+  }
+  .filter-btn:hover { background: var(--bg3); color: var(--text); }
+  .filter-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+  .filter-search {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    margin-left: auto;
+    max-width: 220px;
+  }
+  .filter-search:focus { border-color: var(--border2); }
+  .filter-search::placeholder { color: var(--text3); }
+
+  /* ── Empty state ── */
+  .empty {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text3);
+    font-size: 14px;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { display: none; }
+    main { padding: 20px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .tc-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">
+    <span class="logo-icon">🧭</span>
+    PathFinder &nbsp;<span style="color:var(--text3);font-weight:400">/ test cases</span>
+  </span>
+  <div class="header-right">
+    <span class="pill pill-pass" id="h-pass">0 pass</span>
+    <span class="pill pill-fail" id="h-fail">0 fail</span>
+    <span class="pill pill-skip" id="h-skip">0 skip</span>
+    <span class="pill pill-pending" id="h-pending">22 pending</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Categories</div>
+      <div class="sidebar-item active" data-cat="all">
+        <span class="sidebar-dot"></span> All cases
+        <span class="sidebar-count" id="sc-all">22</span>
+      </div>
+      <div class="sidebar-item" data-cat="journeys">
+        <span class="sidebar-dot"></span> Student journeys
+        <span class="sidebar-count">4</span>
+      </div>
+      <div class="sidebar-item" data-cat="chat">
+        <span class="sidebar-dot"></span> Chat behaviour
+        <span class="sidebar-count">5</span>
+      </div>
+      <div class="sidebar-item" data-cat="assessment">
+        <span class="sidebar-dot"></span> Assessment
+        <span class="sidebar-count">4</span>
+      </div>
+      <div class="sidebar-item" data-cat="data">
+        <span class="sidebar-dot"></span> Data &amp; edge cases
+        <span class="sidebar-count">5</span>
+      </div>
+      <div class="sidebar-item" data-cat="admin">
+        <span class="sidebar-dot"></span> Admin &amp; export
+        <span class="sidebar-count">4</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section" style="margin-top:8px;">
+      <div class="sidebar-label">Filter by status</div>
+      <div class="sidebar-item" data-status="pending">
+        <span class="sidebar-dot"></span> Pending
+        <span class="sidebar-count" id="sc-pending">22</span>
+      </div>
+      <div class="sidebar-item" data-status="pass">
+        <span class="sidebar-dot" style="background:var(--green)"></span> Passed
+        <span class="sidebar-count" id="sc-pass">0</span>
+      </div>
+      <div class="sidebar-item" data-status="fail">
+        <span class="sidebar-dot" style="background:var(--red)"></span> Failed
+        <span class="sidebar-count" id="sc-fail">0</span>
+      </div>
+      <div class="sidebar-item" data-status="skip">
+        <span class="sidebar-dot"></span> Skipped
+        <span class="sidebar-count" id="sc-skip">0</span>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span>Progress</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="stats">
+      <div class="stat-card stat-total">
+        <div class="stat-label">Total</div>
+        <div class="stat-value" id="s-total">22</div>
+      </div>
+      <div class="stat-card stat-pass">
+        <div class="stat-label">Passed</div>
+        <div class="stat-value" id="s-pass">0</div>
+      </div>
+      <div class="stat-card stat-fail">
+        <div class="stat-label">Failed</div>
+        <div class="stat-value" id="s-fail">0</div>
+      </div>
+      <div class="stat-card stat-skip">
+        <div class="stat-label">Skipped</div>
+        <div class="stat-value" id="s-skip">0</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="pass">Pass</button>
+      <button class="filter-btn" data-filter="fail">Fail</button>
+      <button class="filter-btn" data-filter="pending">Pending</button>
+      <input class="filter-search" type="search" id="search-input" placeholder="Search cases…">
+    </div>
+
+    <div id="tc-root"></div>
+  </main>
+</div>
+
+<script>
+const DATA = [
+  {
+    id: "journeys",
+    label: "Student journeys — happy paths",
+    cases: [
+      {
+        id: "TC-01",
+        title: "Biology student who wants to be a doctor",
+        persona: "Age 17, Science (Bio), strong in Biology + Chemistry. Health & Medicine interest. Goal: higher study.",
+        steps: [
+          "Open app on mobile, enter phone number",
+          "Start quiz: enter name Arya, age 17",
+          "Select Science (Bio) stream, enter 82% marks",
+          "Select Biology + Chemistry as strong subjects",
+          "Select Health & Medicine as interest",
+          "Select 'Study a degree further' as goal",
+          "Select 'Work I am passionate about' as priority",
+          "Chat: AI asks to deepen interest — click 'Caring for patients'",
+          "Chat: Budget → 'Manageable with effort'",
+          "Chat: Location → 'Anywhere in India'",
+          "Chat: Family → 'Fully supportive'",
+          "Chat: Work style → 'With people'",
+          "Complete all 10 assessment questions",
+          "Fill onboarding form (name, district, email), submit"
+        ],
+        expect: "Doctor / MBBS as #1 recommendation with fit > 75%. Nurse or Allied Health as #2. Confidence ≥ 0.6. No stream conflict caveat. Admin leads page shows name 'Arya' (not 'Unknown')."
+      },
+      {
+        id: "TC-02",
+        title: "Maths student going into software engineering",
+        persona: "Age 18, Science (CS), strong in Maths + Computer Science. Technology & Coding interest. Goal: higher study.",
+        steps: [
+          "Start quiz: select Science (CS) stream, enter 88% marks",
+          "Strong subjects: Maths, Computer Science",
+          "Interest: Technology & Coding",
+          "Goal: Study a degree further",
+          "Chat: deepens interest → click 'Building apps and websites'",
+          "Answer all 10 assessment questions — score high on logical + numerical",
+          "Complete onboarding form"
+        ],
+        expect: "Software Engineer #1, fit > 70%. BTech CS as primary course. Confidence ≥ 0.65. Aptitude factor appears in factors for SE."
+      },
+      {
+        id: "TC-03",
+        title: "Commerce student going into Chartered Accountancy",
+        persona: "Age 17, Commerce stream, strong in Accountancy + Economics. Business & Finance interest.",
+        steps: [
+          "Stream: Commerce, enter 79% marks",
+          "Subjects: Accountancy, Economics",
+          "Interest: Business & Finance",
+          "Chat: clicks 'Managing money and accounts'",
+          "Goal: Study a degree further",
+          "Assessment: score high on numerical questions",
+          "Complete onboarding"
+        ],
+        expect: "Chartered Accountant #1. B.Com or BBA as linked courses. Numbers/Analysis interest captured in profile."
+      },
+      {
+        id: "TC-04",
+        title: "Humanities student going into Law",
+        persona: "Age 17, Humanities stream, strong in English + History. Law & Justice interest.",
+        steps: [
+          "Stream: Humanities",
+          "Subjects: English, History",
+          "Interest: Law & Justice",
+          "Chat: clicks 'Arguing cases in a courtroom'",
+          "Goal: Study further",
+          "Assessment: score high on verbal questions",
+          "Complete onboarding"
+        ],
+        expect: "Lawyer or BA LLB as #1. CLAT exam mentioned in caveats or courses. Verbal aptitude surfaces in factors."
+      }
+    ]
+  },
+  {
+    id: "chat",
+    label: "Chat behaviour — edge cases",
+    cases: [
+      {
+        id: "TC-05",
+        title: "Student says 'I don't know' to everything",
+        persona: "Genuinely confused student. Types vague or unhelpful answers throughout the chat.",
+        steps: [
+          "Complete start quiz normally (stream + subjects)",
+          "In chat: type 'I don't know' when asked about interest",
+          "Type 'not sure' again as follow-up",
+          "Repeat vague answers 5 times for the same gap",
+          "Observe what the bot does after 5 failed attempts"
+        ],
+        expect: "After 5 fails: permission question appears — 'Should we keep exploring this or move on?'. If student clicks Move On, interest gap is dropped and chat continues to next gap. Never loops infinitely or crashes."
+      },
+      {
+        id: "TC-06",
+        title: "Student types their career goal as free text",
+        persona: "Student types 'I want to become a pilot' instead of clicking any button.",
+        steps: [
+          "In chat, when asked about interest: type 'I want to become a pilot'",
+          "Do NOT click any suggested button",
+          "Observe the next message and what gets captured in profile",
+          "Check admin lead detail to confirm statedCareer field"
+        ],
+        expect: "statedCareer = 'pilot' saved in aspiration. interest.defence_adventure increases via inferInterestFromCareer. Next question does not ask 'what do you want to be?' again."
+      },
+      {
+        id: "TC-07",
+        title: "Student types answer in Malayalam",
+        persona: "Malayalam-speaking student answers in their native language.",
+        steps: [
+          "In chat, type 'എനിക്ക് ഡോക്ടർ ആകണം' (I want to become a doctor)",
+          "Do not click any button",
+          "Observe what the AI extracts from the answer"
+        ],
+        expect: "health_medicine interest captured OR statedCareer = 'doctor' set. Chat does not crash or show an error. Next question is in English (current behaviour)."
+      },
+      {
+        id: "TC-08",
+        title: "Student clicks a button then changes their mind",
+        persona: "Clicks Technology & Coding, then types that they actually prefer medicine.",
+        steps: [
+          "In chat, when asked about interest: click 'Technology & Coding' button",
+          "Observe profile after this turn (technology_coding: 0.8 should be set)",
+          "In the next message, type 'Actually I'm more interested in medicine and healthcare'",
+          "Observe what the AI extracts"
+        ],
+        expect: "health_medicine is added to profile. technology_coding stays — it is not wiped. Chat moves to next gap since interest gap is already filled (≥ 0.6)."
+      },
+      {
+        id: "TC-09",
+        title: "Bio student selects Technology interest (cross-stream conflict)",
+        persona: "Science Bio student clicks technology_coding interest — a cross-stream mismatch.",
+        steps: [
+          "Stream: Science (Bio), subjects: Biology, Chemistry",
+          "In chat: click 'Building apps and websites' (sets technology_coding: 0.8)",
+          "Complete rest of chat and all 10 assessment questions",
+          "View recommendation result page"
+        ],
+        expect: "Recommendation shows a conflict caveat about tech interest with Bio stream. Confidence is lowered. Software Engineer may appear but with a note about stream mismatch."
+      }
+    ]
+  },
+  {
+    id: "assessment",
+    label: "Assessment — scoring & cache",
+    cases: [
+      {
+        id: "TC-10",
+        title: "All correct aptitude answers",
+        persona: "Student answers every aptitude question correctly.",
+        steps: [
+          "Complete chat to trigger assessment",
+          "For each of ai_1 to ai_5: read the question carefully and pick the logically correct answer",
+          "Complete all 5 personality questions (ai_6 to ai_10) normally",
+          "Submit onboarding and view recommendation"
+        ],
+        expect: "Each aptitude dimension score = 100. Profile aptitude section fully populated. Recommendation confidence should be higher vs a student who scores low."
+      },
+      {
+        id: "TC-11",
+        title: "All wrong aptitude answers",
+        persona: "Student deliberately picks the wrong answer for every aptitude question.",
+        steps: [
+          "Complete chat normally to reach assessment",
+          "For ai_1 to ai_5: deliberately pick incorrect answers",
+          "Complete all personality questions (ai_6 to ai_10) normally",
+          "View recommendation"
+        ],
+        expect: "Each aptitude dimension score = 0. Profile aptitude = 0 for all dims. Recommendation still generates (no crash on zero aptitude) but with lower confidence."
+      },
+      {
+        id: "TC-12",
+        title: "Page refresh mid-assessment",
+        persona: "Student answers 5 of 10 questions, then does a hard page refresh.",
+        steps: [
+          "Complete chat, reach assessment page",
+          "Answer questions 1 through 5",
+          "Hard refresh the page (Cmd+Shift+R)",
+          "Answer questions 6 through 10"
+        ],
+        expect: "Questions 6–10 show the SAME questions as before the refresh (cached in _aiAssessmentItems in profile). No 'Unknown assessment item' error. Cache must survive the reload."
+      },
+      {
+        id: "TC-13",
+        title: "All personality questions pick the same interest cluster",
+        persona: "Student picks health_medicine choice on every interest_personality question (ai_6 to ai_10).",
+        steps: [
+          "On each of ai_6 to ai_10: pick the choice that references health/medicine",
+          "Complete all aptitude questions normally",
+          "Submit onboarding and view recommendation"
+        ],
+        expect: "profile.interests.health_medicine increases significantly (multiple 0.7 writes merged). health_medicine-linked careers score higher. No crash from repeated cluster writes."
+      }
+    ]
+  },
+  {
+    id: "data",
+    label: "Data & edge cases",
+    cases: [
+      {
+        id: "TC-14",
+        title: "Minor student (age under 18)",
+        persona: "Student enters age 16 in the start quiz.",
+        steps: [
+          "In start quiz Q0: enter name and age 16",
+          "Complete full flow through chat, assessment, and onboarding",
+          "Check Supabase leads table row after onboarding completes"
+        ],
+        expect: "leads.is_minor = true. leads.age = 16. Onboarding form handles minor correctly. No crash, no block."
+      },
+      {
+        id: "TC-15",
+        title: "Student skips entering their name",
+        persona: "Student submits Q0 with name field blank.",
+        steps: [
+          "In start quiz: leave name field blank, enter only age",
+          "Complete full flow through to onboarding",
+          "Check admin leads page for how the lead is displayed"
+        ],
+        expect: "leads.name = 'Unknown'. Admin leads page shows phone number as display fallback. No crash. Lead detail opens correctly."
+      },
+      {
+        id: "TC-16",
+        title: "Low completeness — recommendation blocked",
+        persona: "Student completes only the start quiz and skips chat + assessment.",
+        steps: [
+          "Complete 5 start quiz questions",
+          "Skip to /result page directly (paste the URL into browser)",
+          "Observe what the page shows"
+        ],
+        expect: "Page shows error: 'Please complete the conversation and quick quiz before viewing your recommendations.' Completeness < 30 guard fires. No crash, no partial recommendation."
+      },
+      {
+        id: "TC-17",
+        title: "Student with tight budget constraint",
+        persona: "Student selects 'Need a scholarship or loan' for the budget question.",
+        steps: [
+          "In chat: budget question → click 'Need a scholarship or loan'",
+          "Complete rest of chat and assessment normally",
+          "View recommendation result page"
+        ],
+        expect: "Careers requiring expensive mandatory higher study are de-prioritised. constraintFit score lower for high-cost paths. Budget caveat may appear in the recommendation."
+      },
+      {
+        id: "TC-18",
+        title: "Out-of-KB career stated (YouTuber / Veterinarian)",
+        persona: "Student types a career not covered in the knowledge base.",
+        steps: [
+          "In chat: type 'I want to be a YouTuber' as free text",
+          "Complete full flow through assessment and onboarding",
+          "View recommendation result page"
+        ],
+        expect: "Result page shows a gap caveat: 'You mentioned wanting to become a YouTuber. We couldn't build a full guided path for that specific career here…' Closest match named. Never silently ignored."
+      }
+    ]
+  },
+  {
+    id: "admin",
+    label: "Admin panel & export",
+    cases: [
+      {
+        id: "TC-19",
+        title: "Lead detail shows complete and correct data",
+        persona: "Admin views the detail page for a student who completed the full flow.",
+        steps: [
+          "Log in to admin panel at /admin",
+          "Go to Leads list, find a student with 'completed' status and > 60% completeness",
+          "Click to open lead detail page",
+          "Check all sections: profile, assessment scores, recommendation"
+        ],
+        expect: "Name, phone, stream, marks visible. Career recommendations shown with fit% and confidence%. Interest profile shown. Aptitude scores visible. Courses listed under each recommendation. No blank or 'Unknown' fields for a completed student."
+      },
+      {
+        id: "TC-20",
+        title: "CSV export — columns, data, and no personality summary",
+        persona: "Admin downloads the CSV export of all students.",
+        steps: [
+          "Log in to admin panel",
+          "Click Export / Download CSV button",
+          "Open downloaded file in Excel or Google Sheets",
+          "Check column headers",
+          "Check a completed student's row for data accuracy"
+        ],
+        expect: "Columns present: Name, Phone, Email, Age, District, Stream, Percentage, Preferred Language, Top Recommendation, Confidence Score, Recommended Courses, Primary Interest, Secondary Interests, Career Goal, Work Preference, Aptitude Summary, Created Date. NO 'Personality Summary' column. 'Recommended Courses' shows names like 'MBBS; BDS'. No empty rows for completed students."
+      },
+      {
+        id: "TC-21",
+        title: "Admin auth — unauthenticated access blocked",
+        persona: "Unauthenticated user or tester tries to access admin routes directly.",
+        steps: [
+          "Open /admin in an incognito window (not logged in)",
+          "Try to access /admin/leads directly by pasting the URL",
+          "Try to call GET /api/admin/export without an auth cookie"
+        ],
+        expect: "/admin and /admin/leads redirect to /admin/login. /api/admin/export returns 401 JSON error. No data is exposed to unauthenticated requests."
+      },
+      {
+        id: "TC-22",
+        title: "Recommendation cache — no double Groq call",
+        persona: "Student or admin loads the result page twice.",
+        steps: [
+          "Student completes full flow and reaches results page (first load generates recommendation)",
+          "Navigate away from results page",
+          "Navigate back to results page (second load)",
+          "Check server logs or network tab"
+        ],
+        expect: "Second load returns the cached recommendation from DB instantly. No second call to Groq. No rate limit hit. Explanation text is identical both times. caveats returns [] on cache hit."
+      }
+    ]
+  }
+];
+
+const state = {};
+const notes = {};
+DATA.forEach(s => s.cases.forEach(c => { state[c.id] = 'pending'; notes[c.id] = ''; }));
+
+let activeFilter = 'all';
+let activeCat = 'all';
+let searchQuery = '';
+
+function getCounts() {
+  let pass = 0, fail = 0, skip = 0, pending = 0;
+  Object.values(state).forEach(v => {
+    if (v === 'pass') pass++;
+    else if (v === 'fail') fail++;
+    else if (v === 'skip') skip++;
+    else pending++;
+  });
+  return { pass, fail, skip, pending, total: pass + fail + skip + pending };
+}
+
+function updateUI() {
+  const c = getCounts();
+  document.getElementById('s-pass').textContent = c.pass;
+  document.getElementById('s-fail').textContent = c.fail;
+  document.getElementById('s-skip').textContent = c.skip;
+  document.getElementById('s-total').textContent = c.total;
+  document.getElementById('h-pass').textContent = c.pass + ' pass';
+  document.getElementById('h-fail').textContent = c.fail + ' fail';
+  document.getElementById('h-skip').textContent = c.skip + ' skip';
+  document.getElementById('h-pending').textContent = c.pending + ' pending';
+  document.getElementById('sc-pass').textContent = c.pass;
+  document.getElementById('sc-fail').textContent = c.fail;
+  document.getElementById('sc-skip').textContent = c.skip;
+  document.getElementById('sc-pending').textContent = c.pending;
+  const done = c.pass + c.skip;
+  const pct = Math.round((done / c.total) * 100);
+  document.getElementById('progress-pct').textContent = pct + '%';
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function setStatus(id, val) {
+  state[id] = val;
+  const card = document.getElementById('card-' + id);
+  card.className = 'tc-card status-' + val;
+  card.querySelectorAll('.status-btn').forEach(b => {
+    b.className = 'status-btn' + (b.dataset.val === val ? ' active-' + val : '');
+  });
+  updateUI();
+  applyFilters();
+}
+
+function toggleBody(id) {
+  const body = document.getElementById('body-' + id);
+  const chev = document.getElementById('chev-' + id);
+  body.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+function render() {
+  const root = document.getElementById('tc-root');
+  root.innerHTML = '';
+  let anyVisible = false;
+
+  DATA.forEach(sec => {
+    if (activeCat !== 'all' && activeCat !== sec.id) return;
+
+    const visibleCases = sec.cases.filter(tc => {
+      if (activeFilter !== 'all' && state[tc.id] !== activeFilter) return false;
+      if (searchQuery && !tc.title.toLowerCase().includes(searchQuery) && !tc.id.toLowerCase().includes(searchQuery)) return false;
+      return true;
+    });
+
+    if (!visibleCases.length) return;
+    anyVisible = true;
+
+    const secEl = document.createElement('div');
+    secEl.className = 'tc-section';
+
+    const heading = document.createElement('div');
+    heading.className = 'section-heading';
+    heading.innerHTML = `<h2>${sec.label}</h2><div class="section-line"></div><span class="section-count">${visibleCases.length}</span>`;
+    secEl.appendChild(heading);
+
+    visibleCases.forEach(tc => {
+      const card = document.createElement('div');
+      card.className = 'tc-card status-' + state[tc.id];
+      card.id = 'card-' + tc.id;
+
+      card.innerHTML = `
+        <div class="tc-header" onclick="toggleBody('${tc.id}')">
+          <span class="tc-id">${tc.id}</span>
+          <span class="tc-title">${tc.title}</span>
+          <div class="status-btns">
+            <button class="status-btn${state[tc.id]==='pass'?' active-pass':''}" data-val="pass" onclick="event.stopPropagation();setStatus('${tc.id}','pass')">pass</button>
+            <button class="status-btn${state[tc.id]==='fail'?' active-fail':''}" data-val="fail" onclick="event.stopPropagation();setStatus('${tc.id}','fail')">fail</button>
+            <button class="status-btn${state[tc.id]==='skip'?' active-skip':''}" data-val="skip" onclick="event.stopPropagation();setStatus('${tc.id}','skip')">skip</button>
+          </div>
+          <span class="chevron" id="chev-${tc.id}">▾</span>
+        </div>
+        <div class="tc-body" id="body-${tc.id}">
+          <div class="tc-grid">
+            <div class="tc-field tc-field-full">
+              <div class="tc-field-label">Persona</div>
+              <div class="tc-field-value">${tc.persona}</div>
+            </div>
+            <div class="tc-field">
+              <div class="tc-field-label">Steps</div>
+              <ol class="steps-list">${tc.steps.map(s=>`<li>${s}</li>`).join('')}</ol>
+            </div>
+            <div class="tc-field">
+              <div class="tc-field-label">Expected result</div>
+              <div class="expect-box">${tc.expect}</div>
+            </div>
+          </div>
+          <div class="tc-notes">
+            <textarea class="notes-input" id="notes-${tc.id}" placeholder="Add notes here…" rows="1" oninput="notes['${tc.id}']=this.value;autoResize(this)">${notes[tc.id]||''}</textarea>
+          </div>
+        </div>
+      `;
+
+      secEl.appendChild(card);
+    });
+
+    root.appendChild(secEl);
+  });
+
+  if (!anyVisible) {
+    root.innerHTML = '<div class="empty">No test cases match the current filter.</div>';
+  }
+
+  updateUI();
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function applyFilters() {
+  render();
+}
+
+document.querySelectorAll('.sidebar-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const cat = item.dataset.cat;
+    const status = item.dataset.status;
+
+    if (cat) {
+      document.querySelectorAll('.sidebar-item[data-cat]').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      activeCat = cat;
+      activeFilter = 'all';
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('.filter-btn[data-filter="all"]').classList.add('active');
+    } else if (status) {
+      document.querySelectorAll('.sidebar-item[data-status]').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      activeFilter = status;
+      activeCat = 'all';
+      document.querySelectorAll('.sidebar-item[data-cat]').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    }
+    render();
+  });
+});
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    document.querySelectorAll('.sidebar-item[data-status]').forEach(i => i.classList.remove('active'));
+    render();
+  });
+});
+
+document.getElementById('search-input').addEventListener('input', e => {
+  searchQuery = e.target.value.trim().toLowerCase();
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

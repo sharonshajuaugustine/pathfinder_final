@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { z } from "zod";
-import { clientIpHash, badRequest, serverError } from "@/lib/request";
+import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { audit } from "@/lib/audit";
 
 // POST /api/admin/auth
@@ -20,6 +20,10 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return badRequest("Invalid login payload", parsed.error.flatten());
 
   const { email, password } = parsed.data;
+
+  // Brute-force throttle: 10 failed attempts per IP per 10 minutes.
+  const limited = await enforceRateLimit(limiters.login, "admin-login", [ipHash]);
+  if (limited) return limited;
 
   // Build the response first so the Supabase SSR client can attach session
   // cookies to it directly via res.cookies.set().

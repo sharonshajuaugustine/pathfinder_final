@@ -372,30 +372,14 @@ export async function getExportData() {
           .join("; ")
       : "";
 
-    // Personality — only non-zero traits
-    const personalityMap = profile?.personality as Record<string, number> | undefined;
-    const TRAIT_LABELS: Record<string, [string, string]> = {
-      analytical:  ["Analytical", "Intuitive"],
-      structured:  ["Structured", "Flexible"],
-      social:      ["Social",     "Independent"],
-      practical:   ["Practical",  "Theoretical"],
-      risk_taking: ["Risk-taking","Cautious"],
-    };
-    const personalitySummary = personalityMap
-      ? Object.entries(personalityMap)
-          .filter(([, v]) => v != null)
-          .map(([k, v]) => {
-            const [pos, neg] = TRAIT_LABELS[k] ?? [k, ""];
-            return v >= 0 ? `${pos} (${v.toFixed(1)})` : `${neg} (${Math.abs(v).toFixed(1)})`;
-          })
-          .join("; ")
-      : "";
-
-    // Top recommendation
+    // Top recommendation + courses
     const results = Array.isArray(rec?.results)
-      ? (rec.results as Array<{ name: string; confidence: number }>)
+      ? (rec.results as Array<{ name: string; confidence: number; courses?: Array<{ name: string }> }>)
       : [];
     const topRec = results[0];
+    const topCourses = topRec?.courses
+      ? topRec.courses.slice(0, 3).map((c) => c.name).join("; ")
+      : "";
 
     return {
       Name:               lead.name,
@@ -408,12 +392,12 @@ export async function getExportData() {
       "Preferred Language": lead.preferred_language === "ml" ? "Malayalam" : "English",
       "Top Recommendation": topRec?.name ?? "",
       "Confidence Score": topRec ? `${Math.round(topRec.confidence * 100)}%` : "",
+      "Recommended Courses": topCourses,
       "Primary Interest":  primaryInterest,
       "Secondary Interests": secondaryInterests,
       "Career Goal":       careerGoal,
       "Work Preference":   workPref,
       "Aptitude Summary":  aptitudeSummary,
-      "Personality Summary": personalitySummary,
       "Created Date":      new Date(lead.created_at).toLocaleDateString("en-IN", {
         day: "2-digit", month: "short", year: "numeric",
       }),

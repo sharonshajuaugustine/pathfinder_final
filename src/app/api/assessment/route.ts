@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ items: staticFallback(null), total: 10 });
   }
 
+  const ipHash = await clientIpHash(req);
   const db = getServiceClient();
 
   try {
@@ -73,10 +74,15 @@ export async function GET(req: NextRequest) {
     const studentProfile = profileRaw as Partial<StudentProfile> | null;
 
     // Return cached items if already generated (background pre-generation or prior load).
+    // Cache hits bypass the rate limit — no Groq call needed.
     const cached = profileRaw?._aiAssessmentItems as AiItem[] | undefined;
     if (Array.isArray(cached) && cached.length >= 8) {
       return NextResponse.json({ items: toPublicItems(cached), total: cached.length });
     }
+
+    // Cache miss — about to call Groq. Rate-limit only here to protect the AI call.
+    const limited = await enforceRateLimit(limiters.recommend, "assessment-gen", [sessionId, ipHash]);
+    if (limited) return limited;
 
     // Not yet cached — generate now (fallback path for sessions without pre-generation).
     const aiItems = await generateAiAssessmentItems(studentProfile);
@@ -139,11 +145,12 @@ export async function POST(req: NextRequest) {
 
       const selectedChoice = aiItem.choices.find((c) => c.id === choiceId);
 
-      // Aptitude items (numerical/logical/verbal/spatial/scientific):
-      // generation prompt guarantees "a" is the correct answer → a=80, b=60, c=40, d=20.
+      // Aptitude items: score by correctId returned from the generator.
+      // correct = 100, wrong = 0. Falls back to 50 if correctId missing (shouldn't happen).
       const isAptitude = (APTITUDES as readonly string[]).includes(aiItem.dimension);
-      const aptitudeScoreMap: Record<string, number> = { a: 80, b: 60, c: 40, d: 20 };
-      const score = isAptitude ? (aptitudeScoreMap[choiceId] ?? 40) : null;
+      const score = isAptitude
+        ? (aiItem.correctId ? (choiceId === aiItem.correctId ? 100 : 0) : 50)
+        : null;
 
       await db.from("assessment_responses").delete().eq("session_id", sessionId).eq("item_id", itemId);
       await db.from("assessment_responses").insert({
@@ -173,10 +180,13 @@ export async function POST(req: NextRequest) {
 
       if (Object.keys(profileDelta).length > 0) {
         const merged = mergeProfile(profJson as Partial<StudentProfile> | null, profileDelta);
+        const metaKeys = profJson
+          ? Object.fromEntries(Object.entries(profJson).filter(([k]) => k.startsWith("_")))
+          : {};
         await db.from("student_profiles").upsert(
           {
             session_id: sessionId,
-            profile: merged,
+            profile: { ...merged, ...metaKeys },
             completeness_pct: computeCompleteness(merged),
             updated_at: new Date().toISOString(),
           },
@@ -226,11 +236,15 @@ export async function POST(req: NextRequest) {
       .select("profile")
       .eq("session_id", sessionId)
       .maybeSingle();
-    const merged = mergeProfile(row?.profile as Partial<StudentProfile> | null, delta);
+    const rowJson = row?.profile as Record<string, unknown> | null;
+    const merged = mergeProfile(rowJson as Partial<StudentProfile> | null, delta);
+    const metaKeys = rowJson
+      ? Object.fromEntries(Object.entries(rowJson).filter(([k]) => k.startsWith("_")))
+      : {};
     await db.from("student_profiles").upsert(
       {
         session_id: sessionId,
-        profile: merged,
+        profile: { ...merged, ...metaKeys },
         completeness_pct: computeCompleteness(merged),
         updated_at: new Date().toISOString(),
       },

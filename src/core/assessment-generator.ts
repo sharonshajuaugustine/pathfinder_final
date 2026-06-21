@@ -15,6 +15,8 @@ export type AiItem = {
   id: string;
   dimension: string;
   questionText: string;
+  // correctId is server-only for aptitude items — stripped before sending to client.
+  correctId?: string;
   // interestCluster is server-only metadata on personality items — stripped before
   // sending to the client so it can't influence the student's choice.
   choices: { id: string; text: string; interestCluster?: string }[];
@@ -57,7 +59,8 @@ export async function generateAiAssessmentItems(profile: Partial<StudentProfile>
         `SECTION 1 — Aptitude (ai_1 through ai_5):\n` +
         `- One question per dimension: numerical, logical, verbal, spatial, scientific\n` +
         `- Use real-world scenarios personalised to their stream and subjects\n` +
-        `- "a" must always be the correct/best answer\n` +
+        `- Place the correct answer in any position (a, b, c, or d) — vary it across questions\n` +
+        `- Include a "correctId" field on each aptitude item with the id of the correct choice\n` +
         `- Aptitude choice format: { "id": "a", "text": "..." }  (no interestCluster)\n\n` +
         `SECTION 2 — Career preference (ai_6 through ai_10):\n` +
         `- Each question presents 4 career-activity scenarios — the student picks what excites them most\n` +
@@ -67,11 +70,10 @@ export async function generateAiAssessmentItems(profile: Partial<StudentProfile>
         `  design_visual, helping_teaching, law_justice, building_engineering,\n` +
         `  media_communication, nature_agriculture, defence_adventure, numbers_analysis\n` +
         `- Vary the clusters across the 5 questions; include clusters from their interests but also alternatives\n` +
-        `- "a" should be the cluster most aligned with their detected interests (${interests[0] ?? "general"})\n` +
         `- Preference choice format: { "id": "a", "text": "...", "interestCluster": "health_medicine" }\n\n` +
         `Return this exact JSON (no markdown, no extra keys):\n` +
         `{ "items": [\n` +
-        `  { "id": "ai_1", "dimension": "numerical", "questionText": "...", "choices": [{ "id": "a", "text": "..." }, { "id": "b", "text": "..." }, { "id": "c", "text": "..." }, { "id": "d", "text": "..." }] },\n` +
+        `  { "id": "ai_1", "dimension": "numerical", "questionText": "...", "correctId": "b", "choices": [{ "id": "a", "text": "..." }, { "id": "b", "text": "..." }, { "id": "c", "text": "..." }, { "id": "d", "text": "..." }] },\n` +
         `  { "id": "ai_6", "dimension": "interest_personality", "questionText": "Which daily task excites you most?", "choices": [{ "id": "a", "text": "...", "interestCluster": "health_medicine" }, { "id": "b", "text": "...", "interestCluster": "technology_coding" }, { "id": "c", "text": "...", "interestCluster": "science_research" }, { "id": "d", "text": "...", "interestCluster": "business_money" }] }\n` +
         `] }`,
     },
@@ -84,12 +86,21 @@ export async function generateAiAssessmentItems(profile: Partial<StudentProfile>
   return items.slice(0, 10).map((item, i) => ({ ...item, id: `ai_${i + 1}` }));
 }
 
+function shuffleArray<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 export function toPublicItems(aiItems: AiItem[]): AssessmentItemPublic[] {
   return aiItems.map((item) => ({
     id: item.id,
     dimension: item.dimension as AssessmentDimension,
     questionText: item.questionText,
-    choices: item.choices.map((c) => ({ id: c.id, text: c.text })),
+    choices: shuffleArray(item.choices).map((c) => ({ id: c.id, text: c.text })),
   }));
 }
 

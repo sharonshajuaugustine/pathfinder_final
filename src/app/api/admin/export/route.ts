@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { getExportData } from "@/lib/admin-data";
+import { requireCounsellor } from "@/lib/auth";
 
 // GET /api/admin/export
-// Protected by middleware Basic Auth (same secret as /admin/*).
+// Protected by middleware (Supabase session) + requireCounsellor (is_active check).
 // Returns a UTF-8 CSV file with one row per lead.
 export async function GET() {
+  const [, denied] = await requireCounsellor();
+  if (denied) return denied;
+
   const rows = await getExportData();
 
   if (!rows.length) {

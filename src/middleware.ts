@@ -11,10 +11,6 @@ import type { NextRequest } from "next/server";
 // Brute-force throttle: 10 failed login attempts per IP per 10 minutes → 429.
 // The /api/admin/auth login route is also covered by this.
 
-const MAX_FAILS = 10;
-const WINDOW_MS = 10 * 60 * 1000;
-const failBuckets = new Map<string, { count: number; resetAt: number }>();
-
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -26,20 +22,8 @@ export async function middleware(req: NextRequest) {
   const isLoginPage = pathname === "/admin/login";
   const isLoginApi = pathname === "/api/admin/auth";
   if (isLoginPage || isLoginApi) {
-    // Still apply brute-force throttle on the login API.
-    if (isLoginApi && req.method === "POST") {
-      const fwd = req.headers.get("x-forwarded-for") ?? "";
-      const ip = fwd.split(",")[0]?.trim() || "unknown";
-      const now = Date.now();
-      const bucket = failBuckets.get(ip);
-      if (bucket && now < bucket.resetAt && bucket.count >= MAX_FAILS) {
-        return new NextResponse("Too many login attempts. Try again later.", {
-          status: 429,
-          headers: { "Retry-After": String(Math.ceil((bucket.resetAt - now) / 1000)) },
-        });
-      }
-    }
     // Forward pathname so the layout always knows which page it's rendering.
+    // Brute-force throttle for login is handled inside /api/admin/auth/route.ts.
     return NextResponse.next({
       request: { headers: new Headers({ ...Object.fromEntries(req.headers), "x-pathname": pathname }) },
     });
