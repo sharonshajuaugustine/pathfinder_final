@@ -1,5 +1,4 @@
 import "server-only";
-import { getServiceClient } from "@/lib/supabase/admin";
 import { extractJson, type ChatMessage } from "@/lib/groq";
 import type { StudentProfile } from "@/types/profile";
 import type { AssessmentItemPublic, AssessmentDimension } from "@/types/assessment";
@@ -94,41 +93,3 @@ export function toPublicItems(aiItems: AiItem[]): AssessmentItemPublic[] {
   }));
 }
 
-// Generates and caches AI assessment items for a session when not already present.
-// Safe to call with void — designed to run concurrently in the background.
-export async function generateAndCacheAiAssessment(
-  sessionId: string,
-  profile: Partial<StudentProfile> | null
-): Promise<void> {
-  try {
-    const db = getServiceClient();
-
-    // Re-read profile to get the freshest version (caller's copy may be stale).
-    const { data: row } = await db
-      .from("student_profiles")
-      .select("profile")
-      .eq("session_id", sessionId)
-      .maybeSingle();
-
-    const current = row?.profile as Record<string, unknown> | null;
-
-    // Skip if already cached.
-    const existing = current?._aiAssessmentItems;
-    if (Array.isArray(existing) && existing.length >= 8) return;
-
-    const freshProfile = (current as Partial<StudentProfile> | null) ?? profile;
-    const items = await generateAiAssessmentItems(freshProfile);
-
-    await db.from("student_profiles").upsert(
-      {
-        session_id: sessionId,
-        profile: { ...(current ?? {}), _aiAssessmentItems: items },
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "session_id" }
-    );
-  } catch (e) {
-    // Non-fatal — GET /api/assessment will regenerate if this fails.
-    console.error("[assessment-generator] background generation failed", e);
-  }
-}

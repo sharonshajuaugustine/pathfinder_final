@@ -3,7 +3,6 @@ import { z } from "zod";
 import { getServiceClient } from "@/lib/supabase/admin";
 import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { nextQuestion, extractProfileDelta, type StudentContext } from "@/core/ai";
-import { generateAndCacheAiAssessment } from "@/core/assessment-generator";
 import { mergeProfile, computeCompleteness, type ProfileDelta } from "@/core/profile-builder";
 import type { ChatMessage } from "@/lib/groq";
 import type { StudentProfile, InterestCluster, GoalOrientation, BudgetBand, LocationPref } from "@/types/profile";
@@ -132,7 +131,7 @@ function findClosestCluster(value: string): InterestCluster | null {
     training: "helping_teaching", mentor: "helping_teaching",
     // law
     law: "law_justice", legal: "law_justice", justice: "law_justice",
-    advocate: "law_justice", rights: "law_justice", civil: "law_justice",
+    advocate: "law_justice", rights: "law_justice",
     // engineering
     build: "building_engineering", engineer: "building_engineering",
     construct: "building_engineering", architecture: "building_engineering",
@@ -513,18 +512,6 @@ export async function POST(req: NextRequest) {
       (coreCaptured && captured.priorities && answeredCount >= 8) ||
       askableGaps.length === 0 ||
       answeredCount >= HARD_TURN_CEILING;
-
-    // Pre-generate personalised assessment questions as soon as core info is known.
-    // Runs in the background so the chat response is never delayed.
-    // coreCaptured + priorities = we have subjects, interest, goal, and priorities —
-    // enough for a personalised assessment; constraint questions can still be asked
-    // in parallel while the assessment generates in the background.
-    if (!done && coreCaptured && captured.priorities) {
-      const hasAssessmentCache = !!(ctxProfile as Record<string, unknown> | null)?._aiAssessmentItems;
-      if (!hasAssessmentCache) {
-        void generateAndCacheAiAssessment(sessionId, ctxProfile);
-      }
-    }
 
     // Early return: done — persist gap state before returning.
     if (answered && done) {

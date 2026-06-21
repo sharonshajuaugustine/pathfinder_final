@@ -355,6 +355,17 @@ function ChatInner() {
         </div>
       </div>
 
+      {/* ── Assessment loading ── */}
+      {chatDone && !assessmentDone && assessmentItems.length === 0 && (
+        <div className="shrink-0 border-t bg-white px-4 py-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <div className="mx-auto mb-3 h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm font-semibold text-foreground">Preparing your aptitude check…</p>
+            <p className="mt-1 text-xs text-muted-foreground">This takes a few seconds</p>
+          </div>
+        </div>
+      )}
+
       {/* ── Assessment quiz ── */}
       {chatDone && !assessmentDone && currentAssessmentItem && (
         <div className="shrink-0 border-t bg-secondary/30 px-4 py-4">

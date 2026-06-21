@@ -7,7 +7,6 @@ import { computeAssessmentDelta } from "@/core/assessment-scorer";
 import { mergeProfile, computeCompleteness, type ProfileDelta } from "@/core/profile-builder";
 import {
   generateAiAssessmentItems,
-  generateAndCacheAiAssessment,
   toPublicItems,
   type AiItem,
 } from "@/core/assessment-generator";
@@ -51,9 +50,9 @@ function staticFallback(profile: Partial<StudentProfile> | null): AssessmentItem
 }
 
 // GET /api/assessment?session=<uuid>
-// Returns 10 AI-personalised questions. Caching in student_profiles._aiAssessmentItems
-// means this is instant if pre-generated during chat (≤2 gaps remaining).
-// Falls back to the static bank if AI fails.
+// Generates 10 AI-personalised questions on first call and caches them in
+// student_profiles._aiAssessmentItems so page reloads are instant.
+// Falls back to the static bank if AI generation fails.
 export async function GET(req: NextRequest) {
   const sessionId = req.nextUrl.searchParams.get("session");
 
