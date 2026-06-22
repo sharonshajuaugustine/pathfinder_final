@@ -154,7 +154,6 @@ export default function StartPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<Set<string>>(new Set());
 
   // Free-text input (Q2–Q5)
-  const [showText, setShowText] = useState(false);
   const [textVal, setTextVal] = useState("");
   const textRef = useRef<HTMLInputElement>(null);
 
@@ -268,7 +267,6 @@ export default function StartPage() {
       if (qIndex < TOTAL_QUESTIONS - 1) {
         setQIndex((i) => i + 1);
         setSelectedSubjects(new Set());
-        setShowText(false);
         setTextVal("");
         setVisible(true);
       } else {
@@ -314,7 +312,7 @@ export default function StartPage() {
   // Q2: subjects continue
   function onSubjectContinue() {
     if (selectedSubjects.size === 0 && !textVal.trim()) return;
-    if (showText && textVal.trim()) {
+    if (textVal.trim() && selectedSubjects.size === 0) {
       void postAnswer({ text: textVal.trim(), isChoice: false });
     } else if (selectedSubjects.size > 0) {
       void postAnswer({ values: Array.from(selectedSubjects), isChoice: true });
@@ -531,7 +529,7 @@ export default function StartPage() {
             )}
 
             {/* Subjects Continue button (Q2) */}
-            {qIndex === 2 && (selectedSubjects.size > 0 || (showText && textVal.trim())) && (
+            {qIndex === 2 && (selectedSubjects.size > 0 || textVal.trim()) && (
               <button
                 disabled={busy}
                 onClick={onSubjectContinue}
@@ -541,38 +539,32 @@ export default function StartPage() {
               </button>
             )}
 
-            {/* "Type your own" toggle (Q2–Q5) */}
-            {qIndex >= 2 && !showText && (
-              <button
-                onClick={() => {
-                  setShowText(true);
-                  setTimeout(() => textRef.current?.focus(), 50);
-                }}
-                className="mt-4 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-              >
-                My answer isn&apos;t listed — type it
-              </button>
-            )}
-
-            {/* Free-text input (Q2–Q5) */}
-            {showText && qIndex >= 2 && (
-              <form onSubmit={onTextSubmit} className="mt-4 flex gap-2">
-                <input
-                  ref={textRef}
-                  value={textVal}
-                  onChange={(e) => setTextVal(e.target.value)}
-                  placeholder={getTextPlaceholder()}
-                  disabled={busy}
-                  className="flex-1 rounded-xl border border-border bg-white px-4 py-2.5 text-sm outline-none ring-0 transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50"
-                />
-                <button
-                  type="submit"
-                  disabled={busy || !textVal.trim()}
-                  className="shrink-0 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-40"
+            {/* Chat-style free-text input (Q2–Q5) — always visible */}
+            {qIndex >= 2 && (
+              <div className="mt-4">
+                <form
+                  onSubmit={onTextSubmit}
+                  className="flex items-center gap-2 rounded-2xl border border-border bg-white px-4 py-2.5 shadow-sm transition-colors focus-within:border-primary focus-within:ring-1 focus-within:ring-primary"
                 >
-                  {busy ? "…" : "→"}
-                </button>
-              </form>
+                  <input
+                    ref={textRef}
+                    value={textVal}
+                    onChange={(e) => setTextVal(e.target.value)}
+                    placeholder="Or type your own answer…"
+                    disabled={busy}
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy || !textVal.trim()}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-all disabled:opacity-30 hover:bg-primary/90"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                      <path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.903 6.557H13.5a.75.75 0 0 1 0 1.5H4.182l-1.903 6.557a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.6-7.386.75.75 0 0 0 0-1.128A28.897 28.897 0 0 0 3.105 2.288Z" />
+                    </svg>
+                  </button>
+                </form>
+              </div>
             )}
 
             {error && <p className="mt-3 text-xs text-destructive">{error}</p>}

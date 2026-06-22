@@ -31,6 +31,7 @@ export interface CareerRecommendation {
   skills: { stage: string; skillName: string; resourceType?: string }[];
   // adjacent / fallback careers shown as alternatives
   alternatives: { careerId: CareerId; name: string; reason: string }[];
+  shortDescription?: string;
 }
 
 export interface RecommendationResult {

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Star, CheckCircle2, DollarSign, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RecommendationResult } from "@/types/recommendation";
 
@@ -24,6 +25,10 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
   const [loading, setLoading]     = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    if (localStorage.getItem(`feedback-${sessionId}`)) setSubmitted(true);
+  }, [sessionId]);
+
   async function handleSubmit() {
     if (!reaction) return;
     setLoading(true);
@@ -33,6 +38,7 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionId, reaction, message: message.trim() || undefined }),
       });
+      localStorage.setItem(`feedback-${sessionId}`, "1");
       setSubmitted(true);
     } finally {
       setLoading(false);
@@ -114,9 +120,9 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
 }
 
 const RANK_STYLES = [
-  { badge: "bg-amber-100 text-amber-800 border-amber-200", bar: "bg-amber-500", label: "#1 Best fit" },
-  { badge: "bg-slate-100 text-slate-700 border-slate-200", bar: "bg-slate-400", label: "#2 Strong fit" },
-  { badge: "bg-blue-50 text-blue-700 border-blue-200", bar: "bg-blue-500", label: "#3 Good fit" },
+  { bar: "bg-amber-400", accent: "border-l-amber-400", num: "text-amber-600", label: "Best Match" },
+  { bar: "bg-primary",   accent: "border-l-primary",   num: "text-primary",   label: "Strong Match" },
+  { bar: "bg-slate-400", accent: "border-l-slate-400", num: "text-slate-500",  label: "Good Match" },
 ];
 
 function confidenceLevel(c: number) {
@@ -207,131 +213,139 @@ function ResultInner() {
           </div>
         </div>
 
-        {/* Short summary — one line max; full detail is in the cards below */}
         {(data.top ?? []).length > 0 && (
-          <p className="mb-6 text-sm text-muted-foreground">
-            Based on your interests, aptitude, and goals, here are your top career matches.
+          <p className="mb-4 text-sm text-muted-foreground">
+            Based on your interests, strengths, and goals — here are the courses that fit you best.
           </p>
         )}
 
-        {/* Career cards */}
-        <div className="space-y-5">
-          {(data.top ?? []).map((c, i) => {
-            const rank = RANK_STYLES[i] ?? RANK_STYLES[2];
-            return (
-              <div key={c.careerId} className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-                {/* Card header */}
-                <div className="flex items-start justify-between border-b bg-muted/20 px-5 py-4">
-                  <div>
-                    <span
-                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${rank.badge}`}
-                    >
-                      {rank.label}
-                    </span>
-                    <h2 className="mt-1.5 text-lg font-bold">{c.name}</h2>
-                    <p className="text-xs capitalize text-muted-foreground">
-                      {c.domain.replace(/_/g, " ")}
+        {/* AI explanation */}
+        {data.explanation && (
+          <div className="mb-6 rounded-xl border bg-white px-5 py-4 text-sm leading-relaxed text-foreground shadow-sm">
+            {data.explanation}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {(() => {
+            const map = new Map<string, {
+              course: NonNullable<typeof data.top[0]["courses"][0]>;
+              careers: string[];
+              bestFitScore: number;
+              eligibilityNotes: string[];
+              description?: string;
+            }>();
+
+            for (const c of (data.top ?? [])) {
+              const primary = (c.courses ?? [])[0];
+              if (!primary) continue;
+              if (!map.has(primary.courseId)) {
+                map.set(primary.courseId, {
+                  course: primary,
+                  careers: [],
+                  bestFitScore: 0,
+                  eligibilityNotes: primary.eligibilityNotes ?? [],
+                  description: c.shortDescription,
+                });
+              }
+              const entry = map.get(primary.courseId)!;
+              if (!entry.careers.includes(c.name)) entry.careers.push(c.name);
+              if (c.fitScore > entry.bestFitScore) entry.bestFitScore = c.fitScore;
+            }
+
+            const groups = Array.from(map.values()).sort((a, b) => b.bestFitScore - a.bestFitScore);
+
+            return groups.map(({ course, careers, bestFitScore, eligibilityNotes, description }, i) => {
+              const rank = RANK_STYLES[i] ?? RANK_STYLES[2];
+              const pct = Math.round(bestFitScore * 100);
+
+              const elig = course.eligibility === "eligible"
+                ? { pill: "bg-green-50 text-green-700", icon: "text-green-600", label: "Eligible" }
+                : course.eligibility === "conditional"
+                ? { pill: "bg-amber-50 text-amber-700", icon: "text-amber-600", label: "Conditional" }
+                : { pill: "bg-red-50 text-red-700", icon: "text-red-600", label: "Check eligibility" };
+
+              return (
+                <div
+                  key={course.courseId}
+                  className={cn(
+                    "rounded-2xl bg-white shadow-sm border border-border/50 overflow-hidden border-l-4",
+                    rank.accent
+                  )}
+                >
+                  <div className="p-5 sm:p-6">
+                    {/* Rank label + decorative number */}
+                    <div className="flex items-start justify-between">
+                      <span className={cn("text-xs font-bold uppercase tracking-widest", rank.num)}>
+                        {rank.label}
+                      </span>
+                      <span className={cn("text-5xl font-black leading-none select-none opacity-[0.07]", rank.num)}>
+                        {i + 1}
+                      </span>
+                    </div>
+
+                    {/* Course name */}
+                    <h2 className="mt-2 text-xl sm:text-2xl font-bold leading-snug text-foreground">
+                      {course.name}
+                    </h2>
+
+                    {/* Career path */}
+                    <p className={cn("mt-1 text-sm font-semibold", rank.num)}>
+                      → {careers.join("  ·  ")}
                     </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-primary">{Math.round(c.fitScore * 100)}%</p>
-                    <p className="text-[11px] text-muted-foreground">fit score</p>
+
+                    {/* Description */}
+                    {description && (
+                      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                        {description}
+                      </p>
+                    )}
+
+                    {/* Match bar */}
+                    <div className="mt-5 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Your match</span>
+                        <span className="text-sm font-bold text-foreground">{pct}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn("h-full rounded-full transition-all duration-700", rank.bar)}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Eligibility notes */}
+                    {eligibilityNotes.length > 0 && (
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        {eligibilityNotes.join(" · ")}
+                      </p>
+                    )}
+
+                    {/* Info pills */}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold", elig.pill)}>
+                        <CheckCircle2 className={cn("h-3.5 w-3.5", elig.icon)} />
+                        {elig.label}
+                      </span>
+                      {course.feeBand && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                          <DollarSign className="h-3.5 w-3.5" />
+                          {course.feeBand.charAt(0).toUpperCase() + course.feeBand.slice(1)} fee
+                        </span>
+                      )}
+                      {(course.exams ?? []).length > 0 && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700">
+                          <BookOpen className="h-3.5 w-3.5" />
+                          {(course.exams ?? []).map((ex) => ex.name).join(", ")}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-
-                {/* Fit score bar */}
-                <div className="px-5 pt-3">
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full rounded-full transition-all ${rank.bar}`}
-                      style={{ width: `${Math.round(c.fitScore * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Card body */}
-                <div className="space-y-4 px-5 py-4 text-sm">
-                  {(c.courses ?? []).length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Course routes
-                      </p>
-                      <div className="space-y-1.5">
-                        {(c.courses ?? []).map((co) => (
-                          <div key={co.courseId} className="rounded-lg border bg-muted/30 px-3 py-2">
-                            <p className="font-medium text-foreground">{co.name}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {co.routeType} · {co.eligibility}
-                              {(co.exams ?? []).length > 0 && (
-                                <> · Exams: {(co.exams ?? []).map((ex) => ex.name).join(", ")}</>
-                              )}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(c.factors ?? []).length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Why this fits you
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(c.factors ?? []).map((f, j) => (
-                          <span
-                            key={j}
-                            className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium"
-                          >
-                            <span className="text-primary">✓</span> {f.label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(c.skills ?? []).length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Skill roadmap
-                      </p>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {(c.skills ?? []).map((s, si) => (
-                          <span key={si} className="flex items-center gap-1.5">
-                            <span className="rounded-md bg-secondary px-2.5 py-1 text-xs font-medium">
-                              {s.skillName}
-                              <span className="ml-1 text-muted-foreground">({s.stage})</span>
-                            </span>
-                            {si < (c.skills ?? []).length - 1 && (
-                              <span className="text-muted-foreground">→</span>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(c.alternatives ?? []).length > 0 && (
-                    <div>
-                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        You might also consider
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(c.alternatives ?? []).map((a) => (
-                          <span
-                            key={a.careerId}
-                            className="rounded-full border bg-white px-3 py-1 text-xs text-muted-foreground"
-                          >
-                            {a.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
 
         {/* Caveats */}

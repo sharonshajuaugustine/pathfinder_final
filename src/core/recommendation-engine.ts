@@ -69,6 +69,7 @@ export function generateRecommendations(
       courses,
       skills,
       alternatives: buildAlternatives(s.career, scored.map((x) => x.career), idx),
+      shortDescription: s.career.shortDescription,
     };
   });
 
