@@ -163,7 +163,7 @@ export default function OnboardingPage() {
               min={0}
               max={100}
               step="0.01"
-              placeholder="e.g. 85"
+              placeholder="e.g. 70"
             />
           </Field>
 

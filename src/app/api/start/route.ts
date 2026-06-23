@@ -8,36 +8,55 @@ import { INTEREST_CLUSTERS, type InterestCluster, type GoalOrientation } from "@
 import type { StudentProfile } from "@/types/profile";
 import type { Stream } from "@/types/onboarding";
 
-// Question indices:
-//  0 — name + age         (text inputs, no choices)
-//  1 — stream + percentage (stream card + percentage input)
-//  2 — subjects            (multi-select up to 2)
-//  3 — interest cluster    (single choice, saved at 0.5 for chat deepening)
-//  4 — goal orientation    (single choice)
-//  5 — career priorities   (single choice)
+// Question indices (start quiz — engine only, no chat AI):
+//  0 — name + age + phone + gender (text inputs, no choices)
+//  1 — stream + percentage         (stream card + percentage input)
+//  2 — subjects                    (multi-select up to 2)
+//  3 — interest cluster            (single choice, saved at 0.5 for later deepening)
+//  4 — goal orientation            (single choice)
+//  5 — career priorities           (single choice)
+//  6 — budget band                 (single choice)
+//  7 — location preference         (single choice)
+//  8 — family expectations         (single choice)
+//  9 — work style                  (single choice)
 
 const bodySchema = z.object({
   sessionId: z.string().uuid(),
-  questionIndex: z.number().int().min(0).max(5),
+  questionIndex: z.number().int().min(0).max(9),
   values: z.array(z.string().max(100)).max(3).optional(), // multi-select (Q2 subjects)
   value: z.string().max(200).optional(),                  // single choice
   text: z.string().max(500).optional(),                   // free-text answer
   name: z.string().max(100).optional(),                   // Q0
   age: z.number().int().min(1).max(110).optional(),       // Q0
   phone: z.string().regex(/^[6-9]\d{9}$/).optional(),    // Q0
+  gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(), // Q0
   percentage: z.number().min(0).max(100).optional(),      // Q1
   isChoice: z.boolean(),
 });
 
-const QUESTION_STAGES = ["", "", "", "interests", "aspiration", "aspiration"];
+const QUESTION_STAGES = ["", "", "", "interests", "aspiration", "aspiration", "", "", "", ""];
 const QUESTION_TEXTS = [
-  "What is your name and age?",
-  "Which Plus Two stream are you in?",
-  "Which subject are you strongest in or enjoy the most?",
-  "Which of these would you most enjoy doing every day?",
-  "What's your main plan after Plus Two?",
-  "What matters most to you in a career?",
+  "Hey there! Let's get started. What is your name, age, and phone number?",
+  "Which stream are you studying in Plus Two?",
+  "Which subjects do you enjoy the most or score best in?",
+  "Would you be interested in any of these?",
+  "What are you planning to do after Plus Two?",
+  "What matters most to you when choosing a career?",
+  "Can your family comfortably pay for a private college if needed?",
+  "Are you open to moving to another city or abroad to study?",
+  "Does your family have a strong preference about your career?",
+  "How do you most enjoy working?",
 ];
+
+// Work-style choice → personality trait delta. Mirrors the chat route's mapping
+// so the start quiz and chat produce the same personality signals.
+function workstyleDelta(value: string): ProfileDelta | null {
+  if (value === "social") return { personality: { social: 0.8 } };
+  if (value === "analytical_solo") return { personality: { social: -0.7, analytical: 0.7 } };
+  if (value === "practical_outdoor") return { personality: { practical: 0.8, social: -0.2 } };
+  if (value === "mixed") return { personality: { social: 0.2 } };
+  return null;
+}
 
 function buildDirectDelta(
   questionIndex: number,
@@ -50,14 +69,45 @@ function buildDirectDelta(
       if (values && values.length > 0) return { academic: { strongSubjects: values } };
       return { academic: { strongSubjects: [value] } };
     case 3: // interest cluster — saved at 0.5 so the chat can deepen it
-      if (INTEREST_CLUSTERS.includes(value as InterestCluster)) {
-        return { interests: { [value]: 0.5 } };
+      if (values && values.length > 0) {
+        const interestDelta: Record<string, number> = {};
+        for (const val of values) {
+          const clusterKey = val.split("::")[0];
+          if (INTEREST_CLUSTERS.includes(clusterKey as InterestCluster)) {
+            interestDelta[clusterKey] = 0.5;
+          }
+        }
+        return Object.keys(interestDelta).length > 0 ? { interests: interestDelta } : null;
+      }
+      if (value) {
+        const clusterKey = value.split("::")[0];
+        if (INTEREST_CLUSTERS.includes(clusterKey as InterestCluster)) {
+          return { interests: { [clusterKey]: 0.5 } };
+        }
       }
       return null;
     case 4: // goal
-      return { aspiration: { goalOrientation: value as GoalOrientation } };
+      {
+        let goalVal = value;
+        if (value === "entrance_exams" || value === "repeat_year") {
+          goalVal = "higher_study";
+        }
+        return { aspiration: { goalOrientation: goalVal as GoalOrientation } };
+      }
     case 5: // priorities
       return { aspiration: { careerPriorities: [value] } };
+    case 6: // budget band
+      return ["low", "medium", "high", "no_constraint"].includes(value)
+        ? { constraints: { budgetBand: value as StudentProfile["constraints"]["budgetBand"] } }
+        : null;
+    case 7: // location preference
+      return ["kerala", "india", "abroad"].includes(value)
+        ? { constraints: { locationPref: value as StudentProfile["constraints"]["locationPref"] } }
+        : null;
+    case 8: // family expectations
+      return { constraints: { familyExpectations: [value] } };
+    case 9: // work style → personality
+      return workstyleDelta(value);
     default:
       return null;
   }
@@ -70,7 +120,7 @@ export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) return badRequest("Invalid start payload", parsed.error.flatten());
 
-  const { sessionId, questionIndex, value, values, text, name, age, phone, percentage, isChoice } = parsed.data;
+  const { sessionId, questionIndex, value, values, text, name, age, phone, gender, percentage, isChoice } = parsed.data;
   const limited = await enforceRateLimit(limiters.write, "start", [sessionId, ipHash]);
   if (limited) return limited;
 
@@ -92,6 +142,7 @@ export async function POST(req: NextRequest) {
         _name: name?.trim() ?? "",
         _age: age ?? null,
         _phone: phone ?? null,
+        _gender: gender ?? null,
       };
       await db.from("student_profiles").upsert(
         {
@@ -117,6 +168,11 @@ export async function POST(req: NextRequest) {
             age: parsedAge,
             is_minor: parsedAge != null ? parsedAge < 18 : null,
           });
+          // Best-effort gender write — kept separate so a missing `gender` column
+          // (migration not yet run) never blocks the core lead capture.
+          if (gender) {
+            await db.from("leads").update({ gender }).eq("session_id", sessionId);
+          }
         }
       }
 
@@ -167,8 +223,17 @@ export async function POST(req: NextRequest) {
     if (isChoice && (value || (values && values.length > 0))) {
       delta = buildDirectDelta(questionIndex, value ?? "", values, percentage);
     } else if (text && questionIndex === 2) {
-      // Subjects: treat typed text as a direct subject name
-      delta = { academic: { strongSubjects: [text.trim()] } };
+      // Subjects: use LLM extraction so hobbies/interests map to interests, and actual subjects map to subjects
+      const stage = "interests";
+      const result = await extractProfileDelta({
+        reply: text,
+        stage,
+        precedingQuestion: QUESTION_TEXTS[2],
+      });
+      delta = result.delta;
+      if (!delta) {
+        delta = { academic: { strongSubjects: [text.trim()] } };
+      }
     } else if (text && questionIndex >= 3) {
       // Interest, goal, priorities: LLM extraction
       const stage = QUESTION_STAGES[questionIndex];
@@ -181,7 +246,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (delta) {
-      const merged = { ...mergeProfile(prevProfile, delta), ...metaKeys };
+      let merged = { ...mergeProfile(prevProfile, delta), ...metaKeys };
+      if (questionIndex === 3) {
+        const rawValues = values || (value ? [value] : []);
+        merged = {
+          ...merged,
+          _selectedInterests: rawValues,
+        };
+      }
       await db.from("student_profiles").upsert(
         {
           session_id: sessionId,

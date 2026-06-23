@@ -99,6 +99,7 @@ function pendingChoiceToProfile(value: string, gapId: string): ProfileDelta | nu
 // Fuzzy fallback for interest cluster values: if the AI returns a non-standard string,
 // map it to the closest valid cluster rather than dropping the signal.
 function findClosestCluster(value: string): InterestCluster | null {
+  if (typeof value !== "string") return null;
   const lower = value.toLowerCase().replace(/[_-]/g, " ");
   for (const c of INTEREST_CLUSTERS) {
     if (lower === c.replace(/_/g, " ")) return c;
@@ -117,6 +118,7 @@ function findClosestCluster(value: string): InterestCluster | null {
     business: "business_money", money: "business_money", finance: "business_money",
     commerce: "business_money", entrepreneur: "business_money", startup: "business_money",
     marketing: "business_money", management: "business_money", economic: "business_money",
+    hotel: "business_money", hospitality: "business_money", restaurant: "business_money",
     // science
     science: "science_research", research: "science_research", lab: "science_research",
     biology: "science_research", chemistry: "science_research", experiment: "science_research",
@@ -125,6 +127,12 @@ function findClosestCluster(value: string): InterestCluster | null {
     design: "design_visual", art: "design_visual", visual: "design_visual",
     creative: "design_visual", drawing: "design_visual", graphic: "design_visual",
     animation: "design_visual", fashion: "design_visual", interior: "design_visual",
+    music: "design_visual", dance: "design_visual", sing: "design_visual",
+    acting: "design_visual", drama: "design_visual", photo: "design_visual",
+    paint: "design_visual", artistic: "design_visual",
+    cook: "design_visual", cooking: "design_visual", chef: "design_visual",
+    food: "design_visual", bakery: "design_visual", baking: "design_visual",
+    culinary: "design_visual",
     // helping/teaching
     teach: "helping_teaching", education: "helping_teaching", counsel: "helping_teaching",
     welfare: "helping_teaching", community: "helping_teaching",
@@ -153,6 +161,11 @@ function findClosestCluster(value: string): InterestCluster | null {
     defence: "defence_adventure", defense: "defence_adventure", army: "defence_adventure",
     military: "defence_adventure", adventure: "defence_adventure", police: "defence_adventure",
     navy: "defence_adventure", pilot: "defence_adventure", nda: "defence_adventure",
+    sport: "defence_adventure", athlete: "defence_adventure", fitness: "defence_adventure",
+    gym: "defence_adventure", game: "defence_adventure", play: "defence_adventure",
+    football: "defence_adventure", cricket: "defence_adventure", coach: "defence_adventure",
+    physical: "defence_adventure", trainer: "defence_adventure", instructor: "defence_adventure",
+    referee: "defence_adventure", bodybuilding: "defence_adventure", physique: "defence_adventure",
     // numbers
     number: "numbers_analysis", math: "numbers_analysis", stat: "numbers_analysis",
     data: "numbers_analysis", analys: "numbers_analysis", account: "numbers_analysis",
@@ -191,21 +204,21 @@ function countCaptured(p?: Partial<StudentProfile> | null): number {
 // Maps a stated career name to the most relevant interest cluster.
 function inferInterestFromCareer(career: string): Record<string, number> | null {
   const c = career.toLowerCase();
-  if (/doctor|medicine|mbbs|nursing|medical|physician|surgeon|dentist|pharmacist|hospital|physiotherapy|healthcare|paramedic/.test(c))
+  if (/doctor|medicine|mbbs|nursing|medical|physician|surgeon|dentist|pharmacist|hospital|physiotherapy|healthcare|paramedic|nutritionist|dietitian|dietician|physiotherapist/.test(c))
     return { health_medicine: 0.7 };
   if (/software|developer|programmer|coding|engineer|tech|computer|information technology|app|web|data science|artificial intelligence|machine learning|cyber/.test(c))
     return { technology_coding: 0.7 };
-  if (/business|entrepreneur|management|marketing|finance|accounting|commerce|startup|ceo|mba|economics/.test(c))
+  if (/business|entrepreneur|management|marketing|finance|accounting|commerce|startup|ceo|mba|economics|hotel|hospitality|restaurant/.test(c))
     return { business_money: 0.7 };
   if (/lawyer|law|legal|advocate|judge|solicitor|ias|upsc|psc|civil service|government service/.test(c))
     return { law_justice: 0.7 };
-  if (/teacher|teaching|education|professor|lecturer|trainer|counsellor/.test(c))
+  if (/teacher|teaching|education|professor|lecturer|counsellor/.test(c))
     return { helping_teaching: 0.7 };
-  if (/design|architect|graphic|animation|fashion|interior|ui|ux|visual art/.test(c))
+  if (/design|architect|graphic|animation|fashion|interior|ui|ux|visual art|music|singer|dancer|photographer|actor|acting|painter|cooking|chef|culinary|food|bakery|baking/.test(c))
     return { design_visual: 0.7 };
   if (/scientist|research|biology|chemistry|physics|biotech|bioinformatics|ecology|geology/.test(c))
     return { science_research: 0.7 };
-  if (/army|navy|air force|military|nda|defence|defense|police|soldier|officer/.test(c))
+  if (/army|navy|air force|military|nda|defence|defense|police|soldier|officer|sports|athlete|cricket|football|coach|fitness|gym|trainer|instructor|referee|bodybuilder|physique/.test(c))
     return { defence_adventure: 0.7 };
   if (/farmer|agriculture|environment|animal|vet|wildlife|forest|horticulture/.test(c))
     return { nature_agriculture: 0.7 };

@@ -35,16 +35,35 @@ export async function POST(req: NextRequest) {
     applyDerivedAptitude(profile);
 
     const kb = await loadKnowledgeBase();
-    const result = generateRecommendations(sessionId, profile, kb, { topN: 3 });
+    // Score more careers than we need so we can surface a spread of distinct
+    // COURSES (the next step a student actually takes) rather than career titles.
+    const result = generateRecommendations(sessionId, profile, kb, { topN: 8 });
+
+    // Pick the best course to take next: walk the ranked careers, take each one's
+    // primary (first) course, dedupe by courseId, and keep the top 3 distinct
+    // courses. Each course is shown with the career it leads toward.
+    const seen = new Set<string>();
+    const courses: Array<{
+      courseId: string; name: string; leadsTo: string; domain: string;
+      fitScore: number; confidence: number;
+    }> = [];
+    for (const career of result.top) {
+      const primary = career.courses[0];
+      if (!primary || seen.has(primary.courseId)) continue;
+      seen.add(primary.courseId);
+      courses.push({
+        courseId: primary.courseId,
+        name: primary.name,
+        leadsTo: career.name,
+        domain: career.domain,
+        fitScore: Math.round(career.fitScore * 100),
+        confidence: Math.round(career.confidence * 100),
+      });
+      if (courses.length >= 3) break;
+    }
 
     return NextResponse.json({
-      top: result.top.map((c) => ({
-        careerId: c.careerId,
-        name: c.name,
-        domain: c.domain,
-        fitScore: Math.round(c.fitScore * 100),
-        confidence: Math.round(c.confidence * 100),
-      })),
+      top: courses,
       overallConfidence: Math.round(result.overallConfidence * 100),
     });
   } catch (e) {

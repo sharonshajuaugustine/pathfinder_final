@@ -75,6 +75,7 @@ export interface StudentProfile {
     familyExpectations: string[];
     timeToIncomeNeed?: "urgent" | "flexible";
   };
+  _selectedInterests?: string[];
 }
 
 export interface ProfileState {

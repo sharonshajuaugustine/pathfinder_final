@@ -53,6 +53,7 @@ export function normalizeProfile(p?: Partial<StudentProfile> | null): StudentPro
         ...(p.constraints?.familyExpectations ?? base.constraints.familyExpectations),
       ],
     },
+    _selectedInterests: p._selectedInterests ? [...p._selectedInterests] : undefined,
   };
 }
 

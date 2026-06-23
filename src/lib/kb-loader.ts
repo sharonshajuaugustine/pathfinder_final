@@ -12,7 +12,7 @@ let cache: { version: string; kb: KnowledgeBase } | null = null;
 
 export async function loadKnowledgeBase(): Promise<KnowledgeBase> {
   const version = currentKbVersion();
-  if (cache && cache.version === version) return cache.kb;
+  if (process.env.NODE_ENV !== "development" && cache && cache.version === version) return cache.kb;
 
   const db = getServiceClient();
   const [

@@ -58,32 +58,7 @@ export async function POST(req: NextRequest) {
 
   const db = getServiceClient();
   try {
-    // Cache check FIRST — bypasses rate limit for repeat visits and page refreshes.
-    // React double-renders both hit the endpoint at the same time; checking the cache
-    // before the rate limiter means the second call returns the cached result instead
-    // of a 429 "Too many requests" error.
-    const { data: cached } = await db
-      .from("recommendations")
-      .select("id, kb_version, results, overall_confidence, explanation")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (cached) {
-      return NextResponse.json({
-        recommendationId: cached.id,
-        sessionId,
-        kbVersion: cached.kb_version,
-        overallConfidence: cached.overall_confidence,
-        top: cached.results,
-        caveats: [],
-        explanation: cached.explanation ?? undefined,
-      });
-    }
-
-    // No cache — only rate-limit when we actually need to generate.
-    const limited = await enforceRateLimit(limiters.recommend, "recommend", [sessionId, ipHash]);
-    if (limited) return limited;
+    const kb = await loadKnowledgeBase();
 
     // Load profile + age + language.
     const { data: prof } = await db.from("student_profiles").select("profile").eq("session_id", sessionId).maybeSingle();
@@ -99,13 +74,15 @@ export async function POST(req: NextRequest) {
     const completeness = computeCompleteness(profile);
     if (completeness < 30) {
       return NextResponse.json(
-        { error: "Please complete the conversation and quick quiz before viewing your recommendations." },
+        { error: "Please complete the quiz and aptitude check before viewing your recommendations." },
         { status: 422 }
       );
     }
 
-    // 1. Deterministic engine = final decision-maker.
-    const kb = await loadKnowledgeBase();
+    // 1. Deterministic engine = final decision-maker. The engine is cheap and
+    // deterministic, so we re-run it every time (incl. page refreshes). This keeps
+    // caveats fresh and avoids depending on a persisted caveats column. Only the
+    // expensive AI explanation is cached below.
     const result = generateRecommendations(sessionId, profile, kb, { topN: 5, age: lead?.age });
 
     // 1b. Out-of-KB check: if the student named a specific career we don't cover,
@@ -120,14 +97,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. AI reviewer/explainer over engine facts (best-effort; failure is non-fatal).
+    // 2. Reuse a cached AI explanation for this session + KB version if one exists.
+    // This is the only thing worth caching (the LLM call); the engine + caveats are
+    // recomputed above. Matching kb_version means a KB update regenerates (Bug #3).
+    const { data: cached } = await db
+      .from("recommendations")
+      .select("id, explanation")
+      .eq("session_id", sessionId)
+      .eq("kb_version", kb.version)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (cached?.explanation) {
+      result.explanation = cached.explanation;
+      return NextResponse.json({ recommendationId: cached.id, ...result });
+    }
+
+    // No cached explanation — rate-limit the LLM call, then generate + persist.
+    const limited = await enforceRateLimit(limiters.recommend, "recommend", [sessionId, ipHash]);
+    if (limited) return limited;
+
     try {
       result.explanation = await explainRecommendation(result, language, statedCareerGap);
     } catch (e) {
       console.error("explanation failed", e);
     }
 
-    // 3. Persist with kb_version snapshot.
+    // Persist results + explanation with kb_version snapshot (no caveats column —
+    // caveats are recomputed each request from the profile).
     const { data: saved, error } = await db
       .from("recommendations")
       .insert({

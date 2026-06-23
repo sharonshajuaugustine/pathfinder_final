@@ -3,10 +3,9 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { CheckCircle2, DollarSign, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RecommendationResult } from "@/types/recommendation";
-
-// ── Feedback widget ───────────────────────────────────────────────────────────
 
 type Reaction = "love" | "good" | "okay" | "poor";
 
@@ -18,11 +17,15 @@ const REACTIONS: { id: Reaction; emoji: string; label: string }[] = [
 ];
 
 function FeedbackWidget({ sessionId }: { sessionId: string }) {
-  const [reaction, setReaction]   = useState<Reaction | null>(null);
-  const [message, setMessage]     = useState("");
+  const [reaction, setReaction] = useState<Reaction | null>(null);
+  const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (localStorage.getItem(`feedback-${sessionId}`)) setSubmitted(true);
+  }, [sessionId]);
 
   async function handleSubmit() {
     if (!reaction) return;
@@ -33,6 +36,7 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionId, reaction, message: message.trim() || undefined }),
       });
+      localStorage.setItem(`feedback-${sessionId}`, "1");
       setSubmitted(true);
     } finally {
       setLoading(false);
@@ -41,71 +45,45 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
 
   if (submitted) {
     return (
-      <div className="mt-4 rounded-2xl border bg-green-50 border-green-200 px-5 py-6 text-center">
+      <div className="mt-4 clay-card px-5 py-6 text-center" style={{ background: "linear-gradient(135deg, #F0FDF4, #DCFCE7)", border: "1px solid rgba(74,222,128,0.2)" }}>
         <p className="text-2xl mb-2">🙏</p>
-        <p className="text-sm font-semibold text-green-800">Thank you for your feedback!</p>
-        <p className="mt-1 text-xs text-green-700">It helps us improve PathFinder for students like you.</p>
+        <p className="text-sm font-bold" style={{ color: "#166534" }}>Thank you for your feedback!</p>
+        <p className="mt-1 text-xs" style={{ color: "#15803D" }}>It helps us improve PathFinder for students like you.</p>
       </div>
     );
   }
 
   return (
-    <div className="mt-4 rounded-2xl border bg-white px-5 py-6">
-      <p className="text-sm font-semibold text-foreground text-center">How was your experience?</p>
-      <p className="mt-0.5 text-xs text-muted-foreground text-center">Your feedback helps us improve PathFinder</p>
-
-      {/* Reaction buttons */}
-      <div className="mt-4 flex items-center justify-center gap-3 sm:gap-5">
+    <div className="mt-4 clay-card px-5 py-6">
+      <p className="text-sm font-bold text-center" style={{ color: "#111827" }}>How was your experience?</p>
+      <p className="mt-0.5 text-xs text-center" style={{ color: "#9CA3AF" }}>Your feedback helps us improve PathFinder</p>
+      <div className="mt-4 flex items-center justify-center gap-3 sm:gap-4">
         {REACTIONS.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => {
-              setReaction(r.id);
-              setTimeout(() => textRef.current?.focus(), 50);
+          <button key={r.id} onClick={() => { setReaction(r.id); setTimeout(() => textRef.current?.focus(), 50); }}
+            className="flex flex-col items-center gap-1.5 px-3 py-2.5 text-center transition-all focus:outline-none"
+            style={{
+              borderRadius: 16, border: reaction === r.id ? "1.5px solid #1E6FFF" : "1.5px solid rgba(30,111,255,0.1)",
+              background: reaction === r.id ? "linear-gradient(135deg, #EEF4FF, #D9E9FF)" : "#F4F6FB",
+              transform: reaction === r.id ? "scale(1.06)" : "scale(1)",
+              minWidth: 60,
             }}
-            className={cn(
-              "flex flex-col items-center gap-1.5 rounded-xl px-3 py-2.5 transition-all",
-              "border text-center min-w-[60px] sm:min-w-[72px]",
-              reaction === r.id
-                ? "border-primary bg-primary/5 shadow-sm scale-105"
-                : "border-border hover:border-primary/40 hover:bg-muted/50"
-            )}
           >
-            <span className="text-2xl sm:text-3xl leading-none">{r.emoji}</span>
-            <span className={cn(
-              "text-[10px] sm:text-xs font-medium",
-              reaction === r.id ? "text-primary" : "text-muted-foreground"
-            )}>
-              {r.label}
-            </span>
+            <span className="text-2xl leading-none">{r.emoji}</span>
+            <span className="text-[10px] font-semibold" style={{ color: reaction === r.id ? "#1E6FFF" : "#9CA3AF" }}>{r.label}</span>
           </button>
         ))}
       </div>
-
-      {/* Text box — slides in after selecting a reaction */}
-      <div className={cn(
-        "overflow-hidden transition-all duration-200",
-        reaction ? "max-h-48 opacity-100 mt-4" : "max-h-0 opacity-0"
-      )}>
-        <textarea
-          ref={textRef}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Anything we should improve? (optional)"
-          maxLength={1000}
-          rows={3}
-          className="w-full resize-none rounded-lg border bg-white px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+      <div className={cn("overflow-hidden transition-all duration-200", reaction ? "max-h-48 opacity-100 mt-4" : "max-h-0 opacity-0")}>
+        <textarea ref={textRef} value={message} onChange={(e) => setMessage(e.target.value)}
+          placeholder="Anything we should improve? (optional)" maxLength={1000} rows={3}
+          className="w-full resize-none px-3 py-2.5 text-sm outline-none placeholder:text-gray-400 focus:ring-0"
+          style={{ borderRadius: 14, border: "1.5px solid rgba(30,111,255,0.15)", background: "#F4F6FB", color: "#111827" }}
+          onFocus={(e) => { e.target.style.borderColor = "#1E6FFF"; e.target.style.background = "#fff"; }}
+          onBlur={(e) => { e.target.style.borderColor = "rgba(30,111,255,0.15)"; e.target.style.background = "#F4F6FB"; }}
         />
-        <button
-          onClick={handleSubmit}
-          disabled={!reaction || loading}
-          className={cn(
-            "mt-2 w-full rounded-lg py-2.5 text-sm font-medium transition-colors",
-            reaction && !loading
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-muted-foreground cursor-not-allowed"
-          )}
-        >
+        <button onClick={handleSubmit} disabled={!reaction || loading}
+          className={cn("mt-2 w-full clay-btn text-sm", !reaction || loading ? "opacity-40 cursor-not-allowed" : "")}
+          style={{ height: 44 }}>
           {loading ? "Sending…" : "Send feedback"}
         </button>
       </div>
@@ -114,17 +92,15 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
 }
 
 const RANK_STYLES = [
-  { badge: "bg-amber-100 text-amber-800 border-amber-200", bar: "bg-amber-500", label: "#1 Best fit" },
-  { badge: "bg-slate-100 text-slate-700 border-slate-200", bar: "bg-slate-400", label: "#2 Strong fit" },
-  { badge: "bg-blue-50 text-blue-700 border-blue-200", bar: "bg-blue-500", label: "#3 Good fit" },
+  { bar: "bg-amber-400", accent: "#F59E0B", num: "#D97706", label: "Best Match" },
+  { bar: "bg-blue-500", accent: "#1E6FFF", num: "#1E6FFF", label: "Strong Match" },
+  { bar: "bg-slate-400", accent: "#94A3B8", num: "#64748B", label: "Good Match" },
 ];
 
 function confidenceLevel(c: number) {
-  if (c >= 0.75)
-    return { label: "High confidence", cls: "bg-green-50 text-green-800 border-green-200" };
-  if (c >= 0.5)
-    return { label: "Good confidence", cls: "bg-amber-50 text-amber-800 border-amber-200" };
-  return { label: "Moderate confidence", cls: "bg-orange-50 text-orange-800 border-orange-200" };
+  if (c >= 0.75) return { label: "High confidence", bg: "rgba(74,222,128,0.12)", color: "#166534", border: "rgba(74,222,128,0.25)" };
+  if (c >= 0.5)  return { label: "Good confidence", bg: "rgba(245,158,11,0.1)",  color: "#92400E", border: "rgba(245,158,11,0.2)" };
+  return               { label: "Moderate confidence", bg: "rgba(249,115,22,0.1)", color: "#9A3412", border: "rgba(249,115,22,0.2)" };
 }
 
 function ResultInner() {
@@ -147,223 +123,153 @@ function ResultInner() {
   if (!sessionId) return (
     <Center>
       <div className="space-y-4 text-center">
-        <p className="text-base font-medium text-foreground">No session found.</p>
-        <p className="text-sm text-muted-foreground">Please complete the conversation first.</p>
-        <Link href="/" className="inline-block text-sm text-primary hover:underline">← Start over</Link>
+        <p className="text-base font-bold" style={{ color: "#111827" }}>No session found.</p>
+        <p className="text-sm" style={{ color: "#9CA3AF" }}>Please complete the conversation first.</p>
+        <Link href="/" className="inline-block text-sm" style={{ color: "#1E6FFF" }}>← Start over</Link>
       </div>
     </Center>
   );
-  if (error) return <Center className="text-destructive">{error}</Center>;
-  if (!data) {
-    return (
-      <Center>
-        <div className="space-y-3 text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Building your career report…</p>
-        </div>
-      </Center>
-    );
-  }
+  if (error) return <Center><p style={{ color: "#EF4444" }}>{error}</p></Center>;
+  if (!data) return (
+    <Center>
+      <div className="space-y-3 text-center">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full" style={{ border: "2.5px solid #1E6FFF", borderTopColor: "transparent" }} />
+        <p className="text-sm" style={{ color: "#9CA3AF" }}>Building your career report…</p>
+      </div>
+    </Center>
+  );
 
   const conf = confidenceLevel(data.overallConfidence);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen" style={{ background: "#F8F3EC" }}>
       {/* Nav */}
-      <header className="border-b bg-white/90 backdrop-blur-sm">
+      <header className="sticky top-0 z-50" style={{ background: "rgba(248,243,236,0.9)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(30,111,255,0.07)" }}>
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-primary" />
-            <span className="text-sm font-semibold">PathFinder</span>
+            <div style={{ width: 30, height: 30, borderRadius: 10, background: "linear-gradient(145deg, #3B82FF, #1E6FFF)", boxShadow: "0 3px 0 rgba(6,26,138,0.4), 0 6px 16px rgba(30,111,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "#fff", fontWeight: 800, fontSize: 12, fontFamily: "var(--font-heading)" }}>P</span>
+            </div>
+            <span className="text-sm font-black tracking-tight" style={{ color: "#111827", fontFamily: "var(--font-heading)" }}>PathFinder</span>
           </Link>
-          <span className="text-xs text-muted-foreground">Step 3 of 3</span>
+          <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: "rgba(30,111,255,0.09)", color: "#1E6FFF" }}>Step 3 of 3</span>
         </div>
       </header>
 
-      {/* Journey progress */}
-      <div className="border-b bg-white">
-        <div className="mx-auto max-w-3xl px-6 py-3">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Your details</span>
-            <div className="h-px flex-1 bg-primary" />
-            <span className="text-muted-foreground">Conversation</span>
-            <div className="h-px flex-1 bg-primary" />
-            <span className="font-semibold text-primary">Your report</span>
-          </div>
+      {/* Journey breadcrumb */}
+      <div className="px-6 py-3" style={{ borderBottom: "1px solid rgba(30,111,255,0.06)", background: "rgba(255,255,255,0.5)" }}>
+        <div className="mx-auto max-w-3xl flex items-center gap-2 text-xs">
+          <span style={{ color: "#9CA3AF" }}>Your details</span>
+          <div className="h-px flex-1" style={{ background: "#1E6FFF" }} />
+          <span style={{ color: "#9CA3AF" }}>Conversation</span>
+          <div className="h-px flex-1" style={{ background: "#1E6FFF" }} />
+          <span className="font-bold" style={{ color: "#1E6FFF" }}>Your report</span>
         </div>
       </div>
 
       <main className="mx-auto max-w-3xl px-6 py-10">
-        {/* Report header */}
+        {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">Your career report is ready</h1>
+          <h1 className="text-2xl font-black" style={{ color: "#111827" }}>Your career report is ready</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${conf.cls}`}
-            >
+            <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold" style={{ background: conf.bg, color: conf.color, border: `1px solid ${conf.border}` }}>
               {conf.label} · {Math.round(data.overallConfidence * 100)}%
             </span>
-            <span className="text-xs text-muted-foreground">KB v{data.kbVersion}</span>
+            <span className="text-xs" style={{ color: "#9CA3AF" }}>KB v{data.kbVersion}</span>
           </div>
         </div>
 
-        {/* Short summary — one line max; full detail is in the cards below */}
         {(data.top ?? []).length > 0 && (
-          <p className="mb-6 text-sm text-muted-foreground">
-            Based on your interests, aptitude, and goals, here are your top career matches.
-          </p>
+          <p className="mb-4 text-sm" style={{ color: "#6B7280" }}>Based on your interests, strengths, and goals — here are the courses that fit you best.</p>
         )}
 
-        {/* Career cards */}
-        <div className="space-y-5">
-          {(data.top ?? []).map((c, i) => {
-            const rank = RANK_STYLES[i] ?? RANK_STYLES[2];
-            return (
-              <div key={c.careerId} className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-                {/* Card header */}
-                <div className="flex items-start justify-between border-b bg-muted/20 px-5 py-4">
-                  <div>
-                    <span
-                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${rank.badge}`}
-                    >
-                      {rank.label}
-                    </span>
-                    <h2 className="mt-1.5 text-lg font-bold">{c.name}</h2>
-                    <p className="text-xs capitalize text-muted-foreground">
-                      {c.domain.replace(/_/g, " ")}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-primary">{Math.round(c.fitScore * 100)}%</p>
-                    <p className="text-[11px] text-muted-foreground">fit score</p>
+        {data.explanation && (
+          <div className="mb-6 clay-card px-5 py-4 text-sm leading-relaxed" style={{ color: "#374151" }}>{data.explanation}</div>
+        )}
+
+        <div className="space-y-4">
+          {(() => {
+            const map = new Map<string, { course: NonNullable<typeof data.top[0]["courses"][0]>; careers: string[]; bestFitScore: number; eligibilityNotes: string[]; description?: string }>();
+            for (const c of (data.top ?? [])) {
+              const primary = (c.courses ?? [])[0];
+              if (!primary) continue;
+              if (!map.has(primary.courseId)) map.set(primary.courseId, { course: primary, careers: [], bestFitScore: 0, eligibilityNotes: primary.eligibilityNotes ?? [], description: c.shortDescription });
+              const entry = map.get(primary.courseId)!;
+              if (!entry.careers.includes(c.name)) entry.careers.push(c.name);
+              if (c.fitScore > entry.bestFitScore) entry.bestFitScore = c.fitScore;
+            }
+            const groups = Array.from(map.values()).sort((a, b) => b.bestFitScore - a.bestFitScore);
+
+            return groups.map(({ course, careers, bestFitScore, eligibilityNotes, description }, i) => {
+              const rank = RANK_STYLES[i] ?? RANK_STYLES[2];
+              const pct = Math.round(bestFitScore * 100);
+              const elig = course.eligibility === "eligible"
+                ? { pill: "rgba(74,222,128,0.12)", color: "#166534", border: "rgba(74,222,128,0.25)", icon: "#16A34A", label: "Eligible" }
+                : course.eligibility === "conditional"
+                ? { pill: "rgba(245,158,11,0.1)", color: "#92400E", border: "rgba(245,158,11,0.2)", icon: "#D97706", label: "Conditional" }
+                : { pill: "rgba(239,68,68,0.08)", color: "#991B1B", border: "rgba(239,68,68,0.2)", icon: "#EF4444", label: "Check eligibility" };
+
+              return (
+                <div key={course.courseId} className="clay-card overflow-hidden" style={{ borderLeft: `4px solid ${rank.accent}` }}>
+                  <div className="p-5 sm:p-6">
+                    <div className="flex items-start justify-between">
+                      <span className="text-xs font-black uppercase tracking-[0.1em]" style={{ color: rank.num }}>{rank.label}</span>
+                      <span className="text-5xl font-black leading-none select-none" style={{ color: rank.accent, opacity: 0.08 }}>{i + 1}</span>
+                    </div>
+                    <h2 className="mt-2 text-xl sm:text-2xl font-black leading-snug" style={{ color: "#111827" }}>{course.name}</h2>
+                    <p className="mt-1 text-sm font-semibold" style={{ color: rank.num }}>→ {careers.join("  ·  ")}</p>
+                    {description && <p className="mt-3 text-sm leading-relaxed" style={{ color: "#6B7280" }}>{description}</p>}
+
+                    <div className="mt-5 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs" style={{ color: "#9CA3AF" }}>Your match</span>
+                        <span className="text-sm font-bold" style={{ color: "#111827" }}>{pct}%</span>
+                      </div>
+                      <div className="h-2.5 overflow-hidden rounded-full" style={{ background: "rgba(30,111,255,0.08)" }}>
+                        <div className={cn("h-full rounded-full transition-all duration-700", rank.bar)} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+
+                    {eligibilityNotes.length > 0 && <p className="mt-1.5 text-xs" style={{ color: "#9CA3AF" }}>{eligibilityNotes.join(" · ")}</p>}
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: elig.pill, color: elig.color, border: `1px solid ${elig.border}` }}>
+                        <CheckCircle2 className="h-3.5 w-3.5" style={{ color: elig.icon }} />{elig.label}
+                      </span>
+                      {course.feeBand && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: "rgba(59,130,246,0.08)", color: "#1D4ED8", border: "1px solid rgba(59,130,246,0.15)" }}>
+                          <DollarSign className="h-3.5 w-3.5" />{course.feeBand.charAt(0).toUpperCase() + course.feeBand.slice(1)} fee
+                        </span>
+                      )}
+                      {(course.exams ?? []).length > 0 && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: "rgba(139,92,246,0.08)", color: "#6D28D9", border: "1px solid rgba(139,92,246,0.15)" }}>
+                          <BookOpen className="h-3.5 w-3.5" />{(course.exams ?? []).map((ex) => ex.name).join(", ")}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-
-                {/* Fit score bar */}
-                <div className="px-5 pt-3">
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full rounded-full transition-all ${rank.bar}`}
-                      style={{ width: `${Math.round(c.fitScore * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Card body */}
-                <div className="space-y-4 px-5 py-4 text-sm">
-                  {(c.courses ?? []).length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Course routes
-                      </p>
-                      <div className="space-y-1.5">
-                        {(c.courses ?? []).map((co) => (
-                          <div key={co.courseId} className="rounded-lg border bg-muted/30 px-3 py-2">
-                            <p className="font-medium text-foreground">{co.name}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {co.routeType} · {co.eligibility}
-                              {(co.exams ?? []).length > 0 && (
-                                <> · Exams: {(co.exams ?? []).map((ex) => ex.name).join(", ")}</>
-                              )}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(c.factors ?? []).length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Why this fits you
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(c.factors ?? []).map((f, j) => (
-                          <span
-                            key={j}
-                            className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-medium"
-                          >
-                            <span className="text-primary">✓</span> {f.label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(c.skills ?? []).length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Skill roadmap
-                      </p>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {(c.skills ?? []).map((s, si) => (
-                          <span key={si} className="flex items-center gap-1.5">
-                            <span className="rounded-md bg-secondary px-2.5 py-1 text-xs font-medium">
-                              {s.skillName}
-                              <span className="ml-1 text-muted-foreground">({s.stage})</span>
-                            </span>
-                            {si < (c.skills ?? []).length - 1 && (
-                              <span className="text-muted-foreground">→</span>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(c.alternatives ?? []).length > 0 && (
-                    <div>
-                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        You might also consider
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(c.alternatives ?? []).map((a) => (
-                          <span
-                            key={a.careerId}
-                            className="rounded-full border bg-white px-3 py-1 text-xs text-muted-foreground"
-                          >
-                            {a.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
 
-        {/* Caveats */}
         {(data.caveats ?? []).length > 0 && (
-          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm">
-            <p className="font-semibold text-amber-900">Please keep in mind</p>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-amber-800">
-              {(data.caveats ?? []).map((cv, i) => (
-                <li key={i}>{cv}</li>
-              ))}
+          <div className="mt-6 rounded-2xl px-5 py-4 text-sm" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+            <p className="font-bold" style={{ color: "#92400E" }}>Please keep in mind</p>
+            <ul className="ml-4 mt-2 list-disc space-y-1" style={{ color: "#B45309" }}>
+              {(data.caveats ?? []).map((cv, i) => <li key={i}>{cv}</li>)}
             </ul>
           </div>
         )}
 
-        {/* Next steps */}
-        <div className="mt-8 rounded-2xl border bg-white p-5 text-center">
-          <p className="text-sm font-medium text-foreground">What to do next?</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Share this report with your parents, teachers, or school counsellor. Use it as a starting
-            point for deeper research and conversations — not as a final decision.
-          </p>
-          <Link
-            href="/"
-            className="mt-4 inline-flex h-9 items-center justify-center rounded-lg border px-4 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-          >
-            ← Back to home
-          </Link>
+        <div className="mt-8 clay-card p-5 text-center">
+          <p className="text-sm font-bold" style={{ color: "#111827" }}>What to do next?</p>
+          <p className="mt-1 text-sm" style={{ color: "#6B7280" }}>Share this report with your parents, teachers, or school counsellor. Use it as a starting point for deeper research and conversations — not as a final decision.</p>
+          <Link href="/" className="mt-4 inline-flex h-10 items-center justify-center rounded-xl border px-5 text-sm font-semibold transition-colors" style={{ borderColor: "rgba(30,111,255,0.2)", color: "#6B7280" }}>← Back to home</Link>
         </div>
 
-        {/* Feedback */}
         {sessionId && <FeedbackWidget sessionId={sessionId} />}
-
         <div className="mt-10 pb-8" />
       </main>
     </div>
@@ -372,12 +278,7 @@ function ResultInner() {
 
 function Center({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <main
-      className={cn(
-        "flex h-screen items-center justify-center px-6 text-center text-muted-foreground",
-        className
-      )}
-    >
+    <main className={cn("flex h-screen items-center justify-center px-6 text-center", className)} style={{ background: "#F8F3EC", color: "#9CA3AF" }}>
       {children}
     </main>
   );

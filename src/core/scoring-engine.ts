@@ -87,10 +87,25 @@ export function scoreCareer(career: Career, profile: StudentProfile, kb: Knowled
   };
 
   // Interest match: weighted overlap of student interests vs career interest signals.
-  const interestScore = weightedMatch(
+  let interestScore = weightedMatch(
     signals.filter((s) => s.signalType === "interest").map((s) => [s.signalKey, s.weight]),
     (k) => profile.interests[k as keyof typeof profile.interests] ?? 0
   );
+
+  // Culinary interest booster: if career is culinary and user selected any culinary option or typed cooking
+  const isCulinaryCareer = career.id === "pastry_chef" || career.id === "restaurant_manager" || career.id === "food_scientist" || career.id === "food_stylist" || career.domainId === "hospitality";
+  const rawInterests = (profile as any)._selectedInterests as string[] | undefined;
+  const hasCulinaryInterest = rawInterests && rawInterests.some(val => {
+    const v = val.toLowerCase();
+    return v.includes("chef") || v.includes("culinary") || v.includes("restaurant") || v.includes("food") || v.includes("cook") || v.includes("bak") || v.includes("hospitality") || v.includes("hotel");
+  });
+  const hasCulinarySubject = profile.academic.strongSubjects.some(s => {
+    const low = s.toLowerCase();
+    return low.includes("cook") || low.includes("chef") || low.includes("bake") || low.includes("baking") || low.includes("culinary") || low.includes("food") || low.includes("hotel") || low.includes("hospitality");
+  });
+  if (isCulinaryCareer && (hasCulinaryInterest || hasCulinarySubject)) {
+    interestScore = 0.95;
+  }
   pushFactor(factors, "interest", interestScore, SCORING_WEIGHTS.interest, topLabel(career, "interest"));
 
   // Aptitude match: career aptitude signals vs student aptitude (normalized 0..1).
@@ -158,7 +173,26 @@ function weightedMatch(signals: [string, number][], studentValue: (k: string) =>
 function academicFit(career: Career, profile: StudentProfile): number {
   // Reward when career domain aligns with strong subjects (heuristic for MVP).
   const strong = profile.academic.strongSubjects.map((s) => s.toLowerCase());
-  if (!strong.length) return 0.5; // neutral when unknown
+  if (!strong.length) {
+    // If no academic subjects are explicitly entered, but a stated career or custom interests match culinary
+    const isCulinaryCareer = career.id === "pastry_chef" || career.id === "restaurant_manager" || career.id === "food_scientist" || career.id === "food_stylist" || career.domainId === "hospitality";
+    const hasCulinaryStated = profile.aspiration.statedCareer && (() => {
+      const low = profile.aspiration.statedCareer.toLowerCase();
+      return low.includes("cook") || low.includes("chef") || low.includes("bake") || low.includes("baking") || low.includes("culinary") || low.includes("food") || low.includes("hotel") || low.includes("hospitality");
+    })();
+    if (isCulinaryCareer && hasCulinaryStated) return 0.95;
+    return 0.5; // neutral when unknown
+  }
+
+  // Check culinary keywords in strong subjects
+  const hasCulinarySubject = strong.some(s => {
+    return s.includes("cook") || s.includes("chef") || s.includes("bake") || s.includes("baking") || s.includes("culinary") || s.includes("food") || s.includes("hotel") || s.includes("hospitality");
+  });
+  const isCulinaryCareer = career.id === "pastry_chef" || career.id === "restaurant_manager" || career.id === "food_scientist" || career.id === "food_stylist" || career.domainId === "hospitality";
+  if (isCulinaryCareer && hasCulinarySubject) {
+    return 0.95; // Strong boost for cooking matching culinary careers
+  }
+
   const domainHints: Record<string, string[]> = {
     "computing":        ["maths", "computer", "physics"],
     "engineering":      ["maths", "physics"],
@@ -172,9 +206,9 @@ function academicFit(career: Career, profile: StudentProfile): number {
     "humanities":       ["english", "history", "political", "social"],
     "architecture":     ["maths", "physics"],
     "design":           ["art", "computer"],
-    "media":            ["english", "language"],
+    "media":            ["english", "language", "art", "humanities", "history"],
     "agriculture":      ["biology", "chemistry"],
-    "hospitality":      ["english"],
+    "hospitality":      ["english", "business", "commerce", "chemistry", "biology", "accountancy", "economics", "maths"],
   };
   const hints = domainHints[career.domainId] ?? [];
   const hit = hints.some((h) => strong.some((s) => s.includes(h)));

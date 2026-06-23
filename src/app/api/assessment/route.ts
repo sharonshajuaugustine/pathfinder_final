@@ -8,6 +8,7 @@ import { mergeProfile, computeCompleteness, type ProfileDelta } from "@/core/pro
 import {
   generateAiAssessmentItems,
   toPublicItems,
+  ASSESSMENT_GEN_VERSION,
   type AiItem,
 } from "@/core/assessment-generator";
 import type { AssessmentItemPublic } from "@/types/assessment";
@@ -74,9 +75,12 @@ export async function GET(req: NextRequest) {
     const studentProfile = profileRaw as Partial<StudentProfile> | null;
 
     // Return cached items if already generated (background pre-generation or prior load).
-    // Cache hits bypass the rate limit — no Groq call needed.
+    // Cache hits bypass the rate limit — no Groq call needed. We also require the
+    // cached items to match the current generator version, so a prompt change
+    // regenerates instead of serving stale questions.
     const cached = profileRaw?._aiAssessmentItems as AiItem[] | undefined;
-    if (Array.isArray(cached) && cached.length >= 8) {
+    const cachedVersion = profileRaw?._aiAssessmentVersion as number | undefined;
+    if (Array.isArray(cached) && cached.length >= 8 && cachedVersion === ASSESSMENT_GEN_VERSION) {
       return NextResponse.json({ items: toPublicItems(cached), total: cached.length });
     }
 
@@ -89,7 +93,7 @@ export async function GET(req: NextRequest) {
     await db.from("student_profiles").upsert(
       {
         session_id: sessionId,
-        profile: { ...(profileRaw ?? {}), _aiAssessmentItems: aiItems },
+        profile: { ...(profileRaw ?? {}), _aiAssessmentItems: aiItems, _aiAssessmentVersion: ASSESSMENT_GEN_VERSION },
         updated_at: new Date().toISOString(),
       },
       { onConflict: "session_id" }

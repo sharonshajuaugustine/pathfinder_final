@@ -4,49 +4,49 @@
 
 @layer base {
   :root {
-    /* Brand: professional deep navy blue */
-    --background: 220 30% 97%;
-    --foreground: 215 35% 11%;
+    /* ── Clay Design System ── */
+    --background: 35 47% 95%;           /* #F8F3EC cream */
+    --foreground: 222 47% 8%;           /* near-black */
     --card: 0 0% 100%;
-    --card-foreground: 215 35% 11%;
+    --card-foreground: 222 47% 8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 215 35% 11%;
-    --primary: 215 78% 34%;
+    --popover-foreground: 222 47% 8%;
+    --primary: 220 100% 56%;            /* #1E6FFF vivid blue */
     --primary-foreground: 0 0% 100%;
-    --secondary: 215 28% 93%;
-    --secondary-foreground: 215 35% 22%;
-    --muted: 215 22% 94%;
-    --muted-foreground: 215 14% 50%;
-    --accent: 215 28% 93%;
-    --accent-foreground: 215 35% 22%;
+    --secondary: 220 60% 96%;
+    --secondary-foreground: 220 50% 25%;
+    --muted: 35 25% 90%;
+    --muted-foreground: 220 15% 48%;
+    --accent: 220 60% 96%;
+    --accent-foreground: 220 50% 25%;
     --destructive: 0 78% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 215 20% 88%;
-    --input: 215 20% 90%;
-    --ring: 215 78% 34%;
-    --radius: 0.75rem;
+    --border: 220 20% 88%;
+    --input: 0 0% 100%;
+    --ring: 220 100% 56%;
+    --radius: 1rem;
   }
 
   .dark {
-    --background: 215 40% 8%;
-    --foreground: 215 20% 95%;
-    --card: 215 35% 12%;
-    --card-foreground: 215 20% 95%;
-    --popover: 215 35% 12%;
-    --popover-foreground: 215 20% 95%;
-    --primary: 215 75% 55%;
+    --background: 222 47% 8%;
+    --foreground: 220 20% 95%;
+    --card: 220 35% 12%;
+    --card-foreground: 220 20% 95%;
+    --popover: 220 35% 12%;
+    --popover-foreground: 220 20% 95%;
+    --primary: 220 100% 62%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 215 28% 18%;
-    --secondary-foreground: 215 20% 82%;
-    --muted: 215 28% 16%;
-    --muted-foreground: 215 18% 58%;
-    --accent: 215 28% 18%;
-    --accent-foreground: 215 20% 82%;
+    --secondary: 220 28% 18%;
+    --secondary-foreground: 220 20% 82%;
+    --muted: 220 28% 16%;
+    --muted-foreground: 220 18% 58%;
+    --accent: 220 28% 18%;
+    --accent-foreground: 220 20% 82%;
     --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 100%;
-    --border: 215 28% 20%;
-    --input: 215 28% 18%;
-    --ring: 215 75% 55%;
+    --border: 220 28% 20%;
+    --input: 220 28% 18%;
+    --ring: 220 100% 62%;
   }
 }
 
@@ -63,16 +63,122 @@
   }
   h1,
   h2,
-  h3 {
+  h3,
+  h4 {
     @apply tracking-tight;
+    font-family: var(--font-heading), "Space Grotesk", sans-serif;
   }
 }
 
+/* ── Keyframes ──────────────────────────────────────────────────────────── */
+
+@keyframes clay-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+@keyframes clay-slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes clay-pulse-ring {
+  0%, 100% { transform: scale(1);    opacity: 0.5; }
+  50%       { transform: scale(1.1); opacity: 0.12; }
+}
+
+@keyframes clay-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Clay Component Classes ─────────────────────────────────────────────── */
+
+@layer components {
+  /* Floating white card — the core Claymorphism element */
+  .clay-card {
+    background: #ffffff;
+    border-radius: 28px;
+    box-shadow:
+      inset 3px 3px 6px rgba(255, 255, 255, 0.95),
+      inset -4px -4px 10px rgba(30, 111, 255, 0.05),
+      inset -1px -1px 3px rgba(30, 111, 255, 0.1),
+      0 12px 36px rgba(165, 150, 130, 0.22),
+      0 4px 12px rgba(165, 150, 130, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+  }
+
+  /* Primary CTA button — press-down 3D clay effect */
+  .clay-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #4d94ff 0%, #1e6fff 60%, #0d54e0 100%);
+    color: #ffffff;
+    font-weight: 800;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    text-decoration: none;
+    box-shadow:
+      inset 3px 3px 6px rgba(255, 255, 255, 0.4),
+      inset -4px -4px 10px rgba(0, 0, 0, 0.2),
+      0 8px 0 rgba(6, 26, 138, 0.55),
+      0 14px 28px rgba(30, 111, 255, 0.35);
+    transition:
+      transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.15s ease;
+  }
+
+  .clay-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 3px 3px 6px rgba(255, 255, 255, 0.4),
+      inset -4px -4px 10px rgba(0, 0, 0, 0.2),
+      0 10px 0 rgba(6, 26, 138, 0.55),
+      0 20px 38px rgba(30, 111, 255, 0.4);
+  }
+
+  .clay-btn:active:not(:disabled) {
+    transform: translateY(6px);
+    box-shadow:
+      inset 2px 2px 4px rgba(255, 255, 255, 0.3),
+      inset -2px -2px 6px rgba(0, 0, 0, 0.25),
+      0 2px 0 rgba(6, 26, 138, 0.55),
+      0 6px 12px rgba(30, 111, 255, 0.25);
+  }
+
+  .clay-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+}
+
+/* ── Utility Classes ────────────────────────────────────────────────────── */
+
 @layer utilities {
   .hero-gradient {
-    background: linear-gradient(145deg, hsl(215 78% 26%) 0%, hsl(220 72% 16%) 100%);
+    background: linear-gradient(145deg, #1e6fff 0%, #0a47cc 55%, #061a8a 100%);
   }
+
   .text-balance {
     text-wrap: balance;
+  }
+
+  .animate-clay-float {
+    animation: clay-float 4s ease-in-out infinite;
+  }
+
+  .animate-clay-slide-up {
+    animation: clay-slide-up 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  .animate-clay-pulse-ring {
+    animation: clay-pulse-ring 2s ease-in-out infinite;
+  }
+
+  .animate-clay-spin {
+    animation: clay-spin 2s linear infinite;
   }
 }

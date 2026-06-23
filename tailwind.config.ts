@@ -15,7 +15,8 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-body)", "Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        heading: ["var(--font-heading)", "Space Grotesk", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
