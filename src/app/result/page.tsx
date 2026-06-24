@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, DollarSign, BookOpen } from "lucide-react";
+import { Star, CheckCircle2, DollarSign, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RecommendationResult } from "@/types/recommendation";
 
@@ -92,9 +92,9 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
 }
 
 const RANK_STYLES = [
-  { bar: "bg-amber-400", accent: "#F59E0B", num: "#D97706", label: "Best Match" },
-  { bar: "bg-blue-500", accent: "#1E6FFF", num: "#1E6FFF", label: "Strong Match" },
-  { bar: "bg-slate-400", accent: "#94A3B8", num: "#64748B", label: "Good Match" },
+  { bar: "bg-amber-400", accent: "border-l-amber-400", num: "text-amber-600", label: "Best Match" },
+  { bar: "bg-primary",   accent: "border-l-primary",   num: "text-primary",   label: "Strong Match" },
+  { bar: "bg-slate-400", accent: "border-l-slate-400", num: "text-slate-500",  label: "Good Match" },
 ];
 
 function confidenceLevel(c: number) {
@@ -180,70 +180,130 @@ function ResultInner() {
         </div>
 
         {(data.top ?? []).length > 0 && (
-          <p className="mb-4 text-sm" style={{ color: "#6B7280" }}>Based on your interests, strengths, and goals — here are the courses that fit you best.</p>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Based on your interests, strengths, and goals — here are the courses that fit you best.
+          </p>
         )}
 
+        {/* AI explanation */}
         {data.explanation && (
-          <div className="mb-6 clay-card px-5 py-4 text-sm leading-relaxed" style={{ color: "#374151" }}>{data.explanation}</div>
+          <div className="mb-6 rounded-xl border bg-white px-5 py-4 text-sm leading-relaxed text-foreground shadow-sm">
+            {data.explanation}
+          </div>
         )}
 
         <div className="space-y-4">
           {(() => {
-            const map = new Map<string, { course: NonNullable<typeof data.top[0]["courses"][0]>; careers: string[]; bestFitScore: number; eligibilityNotes: string[]; description?: string }>();
+            const map = new Map<string, {
+              course: NonNullable<typeof data.top[0]["courses"][0]>;
+              careers: string[];
+              bestFitScore: number;
+              eligibilityNotes: string[];
+              description?: string;
+            }>();
+
             for (const c of (data.top ?? [])) {
               const primary = (c.courses ?? [])[0];
               if (!primary) continue;
-              if (!map.has(primary.courseId)) map.set(primary.courseId, { course: primary, careers: [], bestFitScore: 0, eligibilityNotes: primary.eligibilityNotes ?? [], description: c.shortDescription });
+              if (!map.has(primary.courseId)) {
+                map.set(primary.courseId, {
+                  course: primary,
+                  careers: [],
+                  bestFitScore: 0,
+                  eligibilityNotes: primary.eligibilityNotes ?? [],
+                  description: c.shortDescription,
+                });
+              }
               const entry = map.get(primary.courseId)!;
               if (!entry.careers.includes(c.name)) entry.careers.push(c.name);
               if (c.fitScore > entry.bestFitScore) entry.bestFitScore = c.fitScore;
             }
+
             const groups = Array.from(map.values()).sort((a, b) => b.bestFitScore - a.bestFitScore);
 
             return groups.map(({ course, careers, bestFitScore, eligibilityNotes, description }, i) => {
               const rank = RANK_STYLES[i] ?? RANK_STYLES[2];
               const pct = Math.round(bestFitScore * 100);
+
               const elig = course.eligibility === "eligible"
-                ? { pill: "rgba(74,222,128,0.12)", color: "#166534", border: "rgba(74,222,128,0.25)", icon: "#16A34A", label: "Eligible" }
+                ? { pill: "bg-green-50 text-green-700", icon: "text-green-600", label: "Eligible" }
                 : course.eligibility === "conditional"
-                ? { pill: "rgba(245,158,11,0.1)", color: "#92400E", border: "rgba(245,158,11,0.2)", icon: "#D97706", label: "Conditional" }
-                : { pill: "rgba(239,68,68,0.08)", color: "#991B1B", border: "rgba(239,68,68,0.2)", icon: "#EF4444", label: "Check eligibility" };
+                ? { pill: "bg-amber-50 text-amber-700", icon: "text-amber-600", label: "Conditional" }
+                : { pill: "bg-red-50 text-red-700", icon: "text-red-600", label: "Check eligibility" };
 
               return (
-                <div key={course.courseId} className="clay-card overflow-hidden" style={{ borderLeft: `4px solid ${rank.accent}` }}>
+                <div
+                  key={course.courseId}
+                  className={cn(
+                    "rounded-2xl bg-white shadow-sm border border-border/50 overflow-hidden border-l-4",
+                    rank.accent
+                  )}
+                >
                   <div className="p-5 sm:p-6">
+                    {/* Rank label + decorative number */}
                     <div className="flex items-start justify-between">
-                      <span className="text-xs font-black uppercase tracking-[0.1em]" style={{ color: rank.num }}>{rank.label}</span>
-                      <span className="text-5xl font-black leading-none select-none" style={{ color: rank.accent, opacity: 0.08 }}>{i + 1}</span>
+                      <span className={cn("text-xs font-bold uppercase tracking-widest", rank.num)}>
+                        {rank.label}
+                      </span>
+                      <span className={cn("text-5xl font-black leading-none select-none opacity-[0.07]", rank.num)}>
+                        {i + 1}
+                      </span>
                     </div>
-                    <h2 className="mt-2 text-xl sm:text-2xl font-black leading-snug" style={{ color: "#111827" }}>{course.name}</h2>
-                    <p className="mt-1 text-sm font-semibold" style={{ color: rank.num }}>→ {careers.join("  ·  ")}</p>
-                    {description && <p className="mt-3 text-sm leading-relaxed" style={{ color: "#6B7280" }}>{description}</p>}
 
+                    {/* Course name */}
+                    <h2 className="mt-2 text-xl sm:text-2xl font-bold leading-snug text-foreground">
+                      {course.name}
+                    </h2>
+
+                    {/* Career path */}
+                    <p className={cn("mt-1 text-sm font-semibold", rank.num)}>
+                      → {careers.join("  ·  ")}
+                    </p>
+
+                    {/* Description */}
+                    {description && (
+                      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                        {description}
+                      </p>
+                    )}
+
+                    {/* Match bar */}
                     <div className="mt-5 space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs" style={{ color: "#9CA3AF" }}>Your match</span>
-                        <span className="text-sm font-bold" style={{ color: "#111827" }}>{pct}%</span>
+                        <span className="text-xs text-muted-foreground">Your match</span>
+                        <span className="text-sm font-bold text-foreground">{pct}%</span>
                       </div>
-                      <div className="h-2.5 overflow-hidden rounded-full" style={{ background: "rgba(30,111,255,0.08)" }}>
-                        <div className={cn("h-full rounded-full transition-all duration-700", rank.bar)} style={{ width: `${pct}%` }} />
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn("h-full rounded-full transition-all duration-700", rank.bar)}
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                     </div>
 
-                    {eligibilityNotes.length > 0 && <p className="mt-1.5 text-xs" style={{ color: "#9CA3AF" }}>{eligibilityNotes.join(" · ")}</p>}
+                    {/* Eligibility notes */}
+                    {eligibilityNotes.length > 0 && (
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        {eligibilityNotes.join(" · ")}
+                      </p>
+                    )}
 
+                    {/* Info pills */}
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: elig.pill, color: elig.color, border: `1px solid ${elig.border}` }}>
-                        <CheckCircle2 className="h-3.5 w-3.5" style={{ color: elig.icon }} />{elig.label}
+                      <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold", elig.pill)}>
+                        <CheckCircle2 className={cn("h-3.5 w-3.5", elig.icon)} />
+                        {elig.label}
                       </span>
                       {course.feeBand && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: "rgba(59,130,246,0.08)", color: "#1D4ED8", border: "1px solid rgba(59,130,246,0.15)" }}>
-                          <DollarSign className="h-3.5 w-3.5" />{course.feeBand.charAt(0).toUpperCase() + course.feeBand.slice(1)} fee
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                          <DollarSign className="h-3.5 w-3.5" />
+                          {course.feeBand.charAt(0).toUpperCase() + course.feeBand.slice(1)} fee
                         </span>
                       )}
                       {(course.exams ?? []).length > 0 && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: "rgba(139,92,246,0.08)", color: "#6D28D9", border: "1px solid rgba(139,92,246,0.15)" }}>
-                          <BookOpen className="h-3.5 w-3.5" />{(course.exams ?? []).map((ex) => ex.name).join(", ")}
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700">
+                          <BookOpen className="h-3.5 w-3.5" />
+                          {(course.exams ?? []).map((ex) => ex.name).join(", ")}
                         </span>
                       )}
                     </div>
