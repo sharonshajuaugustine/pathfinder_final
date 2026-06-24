@@ -742,7 +742,6 @@ export default function StartPage() {
       if (qIndex < TOTAL_QUESTIONS - 1) {
         setQIndex((i) => i + 1);
         setSelectedSubjects(new Set());
-        setSelectedInterests(new Set());
         setTextVal("");
         setInfoMessage(null);
         setVisible(true);
@@ -789,7 +788,6 @@ export default function StartPage() {
   function onSubjectContinue() {
     if (selectedSubjects.size === 0 && !textVal.trim()) return;
     if (textVal.trim() && selectedSubjects.size === 0) {
-      setSelectedSubjectsList([textVal.trim()]);
       void postAnswer({ text: textVal.trim(), isChoice: false });
     } else if (selectedSubjects.size > 0) {
       setSelectedSubjectsList(Array.from(selectedSubjects));
@@ -1198,9 +1196,8 @@ export default function StartPage() {
               </div>
             )}
 
-            {/* Subjects/Interests Continue button (Q2 & Q3) */}
-            {((qIndex === 2 && (selectedSubjects.size > 0 || textVal.trim())) ||
-              (qIndex === 3 && (selectedInterests.size > 0 || textVal.trim()))) && (
+            {/* Subjects Continue button (Q2) */}
+            {qIndex === 2 && (selectedSubjects.size > 0 || textVal.trim()) && (
               <button
                 disabled={busy}
                 onClick={qIndex === 2 ? onSubjectContinue : onInterestContinue}
@@ -1211,43 +1208,32 @@ export default function StartPage() {
               </button>
             )}
 
-            {/* Chat-style free-text input (open-ended questions only, Q2–Q5) */}
-            {qIndex >= 2 && qIndex <= 5 && (
-              <form
-                onSubmit={onTextSubmit}
-                className="flex items-center gap-2.5 px-4 py-3"
-                style={{
-                  borderRadius: 22,
-                  background: "#fff",
-                  border: "1.5px solid rgba(30,111,255,0.12)",
-                  boxShadow: "0 1px 0 rgba(255,255,255,0.9) inset, 0 2px 12px rgba(0,0,0,0.05)",
-                }}
-              >
-                <input
-                  ref={textRef}
-                  value={textVal}
-                  onChange={(e) => setTextVal(e.target.value)}
-                  placeholder="Or type your own answer…"
-                  disabled={busy}
-                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400 disabled:opacity-50"
-                  style={{ color: "#111827" }}
-                />
-                <button
-                  type="submit"
-                  disabled={busy || !textVal.trim()}
-                  className="flex shrink-0 items-center justify-center transition-all disabled:opacity-30 hover:opacity-90"
-                  style={{
-                    width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer",
-                    background: "linear-gradient(145deg, #3B82FF, #1E6FFF)",
-                    boxShadow: "0 3px 0 rgba(6,26,138,0.35), 0 6px 16px rgba(30,111,255,0.25)",
-                    color: "#fff",
-                  }}
+            {/* Chat-style free-text input (Q2–Q5) — always visible */}
+            {qIndex >= 2 && (
+              <div className="mt-4">
+                <form
+                  onSubmit={onTextSubmit}
+                  className="flex items-center gap-2 rounded-2xl border border-border bg-white px-4 py-2.5 shadow-sm transition-colors focus-within:border-primary focus-within:ring-1 focus-within:ring-primary"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{ width: 16, height: 16 }}>
-                    <path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.903 6.557H13.5a.75.75 0 0 1 0 1.5H4.182l-1.903 6.557a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.6-7.386.75.75 0 0 0 0-1.128A28.897 28.897 0 0 0 3.105 2.288Z" />
-                  </svg>
-                </button>
-              </form>
+                  <input
+                    ref={textRef}
+                    value={textVal}
+                    onChange={(e) => setTextVal(e.target.value)}
+                    placeholder="Or type your own answer…"
+                    disabled={busy}
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy || !textVal.trim()}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-all disabled:opacity-30 hover:bg-primary/90"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                      <path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.903 6.557H13.5a.75.75 0 0 1 0 1.5H4.182l-1.903 6.557a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.6-7.386.75.75 0 0 0 0-1.128A28.897 28.897 0 0 0 3.105 2.288Z" />
+                    </svg>
+                  </button>
+                </form>
+              </div>
             )}
 
             {infoMessage && (
