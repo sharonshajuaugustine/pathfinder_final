@@ -96,7 +96,7 @@ function DeeperInner() {
 
   // Load the next follow-up question. `prev` carries the answer to the previous
   // one (if any). When the server says done (or fails), move on to aptitude.
-  async function loadFollow(index: number, prev?: { value?: string; text?: string; isChoice?: boolean }) {
+  async function loadFollow(index: number, prev?: { value?: string; text?: string; label?: string; isChoice?: boolean }) {
     if (!sessionId) return;
     setFollowBusy(true);
     try {
@@ -121,7 +121,7 @@ function DeeperInner() {
     }
   }
 
-  function answerFollow(prev: { value?: string; text?: string; isChoice?: boolean }) {
+  function answerFollow(prev: { value?: string; text?: string; label?: string; isChoice?: boolean }) {
     if (followBusy) return;
     void loadFollow(followIdx + 1, prev);
   }
@@ -241,7 +241,7 @@ function DeeperInner() {
               <div className="clay-card p-4 space-y-2">
                 {followChoices.map((c, i) => (
                   <button
-                    key={`${c.value}-${i}`} disabled={followBusy} onClick={() => answerFollow({ value: c.value, isChoice: true })}
+                    key={`${c.value}-${i}`} disabled={followBusy} onClick={() => answerFollow({ value: c.value, label: c.label, isChoice: true })}
                     className="w-full px-4 py-4 text-left text-sm font-semibold transition-all focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ borderRadius: 18, border: "1.5px solid rgba(30,111,255,0.1)", background: "#F4F6FB", color: "#374151" }}
                     onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#1E6FFF"; e.currentTarget.style.background = "#EEF4FF"; }}

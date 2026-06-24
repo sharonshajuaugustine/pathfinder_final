@@ -145,7 +145,7 @@ export async function getLeadDetail(leadId: string) {
       .order("created_at", { ascending: false })
       .limit(1).maybeSingle(),
     db.from("conversations")
-      .select("role, content, created_at")
+      .select("role, content, stage, created_at")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true })
       .limit(60),

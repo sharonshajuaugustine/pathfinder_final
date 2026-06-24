@@ -201,3 +201,48 @@ test("computeAssessmentDelta: interest signals are averaged across responses", (
   assert.ok(hm > 0 && hm <= 1, `health_medicine interest out of range: ${hm}`);
   assert.ok(Math.abs(hm - 0.9) < 0.01, `expected ~0.9, got ${hm}`);
 });
+
+// ── adaptive engine (Akinator-style) ───────────────────────────────────────────
+
+import { pickNextQuestion, informativeness, scoreBeliefs } from "../adaptive/engine";
+import { ADAPTIVE_BY_ID } from "../adaptive/question-bank";
+
+test("adaptive: goal is always asked first", () => {
+  const kb = makeKb([techCareer, medCareer], signals, []);
+  const profile = mergeProfile(null, {});
+  const q = pickNextQuestion(profile, kb, []);
+  assert.equal(q?.id, "ctx_goal", "first question must be the goal context question");
+});
+
+test("adaptive: a discriminating interest question scores higher than a useless one", () => {
+  const kb = makeKb([techCareer, medCareer], signals, []);
+  const profile = mergeProfile(null, {});
+  const beliefs = scoreBeliefs(profile, kb);
+  // technology_coding splits the two careers (tech=1, doctor=0) → informative.
+  const splitting = informativeness(ADAPTIVE_BY_ID.int_technology_coding, beliefs, kb);
+  // design_visual is absent from both careers → no separation.
+  const useless = informativeness(ADAPTIVE_BY_ID.int_design_visual, beliefs, kb);
+  assert.ok(splitting > useless, `splitting (${splitting}) should beat useless (${useless})`);
+});
+
+test("adaptive: the interview terminates and asks goal + subjects + budget + location before ending", () => {
+  const kb = makeKb([techCareer, medCareer], signals, []);
+  let profile = mergeProfile(null, {});
+  const asked: string[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < 40; i++) {
+    const q = pickNextQuestion(profile, kb, asked);
+    if (!q) break;
+    assert.ok(!seen.has(q.id), `question ${q.id} was asked twice`);
+    seen.add(q.id);
+    asked.push(q.id);
+    // Answer the first option each time so the profile evolves.
+    const delta = q.apply(q.options[0].id);
+    if (delta) profile = mergeProfile(profile, delta);
+  }
+  assert.ok(asked.length > 0 && asked.length <= 22, `unexpected interview length: ${asked.length}`);
+  assert.ok(seen.has("ctx_goal"),     "goal must always be asked");
+  assert.ok(seen.has("ctx_subjects"), "subjects must always be asked (second question)");
+  assert.ok(seen.has("ctx_budget"),   "budget must always be asked");
+  assert.ok(seen.has("ctx_location"), "location must always be asked");
+});

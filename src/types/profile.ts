@@ -67,6 +67,8 @@ export interface StudentProfile {
     // What the student values most in a career (e.g. "high_salary", "job_security",
     // "passion", "government"). Collected from the "what matters most?" question.
     careerPriorities?: string[];
+    // 1 = very open, 0.5 = somewhat open, 0 = wants to stay in stream
+    openToOutsideStream?: number;
   };
   constraints: {
     budgetBand?: BudgetBand;

@@ -189,18 +189,40 @@ function ResultInner() {
 
         <div className="space-y-4">
           {(() => {
-            const map = new Map<string, { course: NonNullable<typeof data.top[0]["courses"][0]>; careers: string[]; bestFitScore: number; eligibilityNotes: string[]; description?: string }>();
-            for (const c of (data.top ?? [])) {
-              const primary = (c.courses ?? [])[0];
-              if (!primary) continue;
-              if (!map.has(primary.courseId)) map.set(primary.courseId, { course: primary, careers: [], bestFitScore: 0, eligibilityNotes: primary.eligibilityNotes ?? [], description: c.shortDescription });
-              const entry = map.get(primary.courseId)!;
-              if (!entry.careers.includes(c.name)) entry.careers.push(c.name);
-              if (c.fitScore > entry.bestFitScore) entry.bestFitScore = c.fitScore;
-            }
-            const groups = Array.from(map.values()).sort((a, b) => b.bestFitScore - a.bestFitScore);
+            type CareerEntry = { name: string; fitScore: number; routeType: string; shortDescription?: string };
+            const map = new Map<string, {
+              course: NonNullable<typeof data.top[0]["courses"][0]>;
+              careers: CareerEntry[];
+              bestFitScore: number;
+              eligibilityNotes: string[];
+            }>();
 
-            return groups.map(({ course, careers, bestFitScore, eligibilityNotes, description }, i) => {
+            for (const c of (data.top ?? [])) {
+              for (const course of (c.courses ?? [])) {
+                if (!map.has(course.courseId)) {
+                  map.set(course.courseId, { course, careers: [], bestFitScore: 0, eligibilityNotes: course.eligibilityNotes ?? [] });
+                }
+                const entry = map.get(course.courseId)!;
+                if (!entry.careers.find((x) => x.name === c.name)) {
+                  entry.careers.push({ name: c.name, fitScore: c.fitScore, routeType: course.routeType, shortDescription: c.shortDescription });
+                }
+                if (c.fitScore > entry.bestFitScore) entry.bestFitScore = c.fitScore;
+              }
+            }
+
+            // Sort careers within each course by fitScore desc, then sort courses by bestFitScore desc.
+            const groups = Array.from(map.values())
+              .map((g) => ({ ...g, careers: g.careers.sort((a, b) => b.fitScore - a.fitScore) }))
+              .sort((a, b) => b.bestFitScore - a.bestFitScore);
+
+            const ROUTE_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+              primary:           { label: "Primary path",    color: "#1D4ED8", bg: "rgba(59,130,246,0.08)" },
+              alternative:       { label: "Alternative",     color: "#6D28D9", bg: "rgba(139,92,246,0.08)" },
+              fallback:          { label: "Fallback",        color: "#92400E", bg: "rgba(245,158,11,0.1)"  },
+              "higher-study-route": { label: "After PG",    color: "#166534", bg: "rgba(74,222,128,0.1)"  },
+            };
+
+            return groups.map(({ course, careers, bestFitScore, eligibilityNotes }, i) => {
               const rank = RANK_STYLES[i] ?? RANK_STYLES[2];
               const pct = Math.round(bestFitScore * 100);
               const elig = course.eligibility === "eligible"
@@ -212,26 +234,60 @@ function ResultInner() {
               return (
                 <div key={course.courseId} className="clay-card overflow-hidden" style={{ borderLeft: `4px solid ${rank.accent}` }}>
                   <div className="p-5 sm:p-6">
+                    {/* Course header */}
                     <div className="flex items-start justify-between">
                       <span className="text-xs font-black uppercase tracking-[0.1em]" style={{ color: rank.num }}>{rank.label}</span>
                       <span className="text-5xl font-black leading-none select-none" style={{ color: rank.accent, opacity: 0.08 }}>{i + 1}</span>
                     </div>
                     <h2 className="mt-2 text-xl sm:text-2xl font-black leading-snug" style={{ color: "#111827" }}>{course.name}</h2>
-                    <p className="mt-1 text-sm font-semibold" style={{ color: rank.num }}>→ {careers.join("  ·  ")}</p>
-                    {description && <p className="mt-3 text-sm leading-relaxed" style={{ color: "#6B7280" }}>{description}</p>}
 
-                    <div className="mt-5 space-y-1.5">
+                    {/* Match bar */}
+                    <div className="mt-4 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-xs" style={{ color: "#9CA3AF" }}>Your match</span>
                         <span className="text-sm font-bold" style={{ color: "#111827" }}>{pct}%</span>
                       </div>
-                      <div className="h-2.5 overflow-hidden rounded-full" style={{ background: "rgba(30,111,255,0.08)" }}>
+                      <div className="h-2 overflow-hidden rounded-full" style={{ background: "rgba(30,111,255,0.08)" }}>
                         <div className={cn("h-full rounded-full transition-all duration-700", rank.bar)} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
 
-                    {eligibilityNotes.length > 0 && <p className="mt-1.5 text-xs" style={{ color: "#9CA3AF" }}>{eligibilityNotes.join(" · ")}</p>}
+                    {/* Ranked careers under this course */}
+                    <div className="mt-5">
+                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "#9CA3AF" }}>Careers this course leads to</p>
+                      <div className="space-y-2">
+                        {careers.map((career, ci) => {
+                          const routeBadge = ROUTE_BADGE[career.routeType] ?? ROUTE_BADGE.alternative;
+                          const careerPct = Math.round(career.fitScore * 100);
+                          const medals = ["🥇", "🥈", "🥉"];
+                          return (
+                            <div
+                              key={career.name}
+                              className="flex items-center gap-3 rounded-2xl px-3 py-2.5"
+                              style={{ background: ci === 0 ? `${rank.accent}0D` : "#F4F6FB", border: ci === 0 ? `1px solid ${rank.accent}22` : "1px solid transparent" }}
+                            >
+                              <span className="text-base leading-none">{medals[ci] ?? "·"}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold truncate" style={{ color: "#111827" }}>{career.name}</p>
+                                {career.shortDescription && (
+                                  <p className="text-[11px] leading-snug mt-0.5 line-clamp-1" style={{ color: "#6B7280" }}>{career.shortDescription}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-xs font-bold" style={{ color: rank.accent }}>{careerPct}%</span>
+                                <span className="rounded-full px-2 py-0.5 text-[9px] font-bold" style={{ background: routeBadge.bg, color: routeBadge.color }}>
+                                  {routeBadge.label}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
+                    {eligibilityNotes.length > 0 && <p className="mt-3 text-xs" style={{ color: "#9CA3AF" }}>{eligibilityNotes.join(" · ")}</p>}
+
+                    {/* Badges row */}
                     <div className="mt-4 flex flex-wrap gap-2">
                       <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold" style={{ background: elig.pill, color: elig.color, border: `1px solid ${elig.border}` }}>
                         <CheckCircle2 className="h-3.5 w-3.5" style={{ color: elig.icon }} />{elig.label}

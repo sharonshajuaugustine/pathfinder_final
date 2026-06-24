@@ -393,17 +393,17 @@ const PRIORITY_ICONS: Record<string, string> = {
   passion: i8("like"), government_service: i8("bank"),
 };
 const BUDGET_ICONS: Record<string, string> = {
-  no_constraint: i8("money-bag"), medium: i8("wallet"), low: i8("piggy-bank"),
+  no_constraint: i8("money-bag"), medium: i8("wallet"), low: i8("money-box"),
 };
 const LOCATION_ICONS: Record<string, string> = {
-  kerala: i8("home"), india: i8("india"), abroad: i8("airplane-take-off"),
+  kerala: i8("home"), india: i8("taj-mahal"), abroad: i8("airplane-take-off"),
 };
 const FAMILY_ICONS: Record<string, string> = {
-  none: i8("user"), some_preference: i8("conference-call"), family_preference: i8("family"),
+  none: i8("male-user"), some_preference: i8("conference-call"), family_preference: i8("group"),
 };
 const WORKSTYLE_ICONS: Record<string, string> = {
   social: i8("conference-call"), analytical_solo: i8("brain"),
-  practical_outdoor: i8("hand-tools"), mixed: i8("puzzle"),
+  practical_outdoor: i8("toolbox"), mixed: i8("puzzle"),
 };
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -415,13 +415,17 @@ type MiniRecCourse = {
   name: string;       // course name — the next step to take
   leadsTo: string;    // career this course leads toward
   domain: string;
+  description?: string;
   fitScore: number;
   confidence: number;
 };
 
+type MiniStrength = { label: string; icon: string };
+
 type MiniRecResult = {
   top: MiniRecCourse[];
   overallConfidence: number;
+  strengths?: MiniStrength[];
 };
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -863,7 +867,7 @@ export default function StartPage() {
         style={{ background: "#F8F3EC" }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="https://img.icons8.com/3d-fluency/96/sad.png" alt="" width={64} height={64} />
+        <img src="https://img.icons8.com/3d-fluency/96/confused.png" alt="" width={64} height={64} />
         <div className="clay-card w-full max-w-xs p-6">
           <p className="mb-4 text-sm font-semibold" style={{ color: "#374151" }}>
             Could not start a session. Please refresh the page.
@@ -1362,106 +1366,115 @@ export default function StartPage() {
                         {miniRec.overallConfidence}%
                       </p>
                       <p className="text-[8px] font-bold text-[#F59E0B] uppercase tracking-wider mt-1">confidence</p>
+                      <p className="mt-1 flex items-center gap-0.5 text-[9px] font-extrabold text-green-600">
+                        <img src="https://img.icons8.com/3d-fluency/48/combo-chart.png" alt="" width={10} height={10} />
+                        {miniRec.overallConfidence >= 60 ? "Great match!" : miniRec.overallConfidence >= 40 ? "Good match!" : "A good start!"}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="space-y-4 relative z-10">
-                    {miniRec.top.map((c, i) => {
-                      const iconUrl = getCareerIcon(c.leadsTo, c.domain);
-                      return (
-                        <div
-                          key={c.courseId}
-                          className="flex items-center gap-4 p-4"
-                          style={{
-                            background: "#F9FAFB",
-                            borderRadius: 20,
-                            border: "1.5px solid rgba(30,111,255,0.05)",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
-                          }}
-                        >
-                          {/* Circular Icon Container with Floating Number Badge */}
-                          <div className="relative shrink-0">
-                            {/* Floating Number Badge */}
-                            <span
-                              className="absolute -top-1 -left-1 flex h-5 w-5 items-center justify-center text-[10px] font-black text-white"
-                              style={{
-                                borderRadius: "50%",
-                                background: i === 0 ? "#1E6FFF" : i === 1 ? "#818CF8" : "#F59E0B",
-                                boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-                                border: "1.5px solid #FFF",
-                                zIndex: 10,
-                              }}
-                            >
-                              {i + 1}
-                            </span>
-                            {/* Circle wrapper for 3D icon */}
+                  {/* 3-card horizontal layout: rank 2 (left), rank 1 (center, raised), rank 3 (right) */}
+                  {(() => {
+                    const order = [1, 0, 2]; // display order: 2nd, 1st, 3rd
+                    const accents: Record<number, string> = { 0: "#1E6FFF", 1: "#8B5CF6", 2: "#F59E0B" };
+                    return (
+                      <div className="grid grid-cols-3 gap-2 items-center relative z-10">
+                        {order.map((origIdx) => {
+                          const c = miniRec.top[origIdx];
+                          if (!c) return <div key={`empty-${origIdx}`} />;
+                          const isCenter = origIdx === 0;
+                          const accent = accents[origIdx];
+                          const iconUrl = getCareerIcon(c.leadsTo, c.domain);
+                          return (
                             <div
-                              className="flex items-center justify-center"
+                              key={c.courseId}
+                              className="flex flex-col items-center text-center p-3"
                               style={{
-                                width: 56,
-                                height: 56,
-                                borderRadius: "50%",
-                                background: "linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)",
-                                boxShadow: "inset 0 1px 2px rgba(255,255,255,0.8), 0 4px 10px rgba(99,102,241,0.08)",
+                                borderRadius: 22,
+                                background: isCenter ? "#FFFFFF" : "#F7F9FC",
+                                border: isCenter ? `1.5px solid ${accent}` : "1.5px solid rgba(30,111,255,0.06)",
+                                boxShadow: isCenter
+                                  ? "0 12px 28px rgba(30,111,255,0.18), 0 3px 0 rgba(30,111,255,0.10)"
+                                  : "0 3px 10px rgba(0,0,0,0.04)",
+                                transform: isCenter ? "translateY(-10px)" : "translateY(6px)",
                               }}
                             >
-                              <img src={iconUrl} alt={c.name} width={36} height={36} className="object-contain" />
-                            </div>
-                          </div>
+                              <div className="relative mb-2">
+                                <span
+                                  className="absolute -top-1 -left-1 flex items-center justify-center text-[9px] font-black text-white"
+                                  style={{ width: 18, height: 18, borderRadius: "50%", background: accent, border: "1.5px solid #fff", boxShadow: "0 2px 4px rgba(0,0,0,0.15)", zIndex: 10 }}
+                                >
+                                  {origIdx + 1}
+                                </span>
+                                <div
+                                  className="flex items-center justify-center"
+                                  style={{
+                                    width: isCenter ? 60 : 48, height: isCenter ? 60 : 48, borderRadius: "50%",
+                                    background: `linear-gradient(135deg, ${accent}1A 0%, ${accent}33 100%)`,
+                                    boxShadow: "inset 0 1px 2px rgba(255,255,255,0.85), 0 4px 10px rgba(0,0,0,0.06)",
+                                  }}
+                                >
+                                  <img src={iconUrl} alt={c.name} width={isCenter ? 38 : 30} height={isCenter ? 38 : 30} className="object-contain" />
+                                </div>
+                              </div>
 
-                          {/* Info and Progress */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-baseline justify-between gap-2 mb-1.5">
-                              <h3 className="text-sm font-bold text-[#111827] truncate leading-snug">
-                                {c.name}
-                              </h3>
-                              <span className="text-xs font-black text-[#1E6FFF] shrink-0">
-                                {c.fitScore}%
+                              <h3 className="text-[12px] font-bold leading-snug" style={{ color: "#111827" }}>{c.name}</h3>
+                              <p className="mt-0.5 text-[9px] font-bold leading-snug" style={{ color: accent }}>{c.domain}</p>
+                              {c.description && (
+                                <p
+                                  className="mt-1.5 text-[9px] leading-snug"
+                                  style={{ color: "#6B7280", display: "-webkit-box", WebkitLineClamp: isCenter ? 3 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+                                >
+                                  {c.description}
+                                </p>
+                              )}
+                              <span
+                                className="mt-2 inline-block rounded-full px-2.5 py-0.5 text-[9px] font-extrabold"
+                                style={{ background: `${accent}1A`, color: accent }}
+                              >
+                                {c.fitScore}% match
                               </span>
                             </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
 
-                            {/* Progress bar */}
-                            <div className="h-2.5 overflow-hidden rounded-full mb-2 bg-[#E5EDFF]">
-                              <div
-                                className="h-full rounded-full transition-all duration-700"
-                                style={{
-                                  width: `${c.fitScore}%`,
-                                  background: "linear-gradient(90deg, #3B82FF 0%, #1E6FFF 100%)",
-                                  boxShadow: "0 1px 3px rgba(30,111,255,0.2)"
-                                }}
-                              />
-                            </div>
-
-                            {/* Where this course leads */}
-                            <span
-                              className="inline-block rounded-full px-2.5 py-0.5 text-[9px] font-bold"
-                              style={{
-                                background: "#EEF2FF",
-                                color: "#6366F1",
-                              }}
-                            >
-                              Leads to {c.leadsTo}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Info Callout */}
+                  {/* Why these matches? — strengths panel */}
                   <div
-                    className="mt-6 rounded-2xl p-4 flex gap-3 items-start"
+                    className="mt-7 relative overflow-hidden"
                     style={{
-                      background: "#EFF6FF",
-                      borderLeft: "4px solid #1E6FFF",
-                      boxShadow: "0 4px 12px rgba(30,111,255,0.03)",
+                      borderRadius: 22,
+                      background: "linear-gradient(135deg, #F3F7FF 0%, #E9F1FF 100%)",
+                      border: "1.5px solid rgba(30,111,255,0.08)",
+                      boxShadow: "0 4px 16px rgba(30,111,255,0.06), inset 0 1px 0 rgba(255,255,255,0.9)",
+                      padding: 16,
                     }}
                   >
-                    <img src="https://img.icons8.com/3d-fluency/96/idea.png" alt="" width={24} height={24} className="shrink-0 mt-0.5" />
-                    <p className="text-xs leading-relaxed text-[#1E6FFF] font-medium">
-                      These are early estimates based on your quick answers. A short aptitude check — about 5 minutes —
-                      will sharpen them significantly and explain the reasoning behind each match.
-                    </p>
+                    <div className="flex items-start gap-3">
+                      <img src="https://img.icons8.com/3d-fluency/96/brain.png" alt="" width={44} height={44} className="shrink-0" />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-black" style={{ color: "#1E6FFF" }}>Why these matches?</h4>
+                        <p className="mt-1 text-xs leading-relaxed" style={{ color: "#4B5563" }}>
+                          Your answers show real strengths — these courses fit how you think and what you enjoy.
+                        </p>
+                      </div>
+                    </div>
+                    {(miniRec.strengths?.length ?? 0) > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {miniRec.strengths!.map((s) => (
+                          <span
+                            key={s.label}
+                            className="flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 text-[10px] font-bold"
+                            style={{ background: "#fff", color: "#374151", boxShadow: "0 2px 8px rgba(30,111,255,0.08)" }}
+                          >
+                            <img src={`https://img.icons8.com/3d-fluency/48/${s.icon}.png`} alt="" width={16} height={16} />
+                            {s.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1505,11 +1518,11 @@ export default function StartPage() {
                           Takes about 5 mins
                         </span>
                         <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold text-white bg-white/20 backdrop-blur-sm">
-                          <img src="https://img.icons8.com/3d-fluency/48/present.png" alt="" width={10} height={10} />
+                          <img src="https://img.icons8.com/3d-fluency/48/gift.png" alt="" width={10} height={10} />
                           100% Free
                         </span>
                         <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold text-white bg-white/20 backdrop-blur-sm">
-                          <img src="https://img.icons8.com/3d-fluency/48/user.png" alt="" width={10} height={10} />
+                          <img src="https://img.icons8.com/3d-fluency/48/male-user.png" alt="" width={10} height={10} />
                           No account needed
                         </span>
                       </div>
@@ -1520,17 +1533,17 @@ export default function StartPage() {
                 {/* Bottom Trust Badges */}
                 <div className="flex items-center justify-center gap-4 mt-4 py-2 border-t border-dashed border-gray-300/40">
                   <span className="flex items-center gap-1 text-[11px] font-bold text-gray-500">
-                    <img src="https://img.icons8.com/3d-fluency/48/checked.png" alt="" width={12} height={12} />
+                    <img src="https://img.icons8.com/3d-fluency/48/checkmark.png" alt="" width={12} height={12} />
                     100% free
                   </span>
                   <span className="text-gray-300 text-xs">•</span>
                   <span className="flex items-center gap-1 text-[11px] font-bold text-gray-500">
-                    <img src="https://img.icons8.com/3d-fluency/48/present.png" alt="" width={12} height={12} />
+                    <img src="https://img.icons8.com/3d-fluency/48/gift.png" alt="" width={12} height={12} />
                     No spam
                   </span>
                   <span className="text-gray-300 text-xs">•</span>
                   <span className="flex items-center gap-1 text-[11px] font-bold text-gray-500">
-                    <img src="https://img.icons8.com/3d-fluency/48/heart.png" alt="" width={12} height={12} />
+                    <img src="https://img.icons8.com/3d-fluency/48/like.png" alt="" width={12} height={12} />
                     No commitment
                   </span>
                 </div>

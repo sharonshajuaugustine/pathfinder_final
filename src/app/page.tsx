@@ -144,7 +144,7 @@ export default function LandingPage() {
 
           <div className="mt-10 flex flex-col items-center gap-3">
             <Link
-              href="/start"
+              href="/discover"
               className="clay-btn h-14 px-10 text-base"
               style={{ background: "#ffffff", color: "#1E6FFF", boxShadow: "0 5px 0 rgba(0,0,0,0.1), 0 12px 32px rgba(0,0,0,0.12)" }}
             >
@@ -225,7 +225,7 @@ export default function LandingPage() {
           <h2 className="text-2xl font-black text-gray-900 sm:text-3xl">Ready to find your path?</h2>
           <p className="mt-3 text-sm" style={{ color: "#6B7280" }}>Free, in about 20 minutes. No account needed.</p>
           <div className="mt-8">
-            <Link href="/start" className="clay-btn h-14 px-10 text-sm">Get started for free →</Link>
+            <Link href="/discover" className="clay-btn h-14 px-10 text-sm">Get started for free →</Link>
           </div>
         </div>
       </section>

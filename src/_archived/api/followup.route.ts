@@ -20,6 +20,7 @@ const bodySchema = z.object({
     .object({
       value: z.string().max(200).optional(),
       text: z.string().max(500).optional(),
+      label: z.string().max(300).optional(), // human-readable choice text (for admin)
       isChoice: z.boolean().optional(),
     })
     .optional(),
@@ -71,6 +72,14 @@ export async function POST(req: NextRequest) {
 
     // 1. Save the previous answer (if any) into the profile.
     if (prev && (prev.value || prev.text)) {
+      // Record the student's answer in conversations (stage "followup") so it's
+      // visible in the admin dashboard alongside the question that was asked.
+      const answerText = prev.label || prev.text || prev.value;
+      if (answerText) {
+        await db.from("conversations").insert({
+          session_id: sessionId, role: "user", stage: "followup", content: answerText,
+        });
+      }
       let delta: ProfileDelta | null = null;
       if (prev.isChoice && prev.value && INTEREST_CLUSTERS.includes(prev.value as InterestCluster)) {
         // Deepen the chosen interest cluster (0.7 — same as the chat captures).
@@ -129,6 +138,10 @@ export async function POST(req: NextRequest) {
         statedCareer: fp?.aspiration?.statedCareer || undefined,
         topInterests: topInterests.length ? topInterests : undefined,
         freeTexts: freeTexts.length ? freeTexts : undefined,
+      });
+      // Log the question so admins can see exactly what was asked.
+      await db.from("conversations").insert({
+        session_id: sessionId, role: "assistant", stage: "followup", content: q.content,
       });
       return NextResponse.json({ question: q.content, choices: q.choices, done: false });
     } catch {

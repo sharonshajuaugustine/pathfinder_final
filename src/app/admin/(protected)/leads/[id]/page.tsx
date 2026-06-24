@@ -27,13 +27,44 @@ type CareerRec = {
   courses: StoredCourse[];
 };
 
+type AiAssessChoice = { id: string; text: string; interestCluster?: string };
+type AiAssessItem = {
+  id: string;
+  dimension: string;
+  questionText: string;
+  correctId?: string;
+  choices: AiAssessChoice[];
+};
+type AssessmentResponse = {
+  item_id: string;
+  dimension: string;
+  answer: string;
+  score: number | null;
+  created_at: string;
+};
+type ConversationRow = { role: string; content: string; stage: string | null; created_at: string };
+
+const APTITUDE_DIMS = new Set(["numerical", "logical", "verbal", "spatial", "scientific"]);
+
 export default async function LeadDetailPage({ params }: Props) {
   const data = await getLeadDetail(params.id);
   if (!data) notFound();
 
-  const { lead, session, profile, recommendation, feedback } = data;
+  const { lead, session, profile, recommendation, feedback, assessments, conversations } = data;
   const l = lead as Record<string, unknown>;
   const p = profile?.profile as Record<string, unknown> | null ?? null;
+
+  // Cached AI questions (questionText + choices + correctId/interestCluster) live
+  // in the profile; assessment_responses holds the student's answer + score. We
+  // join them so admins can see every question, the answer chosen, and the score.
+  const aiItems = (Array.isArray(p?._aiAssessmentItems) ? p!._aiAssessmentItems : []) as AiAssessItem[];
+  const aiItemsById = new Map(aiItems.map((it) => [it.id, it]));
+  const assessmentRows = (assessments as AssessmentResponse[]).map((r) => ({ resp: r, item: aiItemsById.get(r.item_id) }));
+
+  // Q&A from the conversation log, split by stage.
+  const convRows = conversations as ConversationRow[];
+  const followupTurns = convRows.filter((c) => c.stage === "followup");
+  const adaptiveTurns = convRows.filter((c) => c.stage === "adaptive");
 
   const academic    = (p?.academic    ?? {}) as Record<string, unknown>;
   const interests   = (p?.interests   ?? {}) as Record<string, number>;
@@ -254,6 +285,76 @@ export default async function LeadDetailPage({ params }: Props) {
             </Section>
           )}
 
+          {/* Adaptive interview (Akinator-style question flow) */}
+          {adaptiveTurns.length > 0 && (
+            <Section title="Adaptive interview">
+              <div className="space-y-3">
+                {pairConversation(adaptiveTurns).map((t, i) => (
+                  <div key={i} className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs font-semibold text-foreground">Q{i + 1}: {t.question}</p>
+                    {t.answer && <p className="mt-1 text-xs text-primary">A: {t.answer}</p>}
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Follow-up questions */}
+          {followupTurns.length > 0 && (
+            <Section title="Follow-up questions">
+              <div className="space-y-3">
+                {pairConversation(followupTurns).map((t, i) => (
+                  <div key={i} className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs font-semibold text-foreground">Q: {t.question}</p>
+                    {t.answer && <p className="mt-1 text-xs text-primary">A: {t.answer}</p>}
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Aptitude & interest questions with scores */}
+          {assessmentRows.length > 0 && (
+            <Section title="Questions asked & scores">
+              <div className="space-y-3">
+                {assessmentRows.map(({ resp, item }, i) => {
+                  const isAptitude = APTITUDE_DIMS.has(resp.dimension);
+                  const chosen = item?.choices.find((c) => c.id === resp.answer);
+                  const correct = item?.choices.find((c) => c.id === item?.correctId);
+                  const isCorrect = resp.score != null && resp.score >= 100;
+                  return (
+                    <div key={`${resp.item_id}-${i}`} className="rounded-lg border bg-muted/20 p-3">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                          {isAptitude ? resp.dimension : "interest"}
+                        </span>
+                        {isAptitude && resp.score != null && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isCorrect ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}>
+                            {isCorrect ? "Correct · 100" : "Wrong · 0"}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs font-medium text-foreground">
+                        {item?.questionText ?? `(question text unavailable — ${resp.item_id})`}
+                      </p>
+                      <p className="mt-1 text-xs text-primary">
+                        Answer: {chosen?.text ?? resp.answer}
+                      </p>
+                      {isAptitude && !isCorrect && correct && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">Correct answer: {correct.text}</p>
+                      )}
+                      {!isAptitude && chosen?.interestCluster && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Reveals interest: <span className="capitalize">{fmtInterest(chosen.interestCluster)}</span> (+0.7)
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
           {/* Empty state */}
           {recResults.length === 0 && sortedInterests.length === 0 && aptitudePairs.length === 0 && (
             <div className="flex h-32 items-center justify-center rounded-lg border bg-muted/20 text-sm text-muted-foreground">
@@ -264,6 +365,19 @@ export default async function LeadDetailPage({ params }: Props) {
       </div>
     </div>
   );
+}
+
+// Pair each assistant question with the user answer that follows it.
+function pairConversation(rows: ConversationRow[]): Array<{ question: string; answer: string | null }> {
+  const pairs: Array<{ question: string; answer: string | null }> = [];
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].role === "assistant") {
+      const next = rows[i + 1];
+      const answer = next && next.role === "user" ? next.content : null;
+      pairs.push({ question: rows[i].content, answer });
+    }
+  }
+  return pairs;
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
