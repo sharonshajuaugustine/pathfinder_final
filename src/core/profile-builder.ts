@@ -78,7 +78,20 @@ export function mergeProfile(
       new Set([...existingWeak, ...(delta.academic.weakSubjects ?? [])])
     );
   }
-  if (delta.interests) next.interests = { ...next.interests, ...delta.interests };
+  if (delta.interests) {
+    // Merge interests with a soft floor: if a new value would sharply lower an
+    // existing one (e.g. direct "not for me" overriding a subject-seeded signal),
+    // preserve at least 25% of the prior value. This prevents a CS student who
+    // says "coding isn't for me" from scoring 0% on technology — they still have
+    // the academic background, just not the passion.
+    const merged = { ...next.interests };
+    for (const [k, v] of Object.entries(delta.interests)) {
+      if (v == null) continue;
+      const existing = (merged as Record<string, number>)[k] ?? 0;
+      (merged as Record<string, number>)[k] = v < existing ? Math.max(v, existing * 0.25) : v;
+    }
+    next.interests = merged;
+  }
   if (delta.riasec) next.riasec = { ...next.riasec, ...delta.riasec };
   if (delta.aptitude) next.aptitude = { ...next.aptitude, ...delta.aptitude };
   if (delta.personality) next.personality = { ...next.personality, ...delta.personality };

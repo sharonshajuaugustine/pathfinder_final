@@ -108,6 +108,22 @@ function isConfident(beliefs: Belief[], askedCount: number): boolean {
   return (beliefs[0].score - beliefs[1].score) >= CONFIDENCE_GAP;
 }
 
+const SUBJECTS_QUESTION_IDS = [
+  "ctx_subjects_bio", "ctx_subjects_maths", "ctx_subjects_commerce",
+  "ctx_subjects_humanities", "ctx_subjects_vocational",
+] as const;
+
+function subjectsQuestionId(profile: StudentProfile): string {
+  switch (profile.academic.stream) {
+    case "science_bio":   return "ctx_subjects_bio";
+    case "science_maths":
+    case "science_cs":    return "ctx_subjects_maths";
+    case "commerce":      return "ctx_subjects_commerce";
+    case "humanities":    return "ctx_subjects_humanities";
+    default:              return "ctx_subjects_vocational";
+  }
+}
+
 export function pickNextQuestion(
   profile: StudentProfile,
   kb: KnowledgeBase,
@@ -118,14 +134,27 @@ export function pickNextQuestion(
   // 1. Goal — always first (frames everything).
   if (!asked.has("ctx_goal")) return ADAPTIVE_BY_ID.ctx_goal;
 
-  // 2. Stream openness — gates which career clusters are in play.
-  if (!asked.has("ctx_open_stream")) return ADAPTIVE_BY_ID.ctx_open_stream;
+  // 1b. Stated career — right after goal while student is thinking about their future.
+  if (!asked.has("ctx_stated_career")) return ADAPTIVE_BY_ID.ctx_stated_career;
 
-  // 3. Subject they enjoy — strongest early signal before info-gain kicks in.
-  if (!asked.has("ctx_subjects")) return ADAPTIVE_BY_ID.ctx_subjects;
+  // 2. Stream — gates which subject question to show next.
+  // Skip if stream is already known (collected during intake).
+  if (!asked.has("ctx_stream") && !profile.academic.stream) return ADAPTIVE_BY_ID.ctx_stream;
+
+  // 3. Stream-specific subject they enjoy — strongest early signal before info-gain kicks in.
+  const hasAnsweredSubjects = SUBJECTS_QUESTION_IDS.some((id) => asked.has(id));
+  if (!hasAnsweredSubjects) return ADAPTIVE_BY_ID[subjectsQuestionId(profile)];
 
   const beliefs = scoreBeliefs(profile, kb);
   const confident = isConfident(beliefs, askedIds.length);
+
+  // Which interest cluster did the hobbies question seed (if answered)?
+  // Hobbies sets exactly 0.85 — no direct interest question uses that value —
+  // so any cluster at 0.85 after ctx_hobbies was asked is hobbies-seeded.
+  // We skip its direct interest question to avoid an immediate contradiction.
+  const hobbiesClusterSkip = asked.has("ctx_hobbies")
+    ? Object.entries(profile.interests).find(([, v]) => v === 0.85)?.[0] ?? null
+    : null;
 
   // 4. Interest questions — with hobbies fallback when stuck.
   if (!confident) {
@@ -134,7 +163,24 @@ export function pickNextQuestion(
       return ADAPTIVE_BY_ID.ctx_hobbies;
     }
 
-    // 4b. Continue asking interest questions by info-gain, skipping clusters
+    // 4b. Domain drills — fire once when a cluster is confirmed ≥ 0.7.
+    //     Only fire if the parent interest question for that cluster has been asked
+    //     (so the student confirmed the interest before we drill in).
+    const DRILLS: { drillId: string; parentId: string; cluster: keyof typeof profile.interests }[] = [
+      { drillId: "int_business_drill", parentId: "int_business_money",    cluster: "business_money" },
+      { drillId: "int_health_drill",   parentId: "int_health_medicine",   cluster: "health_medicine" },
+      { drillId: "int_tech_drill",     parentId: "int_technology_coding", cluster: "technology_coding" },
+      { drillId: "int_design_drill",   parentId: "int_design_visual",     cluster: "design_visual" },
+      { drillId: "int_science_drill",  parentId: "int_science_research",  cluster: "science_research" },
+    ];
+    for (const { drillId, parentId, cluster } of DRILLS) {
+      const score = profile.interests[cluster] ?? 0;
+      if (score >= 0.7 && asked.has(parentId) && !asked.has(drillId)) {
+        return ADAPTIVE_BY_ID[drillId];
+      }
+    }
+
+    // 4c. Continue asking interest questions by info-gain, skipping clusters
     //     that are irrelevant once a dominant cluster emerges (score > 0.6 and
     //     leading by 0.2+). This stops design/science Qs when law is clearly winning.
     if (countAsked(asked, "interest") < MAX_INTEREST) {
@@ -157,7 +203,32 @@ export function pickNextQuestion(
           })
         : byKind("interest");
 
-      const pool = candidates.length > 0 ? candidates : byKind("interest");
+      // Stream-aware exclusions: skip clusters that are very unlikely given
+      // the student's stream, so we don't ask a physicist about coding or a
+      // commerce student about building/nature. Only applied when the subject
+      // question has been answered (stream signal is reliable by then).
+      const streamExclusions = new Set<string>();
+      if (hasAnsweredSubjects) {
+        const stream = profile.academic.stream;
+        const strongSubjects = profile.academic.strongSubjects.map((s) => s.toLowerCase());
+        const hasCS = strongSubjects.some((s) => s.includes("computer") || s.includes("cs") || s.includes("it"));
+        if ((stream === "science_bio" || stream === "science_maths") && !hasCS) {
+          streamExclusions.add("technology_coding");
+        }
+        if (stream === "commerce") {
+          streamExclusions.add("nature_agriculture");
+          streamExclusions.add("building_engineering");
+          streamExclusions.add("defence_adventure");
+        }
+        if (stream === "humanities") {
+          streamExclusions.add("technology_coding");
+          streamExclusions.add("building_engineering");
+          streamExclusions.add("nature_agriculture");
+        }
+      }
+
+      const pool = (candidates.length > 0 ? candidates : byKind("interest"))
+        .filter((q) => q.signalKey !== hobbiesClusterSkip && !streamExclusions.has(q.signalKey ?? ""));
       const q = pickByInfoGain(pool, asked, beliefs, kb);
       if (q) return q;
       void dominantCluster; // suppress unused-var lint

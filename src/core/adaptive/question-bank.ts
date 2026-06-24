@@ -21,99 +21,99 @@ export interface AdaptiveQuestion {
 
 const INTEREST_QUESTION_DATA: Record<string, { text: string; options: { a: string; b: string; c: string } }> = {
   technology_coding: {
-    text: "If you could build any digital creation this weekend, what would excite you most?",
+    text: "How do you feel about building apps, websites, or writing code?",
     options: {
-      a: "Designing and coding a cool mobile app, web game, or automation script",
-      b: "Learning how to customize a simple website or use basic digital tools",
-      c: "I'd rather do something hands-on offline or build physical things",
+      a: "I love it — building digital things really excites me",
+      b: "It's okay, I can manage basic tools but it's not my passion",
+      c: "Not for me — I'd rather do something hands-on or offline",
     },
   },
   health_medicine: {
-    text: "Imagine you're in a situation where someone gets hurt or needs health advice. How do you react?",
+    text: "If someone around you gets hurt or falls sick, how do you react?",
     options: {
-      a: "Calm and eager to help diagnose, treat, or care for their well-being",
-      b: "Eager to help out, but I'd rather let someone else take the lead",
-      c: "I'd look away or call for help; dealing with medical stuff isn't for me",
+      a: "I stay calm and want to help — medical situations don't bother me",
+      b: "I try to help, but prefer someone else to take charge",
+      c: "I'd rather step back — medical stuff makes me uncomfortable",
     },
   },
   business_money: {
-    text: "If you and your friends were starting a fun local project or stall, which role would you claim?",
+    text: "If you and friends were running a small stall or project, which role fits you best?",
     options: {
-      a: "Managing the cash flow, pricing, marketing, and running the business side",
-      b: "Helping with tasks or setup, but not worrying about the profits/budget",
-      c: "I just want to hang out or work on the creative side; no business for me",
+      a: "Managing the money, pricing, marketing — the business side",
+      b: "Helping with tasks, but not worried about profits",
+      c: "I'd rather just do the creative or fun parts, not the business",
     },
   },
   science_research: {
-    text: "When you hear about a mystery (like a new disease outbreak or a bizarre natural phenomenon), what do you want to do?",
+    text: "When you hear about a scientific mystery or new discovery, what do you want to do?",
     options: {
-      a: "Set up a hypothesis, research the data, and run tests to find the root cause",
-      b: "Read a summary of the findings, but I don't need to dig into the raw science",
-      c: "I'm fine just knowing it works; I don't care about the nitty-gritty details",
+      a: "Dig into the data, form a hypothesis, figure out why it works",
+      b: "Read the summary — interesting, but I don't need the details",
+      c: "I'm fine not knowing; science details don't interest me",
     },
   },
   design_visual: {
-    text: "When you look at posters, website layouts, or spaces, what catches your eye?",
+    text: "When you see a poster, room layout, or website design, what do you notice?",
     options: {
-      a: "I immediately analyze the colors, layouts, and think of how to make them look stunning",
-      b: "I appreciate nice designs, but I don't feel a strong urge to create or tweak them",
-      c: "I rarely notice design details; I care only if it functions well",
+      a: "I immediately think about colours, composition, and how to improve it",
+      b: "I appreciate good design but don't feel the urge to create",
+      c: "I rarely notice — I only care if something works",
     },
   },
   helping_teaching: {
-    text: "A classmate is struggling to understand a concept that you know well. What is your natural response?",
+    text: "A friend struggles with a topic you understand well. What do you do?",
     options: {
-      a: "Patiently sit down and find creative ways to explain it until they understand",
-      b: "Point them to a good resource or answer a quick question, then move on",
-      c: "I help briefly if I have to, but I don't really enjoy explaining things",
+      a: "I sit with them and patiently explain until they get it",
+      b: "I give a quick answer or point them to a resource, then move on",
+      c: "I'd help if I had to, but explaining things isn't really my thing",
     },
   },
   law_justice: {
-    text: "When you see an unfair rule, an argument, or a dispute, how do you tend to behave?",
+    text: "When you see an unfair rule or a dispute, what's your instinct?",
     options: {
-      a: "I want to study the rules, present structured arguments, and stand up for what's right",
-      b: "I'd try to help resolve it peacefully, but I don't like getting into debates",
-      c: "I'd stay out of it entirely; arguments and rules are exhausting",
+      a: "Study the rules, build an argument, and stand up for what's right",
+      b: "Try to settle things peacefully, but avoid debates",
+      c: "Stay out of it — arguments and rules drain me",
     },
   },
   building_engineering: {
-    text: "You bought a new piece of furniture or an appliance, and it needs assembly. What do you do?",
+    text: "A new appliance arrives and needs assembling. What do you do?",
     options: {
-      a: "Grab the tools and start assembling it myself, curious about how it fits together",
-      b: "Follow the manual step-by-step, but only if I absolutely have to",
-      c: "Hire a professional or ask someone else to do the assembly",
+      a: "Grab the tools and start — I'm curious about how it all fits together",
+      b: "Follow the manual step by step, but only if I have to",
+      c: "Call someone else — I'd rather not deal with it",
     },
   },
   media_communication: {
-    text: "If you were asked to share a story or message with a large group of people, how would you prefer to do it?",
+    text: "If you had to share a message with a large audience, how would you do it?",
     options: {
-      a: "Write an engaging article, record a podcast, or produce a creative video",
-      b: "Share a quick social media post or talk directly, keeping it simple",
-      c: "I'd hate being in the spotlight or having to write/create media content",
+      a: "Write an article, record a video, or make a podcast — I enjoy creating content",
+      b: "Post something quick on social media or just talk to them directly",
+      c: "I'd avoid it — being in the spotlight or creating content isn't for me",
     },
   },
   nature_agriculture: {
-    text: "How do you feel about spending a whole day working outdoors in a garden, farm, or forest?",
+    text: "How do you feel about spending a day working outdoors on a farm or in nature?",
     options: {
-      a: "I'd love it—working with soil, plants, or animals feels deeply satisfying",
-      b: "I enjoy nature walks or pets, but wouldn't want to do physical outdoor labor",
-      c: "I prefer staying indoors with air conditioning and screens",
+      a: "I'd love it — working with plants, animals, or soil is satisfying",
+      b: "I enjoy nature as a hobby but wouldn't want it as work",
+      c: "I prefer indoors — outdoor physical work isn't for me",
     },
   },
   defence_adventure: {
-    text: "What sounds like the perfect weekend adventure?",
+    text: "What kind of weekend activity excites you most?",
     options: {
-      a: "Treks, high-energy sports, martial arts, or physically demanding outdoor challenges",
-      b: "A casual walk or playing a light game with friends",
-      c: "Relaxing at home, gaming, or reading a book",
+      a: "Trekking, martial arts, sports, or any physically challenging outdoor activity",
+      b: "A casual walk or light sport with friends",
+      c: "Staying home — relaxing, gaming, or reading",
     },
   },
   numbers_analysis: {
-    text: "You're handed a chaotic spreadsheet of data or a complex puzzle. What is your reaction?",
+    text: "Someone hands you a messy table of numbers or a logic puzzle. Your reaction?",
     options: {
-      a: "Excited to spot the trends, sort the numbers, and solve the hidden pattern",
-      b: "I'll look at the summary charts, but I'd rather not clean or calculate the raw data",
-      c: "It looks like a foreign language; I'd close it immediately",
+      a: "Excited — I want to find the pattern and solve it",
+      b: "I'll glance at the summary, but won't dig into the raw numbers",
+      c: "I'd close it — numbers and data aren't my thing",
     },
   },
 };
@@ -144,8 +144,8 @@ const interestQuestions: AdaptiveQuestion[] = INTEREST_CLUSTERS.map((key) => {
     text: data?.text ?? `How much would you enjoy ${key}?`,
     kind: "interest",
     signalKey: key,
-    freeText: true,
-    freeTextPlaceholder: INTEREST_PLACEHOLDERS[key] ?? "Or describe your interest in your own words…",
+    // No freeText on interest questions — MCQ-only keeps the flow clean and
+    // avoids confusing students into thinking they must type something.
     options: [
       { id: "a", label: data?.options.a ?? "I'd love it" },
       { id: "b", label: data?.options.b ?? "It's okay" },
@@ -160,43 +160,43 @@ const interestQuestions: AdaptiveQuestion[] = INTEREST_CLUSTERS.map((key) => {
 
 const APTITUDE_QUESTION_DATA: Record<string, { text: string; options: { a: string; b: string; c: string } }> = {
   numerical: {
-    text: "When you need to split a restaurant bill, calculate a discount, or estimate costs on the spot:",
+    text: "Splitting a bill or calculating a discount in your head — how does that feel?",
     options: {
-      a: "I calculate it mentally in seconds with ease",
-      b: "I can do it, but usually need to double check or use a calculator",
-      c: "I prefer to let someone else handle any mental math",
+      a: "Easy — I do it in seconds without thinking",
+      b: "I can manage, but I usually double-check with a calculator",
+      c: "I'd rather let someone else handle the numbers",
     },
   },
   logical: {
-    text: "When you face a tricky problem — like figuring out why something broke or cracking a brain teaser:",
+    text: "When something breaks or you hit a tricky puzzle, what do you do?",
     options: {
       a: "I enjoy breaking it down step by step until I find the answer",
-      b: "I give it a go, but move on if it takes too long",
-      c: "I prefer to hand it to someone else; I'd rather not deal with it",
+      b: "I give it a try, but move on if it takes too long",
+      c: "I'd rather hand it to someone else",
     },
   },
   verbal: {
-    text: "How easily can you write a persuasive message, read long articles, or express yourself?",
+    text: "How comfortable are you writing a message, reading long passages, or expressing ideas?",
     options: {
-      a: "I express myself clearly, write effortlessly, and catch grammatical details",
-      b: "I get my point across fine, but writing takes some effort",
-      c: "I struggle to put my thoughts into words or read long texts",
+      a: "Very comfortable — I write clearly and express myself well",
+      b: "Fine enough, but writing does take me some effort",
+      c: "I struggle to put thoughts into words or read long texts",
     },
   },
   spatial: {
-    text: "If someone describes a route to you verbally (\"turn left at the signal, go straight, take the second right\"), what happens?",
+    text: "Someone gives you directions verbally — left at the signal, then second right. What happens?",
     options: {
-      a: "I instantly build a clear map in my head and could draw it out",
+      a: "I picture it instantly and could sketch the route",
       b: "I follow along okay, but need to hear it again to be sure",
-      c: "I get confused and would need to see it on a map or in person",
+      c: "I get confused — I need a map or to see it in person",
     },
   },
   scientific: {
-    text: "When someone explains a complex system (like gravity, engines, or photosynthesis):",
+    text: "When someone explains how something works — like an engine or a plant's growth — what do you do?",
     options: {
-      a: "I quickly grasp how the parts interact and ask 'why' it works",
-      b: "I understand the basics but don't wonder about the mechanics",
-      c: "I find scientific explanations dry and hard to follow",
+      a: "I grasp it quickly and want to know why it works that way",
+      b: "I get the basic idea but don't wonder about the details",
+      c: "I find these explanations hard to follow",
     },
   },
 };
@@ -223,13 +223,13 @@ const aptitudeQuestions: AdaptiveQuestion[] = APTITUDES.map((key) => {
 const personalityQuestions: AdaptiveQuestion[] = [
   {
     id: "per_social",
-    text: "At a social event or group project, where do you find your energy?",
+    text: "In a group project or social situation, where do you naturally fit?",
     kind: "personality",
     signalKey: "social",
     options: [
-      { id: "a", label: "Collaborating, talking, and bouncing ideas off people" },
-      { id: "b", label: "A balance of team activities and quiet individual time" },
-      { id: "c", label: "Working independently in a quiet space without distractions" },
+      { id: "a", label: "Taking charge, talking, bouncing ideas — I'm energised by people" },
+      { id: "b", label: "I can do both — team time and quiet solo work" },
+      { id: "c", label: "I do my best work alone in a quiet space" },
     ],
     apply: (opt) => {
       const v = PERSONALITY_VALUES[opt];
@@ -238,13 +238,13 @@ const personalityQuestions: AdaptiveQuestion[] = [
   },
   {
     id: "per_practical",
-    text: "When learning something new, what style helps it click for you?",
+    text: "When you learn something new, what works best for you?",
     kind: "personality",
     signalKey: "practical",
     options: [
-      { id: "a", label: "Doing it hands-on, building it, or practicing physically" },
-      { id: "b", label: "A mix of reading the theory and then trying it out" },
-      { id: "c", label: "Understanding the concepts, theories, and thinking it through" },
+      { id: "a", label: "Doing it — hands-on, building, or practising in real life" },
+      { id: "b", label: "A mix — some theory, then trying it out" },
+      { id: "c", label: "Understanding concepts and thinking it through first" },
     ],
     apply: (opt) => {
       const v = PERSONALITY_VALUES[opt];
@@ -253,13 +253,13 @@ const personalityQuestions: AdaptiveQuestion[] = [
   },
   {
     id: "per_risk",
-    text: "If you're planning a trip or a new project, how do you feel about the unknown?",
+    text: "When starting something new with uncertain outcomes, how do you feel?",
     kind: "personality",
     signalKey: "risk_taking",
     options: [
-      { id: "a", label: "I love the thrill of taking big risks for massive rewards" },
-      { id: "b", label: "I like a balanced path with some safety but room for adventure" },
-      { id: "c", label: "I prefer a highly detailed, secure, and steady plan" },
+      { id: "a", label: "Excited — I like taking big bets for big rewards" },
+      { id: "b", label: "Open to some risk, but I want a safety net" },
+      { id: "c", label: "I prefer a clear, stable, well-planned path" },
     ],
     apply: (opt) => {
       const v = PERSONALITY_VALUES[opt];
@@ -273,23 +273,59 @@ const personalityQuestions: AdaptiveQuestion[] = [
 const GOAL_MAP: Record<string, string> = {
   a: "higher_study", b: "job_soon", c: "business", d: "government",
 };
-const OPEN_STREAM_MAP: Record<string, number> = { a: 1, b: 0.5, c: 0 };
 const BUDGET_MAP: Record<string, string> = { a: "no_constraint", b: "medium", c: "low" };
-const LOCATION_MAP: Record<string, string> = { a: "kerala", b: "india", c: "abroad" };
+const LOCATION_MAP: Record<string, string> = { a: "kerala", b: "india", c: "gulf", d: "abroad" };
 
-// Subject → interest clusters + strong subject for derived aptitude.
-const SUBJECT_MAP: Record<string, ProfileDelta> = {
-  a: { interests: { health_medicine: 0.6, science_research: 0.5 },  academic: { strongSubjects: ["Biology"] } },
-  b: { interests: { numbers_analysis: 0.7 },                         academic: { strongSubjects: ["Mathematics"] },    aptitude: { numerical: 70 } },
-  c: { interests: { science_research: 0.6, building_engineering: 0.4 }, academic: { strongSubjects: ["Physics"] } },
-  d: { interests: { technology_coding: 0.75 },                       academic: { strongSubjects: ["Computer Science"] }, aptitude: { logical: 70 } },
-  e: { interests: { business_money: 0.7, numbers_analysis: 0.5 },    academic: { strongSubjects: ["Business Studies"] } },
-  f: { interests: { media_communication: 0.6, law_justice: 0.5 },   academic: { strongSubjects: ["English"] } },
-  g: { interests: { defence_adventure: 0.85 },                       academic: { strongSubjects: ["Physical Education"] } },
-  h: { interests: { design_visual: 0.85 },                           academic: { strongSubjects: ["Fine Arts"] } },
+const STREAM_MAP: Record<string, ProfileDelta> = {
+  a: { academic: { stream: "science_bio" as never } },
+  b: { academic: { stream: "science_maths" as never } },
+  c: { academic: { stream: "commerce" as never } },
+  d: { academic: { stream: "humanities" as never } },
+  e: {}, // vocational — no formal stream, subjects question will add strongSubjects
 };
 
-// Hobbies → interest cluster. Used as fallback when direct interest Qs get no signal.
+// Per-stream subject → interest clusters + strong subject for derived aptitude.
+const SUBJECTS_BIO: Record<string, ProfileDelta> = {
+  a: { interests: { health_medicine: 0.6, science_research: 0.5 }, academic: { strongSubjects: ["Biology"] } },
+  b: { interests: { science_research: 0.6, health_medicine: 0.3 }, academic: { strongSubjects: ["Chemistry"] } },
+  c: { interests: { science_research: 0.5, building_engineering: 0.4 }, academic: { strongSubjects: ["Physics"] } },
+  d: { interests: { numbers_analysis: 0.7 }, academic: { strongSubjects: ["Mathematics"] }, aptitude: { numerical: 70 } },
+  e: { interests: { technology_coding: 0.75 }, academic: { strongSubjects: ["Computer Science"] }, aptitude: { logical: 70 } },
+};
+
+const SUBJECTS_MATHS: Record<string, ProfileDelta> = {
+  a: { interests: { numbers_analysis: 0.7 }, academic: { strongSubjects: ["Mathematics"] }, aptitude: { numerical: 70 } },
+  b: { interests: { science_research: 0.5, building_engineering: 0.5 }, academic: { strongSubjects: ["Physics"] } },
+  c: { interests: { science_research: 0.6 }, academic: { strongSubjects: ["Chemistry"] } },
+  d: { interests: { technology_coding: 0.75 }, academic: { strongSubjects: ["Computer Science"] }, aptitude: { logical: 70 } },
+  e: { interests: { health_medicine: 0.5, science_research: 0.4 }, academic: { strongSubjects: ["Biology"] } },
+};
+
+const SUBJECTS_COMMERCE: Record<string, ProfileDelta> = {
+  a: { interests: { business_money: 0.7, numbers_analysis: 0.4 }, academic: { strongSubjects: ["Business Studies"] } },
+  b: { interests: { numbers_analysis: 0.7 }, academic: { strongSubjects: ["Accountancy"] }, aptitude: { numerical: 80 } },
+  c: { interests: { numbers_analysis: 0.5, law_justice: 0.3 }, academic: { strongSubjects: ["Economics"] } },
+  d: { interests: { numbers_analysis: 0.7 }, academic: { strongSubjects: ["Mathematics"] }, aptitude: { numerical: 70 } },
+  e: { interests: { technology_coding: 0.75 }, academic: { strongSubjects: ["Computer Science"] }, aptitude: { logical: 70 } },
+};
+
+const SUBJECTS_HUMANITIES: Record<string, ProfileDelta> = {
+  a: { interests: { media_communication: 0.6, law_justice: 0.4 }, academic: { strongSubjects: ["English"] }, aptitude: { verbal: 80 } },
+  b: { interests: { law_justice: 0.5, media_communication: 0.3 }, academic: { strongSubjects: ["History"] } },
+  c: { interests: { nature_agriculture: 0.4, science_research: 0.3 }, academic: { strongSubjects: ["Geography"] } },
+  d: { interests: { helping_teaching: 0.6, science_research: 0.3 }, academic: { strongSubjects: ["Psychology"] } },
+  e: { interests: { media_communication: 0.4 }, academic: { strongSubjects: ["Malayalam"] }, aptitude: { verbal: 70 } },
+};
+
+const SUBJECTS_VOCATIONAL: Record<string, ProfileDelta> = {
+  a: { interests: { building_engineering: 0.7, technology_coding: 0.3 }, academic: { strongSubjects: ["Electronics"] } },
+  b: { interests: { building_engineering: 0.8 }, academic: { strongSubjects: ["Mechanical"] } },
+  c: { interests: { design_visual: 0.7, helping_teaching: 0.3 }, academic: { strongSubjects: ["Beauty"] } },
+  d: { interests: { health_medicine: 0.7 }, academic: { strongSubjects: ["Healthcare"] } },
+  e: { interests: { helping_teaching: 0.5, business_money: 0.4 }, academic: { strongSubjects: ["Hospitality"] } },
+};
+
+// Hobbies → interest cluster. Fallback when 3+ interest Qs yield no signal.
 const HOBBIES_MAP: Record<string, string> = {
   a: "defence_adventure",
   b: "design_visual",
@@ -307,48 +343,104 @@ const contextQuestions: AdaptiveQuestion[] = [
     text: "What's your main plan after Plus Two?",
     kind: "context",
     options: [
-      { id: "a", label: "Study a degree" },
-      { id: "b", label: "Get a job soon" },
-      { id: "c", label: "Start a business" },
-      { id: "d", label: "Government exams" },
+      { id: "a", label: "Study a degree or diploma" },
+      { id: "b", label: "Get a job as soon as possible" },
+      { id: "c", label: "Start my own business / family business" },
+      { id: "d", label: "Prepare for government / PSC exams" },
+      { id: "e", label: "Not sure yet — show me all options" },
     ],
     apply: (opt) => {
       const g = GOAL_MAP[opt];
-      return g ? { aspiration: { goalOrientation: g as never } } : null;
+      return g ? { aspiration: { goalOrientation: g as never } } : null; // 'e' → null → neutral 0.5 score
     },
   },
   {
-    id: "ctx_open_stream",
-    text: "Are you open to careers outside your chosen stream?",
+    id: "ctx_stream",
+    text: "Which stream are you studying in Plus Two?",
     kind: "context",
     options: [
-      { id: "a", label: "Yes, I'm very open — show me anything that fits" },
-      { id: "b", label: "Somewhat — if it really suits me, sure" },
-      { id: "c", label: "No, I want to stay within my stream" },
+      { id: "a", label: "Science — Biology group (PCB / PCMB)" },
+      { id: "b", label: "Science — Maths group (PCM / PCMC)" },
+      { id: "c", label: "Commerce (Business Studies, Accountancy, Economics)" },
+      { id: "d", label: "Humanities / Arts (English, History, Social Science)" },
+      { id: "e", label: "Vocational / ITI / Open School" },
     ],
-    apply: (opt) => {
-      const v = OPEN_STREAM_MAP[opt];
-      return v == null ? null : { aspiration: { openToOutsideStream: v } };
-    },
+    apply: (opt) => STREAM_MAP[opt] ?? null,
   },
   {
-    // Always asked second — strongest early signal before info-gain kicks in.
-    id: "ctx_subjects",
-    text: "Which subject do you enjoy most or feel strongest in?",
+    id: "ctx_subjects_bio",
+    text: "Which subject are you strongest in or enjoy the most?",
     kind: "context",
     freeText: true,
-    freeTextPlaceholder: "e.g. I love Physical Education, or I'm great at Statistics…",
+    freeTextPlaceholder: "e.g. I love Biology practicals, or I'm really good at Chemistry…",
     options: [
-      { id: "a", label: "Biology / Life Sciences" },
-      { id: "b", label: "Mathematics" },
-      { id: "c", label: "Physics or Chemistry" },
-      { id: "d", label: "Computer Science / IT" },
-      { id: "e", label: "Business Studies / Accountancy" },
-      { id: "f", label: "English, History, or Social Science" },
-      { id: "g", label: "Physical Education / Sports" },
-      { id: "h", label: "Fine Arts, Music, or Design" },
+      { id: "a", label: "Biology" },
+      { id: "b", label: "Chemistry" },
+      { id: "c", label: "Physics" },
+      { id: "d", label: "Mathematics" },
+      { id: "e", label: "Computer Science" },
     ],
-    apply: (opt) => SUBJECT_MAP[opt] ?? null,
+    apply: (opt) => SUBJECTS_BIO[opt] ?? null,
+  },
+  {
+    id: "ctx_subjects_maths",
+    text: "Which subject are you strongest in or enjoy the most?",
+    kind: "context",
+    freeText: true,
+    freeTextPlaceholder: "e.g. I love solving Maths problems, or Physics is my strong suit…",
+    options: [
+      { id: "a", label: "Mathematics" },
+      { id: "b", label: "Physics" },
+      { id: "c", label: "Chemistry" },
+      { id: "d", label: "Computer Science" },
+      { id: "e", label: "Biology" },
+    ],
+    apply: (opt) => SUBJECTS_MATHS[opt] ?? null,
+  },
+  {
+    id: "ctx_subjects_commerce",
+    text: "Which subject are you strongest in or enjoy the most?",
+    kind: "context",
+    freeText: true,
+    freeTextPlaceholder: "e.g. I enjoy Accountancy, or Business Studies is my best subject…",
+    options: [
+      { id: "a", label: "Business Studies" },
+      { id: "b", label: "Accountancy" },
+      { id: "c", label: "Economics" },
+      { id: "d", label: "Mathematics" },
+      { id: "e", label: "Computer Science" },
+    ],
+    apply: (opt) => SUBJECTS_COMMERCE[opt] ?? null,
+  },
+  {
+    id: "ctx_subjects_humanities",
+    text: "Which subject are you strongest in or enjoy the most?",
+    kind: "context",
+    freeText: true,
+    freeTextPlaceholder: "e.g. I love writing English essays, or History is my favourite…",
+    options: [
+      { id: "a", label: "English / Literature" },
+      { id: "b", label: "History / Political Science" },
+      { id: "c", label: "Geography" },
+      { id: "d", label: "Psychology / Sociology" },
+      { id: "e", label: "Malayalam / Hindi / Second Language" },
+    ],
+    apply: (opt) => SUBJECTS_HUMANITIES[opt] ?? null,
+  },
+  {
+    id: "ctx_subjects_vocational",
+    text: "Which area is your vocational / ITI course in?",
+    kind: "context",
+    freeText: true,
+    freeTextPlaceholder: "e.g. I'm doing Electronics, or my ITI trade is Mechanical…",
+    options: [
+      { id: "a", label: "Electronics / Electrical" },
+      { id: "b", label: "Mechanical / Automobile" },
+      { id: "c", label: "Beauty & Wellness / Fashion / Tailoring" },
+      { id: "d", label: "Healthcare / Lab Technician" },
+      { id: "e", label: "Hospitality / Catering / Tourism" },
+    ],
+    apply: (opt) => SUBJECTS_VOCATIONAL[opt] ?? null,
   },
   {
     // Fallback — injected by the engine when 3+ interest Qs yield no signal.
@@ -360,12 +452,12 @@ const contextQuestions: AdaptiveQuestion[] = [
     options: [
       { id: "a", label: "Sports, gym, or outdoor activities" },
       { id: "b", label: "Drawing, design, music, or making art" },
-      { id: "c", label: "Coding, gaming tech, or fixing devices" },
+      { id: "c", label: "Coding, gaming, or fixing tech devices" },
       { id: "d", label: "Helping people, volunteering, or tutoring" },
       { id: "e", label: "Writing, videos, photography, or social media" },
       { id: "f", label: "Gardening, animals, or spending time in nature" },
       { id: "g", label: "Reading, science projects, or experimenting" },
-      { id: "h", label: "Business ideas, cooking, or organising events" },
+      { id: "h", label: "Business ideas, events, or organising things" },
     ],
     apply: (opt) => {
       const cluster = HOBBIES_MAP[opt];
@@ -374,12 +466,12 @@ const contextQuestions: AdaptiveQuestion[] = [
   },
   {
     id: "ctx_budget",
-    text: "Can your family manage private college fees if a course needs it?",
+    text: "Can your family manage private college fees if needed?",
     kind: "context",
     options: [
-      { id: "a", label: "Yes, that's fine" },
-      { id: "b", label: "Only if reasonable" },
-      { id: "c", label: "We need low-cost options" },
+      { id: "a", label: "Yes — fees aren't a concern" },
+      { id: "b", label: "Up to around ₹1 lakh per year is okay" },
+      { id: "c", label: "We need very low-cost or government college options" },
     ],
     apply: (opt) => {
       const b = BUDGET_MAP[opt];
@@ -393,7 +485,8 @@ const contextQuestions: AdaptiveQuestion[] = [
     options: [
       { id: "a", label: "I'd prefer to stay in Kerala" },
       { id: "b", label: "Anywhere in India is fine" },
-      { id: "c", label: "I'm open to abroad too" },
+      { id: "c", label: "Gulf / Middle East is an option for me" },
+      { id: "d", label: "Open to anywhere including abroad" },
     ],
     apply: (opt) => {
       const l = LOCATION_MAP[opt];
@@ -402,11 +495,129 @@ const contextQuestions: AdaptiveQuestion[] = [
   },
 ];
 
+// ── Domain drill questions ─────────────────────────────────────────────────────
+// Fired by the engine (once) when a parent interest cluster is confirmed ≥ 0.7.
+// Each drill narrows within the domain so the engine can separate closely-related
+// careers (e.g. marketing_manager vs accountant vs event_manager).
+
+const drillQuestions: AdaptiveQuestion[] = [
+  {
+    id: "int_business_drill",
+    text: "You enjoy the business side — which part appeals to you most?",
+    kind: "interest",
+    options: [
+      { id: "a", label: "Sales, marketing, or building a brand" },
+      { id: "b", label: "Finance, investments, or managing money" },
+      { id: "c", label: "Running operations and managing teams" },
+      { id: "d", label: "Starting something new / entrepreneurship" },
+    ],
+    apply: (opt) => {
+      if (opt === "a") return { interests: { media_communication: 0.7 }, aspiration: { careerPriorities: ["sales"] } };
+      if (opt === "b") return { interests: { numbers_analysis: 0.75 }, aptitude: { numerical: 75 } };
+      if (opt === "c") return { interests: { helping_teaching: 0.6 } };
+      if (opt === "d") return { personality: { risk_taking: 0.6 }, aspiration: { careerPriorities: ["entrepreneurship"] } };
+      return null;
+    },
+  },
+  {
+    id: "int_health_drill",
+    text: "You're interested in health — what draws you to it most?",
+    kind: "interest",
+    options: [
+      { id: "a", label: "Treating patients — doctor, nurse, or paramedic" },
+      { id: "b", label: "Lab work, diagnosis, or medical testing" },
+      { id: "c", label: "Mental health, counselling, or psychology" },
+      { id: "d", label: "Healthcare management or hospital admin" },
+    ],
+    apply: (opt) => {
+      if (opt === "a") return { interests: { helping_teaching: 0.7 }, aspiration: { careerPriorities: ["patient_care"] } };
+      if (opt === "b") return { interests: { science_research: 0.8 }, aptitude: { scientific: 80 } };
+      if (opt === "c") return { interests: { helping_teaching: 0.8 }, aptitude: { verbal: 70 } };
+      if (opt === "d") return { interests: { business_money: 0.6 }, aspiration: { careerPriorities: ["management"] } };
+      return null;
+    },
+  },
+  {
+    id: "int_tech_drill",
+    text: "You enjoy tech — which area excites you most?",
+    kind: "interest",
+    options: [
+      { id: "a", label: "Building apps, websites, or software" },
+      { id: "b", label: "Hardware, electronics, or networking" },
+      { id: "c", label: "Data, AI, or machine learning" },
+      { id: "d", label: "IT support, systems, or computer repair" },
+    ],
+    apply: (opt) => {
+      if (opt === "a") return { interests: { technology_coding: 0.9 }, aptitude: { logical: 80 } };
+      if (opt === "b") return { interests: { building_engineering: 0.75 }, aptitude: { spatial: 70 } };
+      if (opt === "c") return { interests: { numbers_analysis: 0.75, science_research: 0.6 }, aptitude: { logical: 75 } };
+      if (opt === "d") return { interests: { technology_coding: 0.7, building_engineering: 0.5 } };
+      return null;
+    },
+  },
+  {
+    id: "int_science_drill",
+    text: "You enjoy science — which direction pulls you most?",
+    kind: "interest",
+    options: [
+      { id: "a", label: "Lab experiments, chemistry, or biology" },
+      { id: "b", label: "Maths, physics, or theoretical concepts" },
+      { id: "c", label: "Environment, ecology, or field research" },
+      { id: "d", label: "Data, computing, or applied R&D" },
+    ],
+    apply: (opt) => {
+      if (opt === "a") return { interests: { health_medicine: 0.5, science_research: 0.9 }, aspiration: { careerPriorities: ["lab_science"] } };
+      if (opt === "b") return { interests: { numbers_analysis: 0.7, science_research: 0.9 }, aptitude: { numerical: 75, scientific: 80 } };
+      if (opt === "c") return { interests: { nature_agriculture: 0.6, science_research: 0.85 }, aspiration: { careerPriorities: ["environment"] } };
+      if (opt === "d") return { interests: { numbers_analysis: 0.7, technology_coding: 0.5, science_research: 0.85 }, aptitude: { logical: 75 } };
+      return null;
+    },
+  },
+  {
+    id: "int_design_drill",
+    text: "You have an eye for design — what kind of work excites you?",
+    kind: "interest",
+    options: [
+      { id: "a", label: "Graphic design, branding, or visual content" },
+      { id: "b", label: "Interior design, architecture, or spaces" },
+      { id: "c", label: "Fashion, jewellery, or product design" },
+      { id: "d", label: "Events, weddings, or experience design" },
+    ],
+    apply: (opt) => {
+      if (opt === "a") return { interests: { media_communication: 0.65 }, aspiration: { careerPriorities: ["graphic_design"] } };
+      if (opt === "b") return { interests: { building_engineering: 0.6, science_research: 0.3 }, aspiration: { careerPriorities: ["interior_design"] } };
+      if (opt === "c") return { interests: { design_visual: 0.9 }, aspiration: { careerPriorities: ["fashion"] } };
+      if (opt === "d") return { interests: { business_money: 0.65, helping_teaching: 0.5 }, aspiration: { careerPriorities: ["events"] } };
+      return null;
+    },
+  },
+];
+
+// ── Stated career question ─────────────────────────────────────────────────────
+// Asked right after goal — a student who already has a target career in mind
+// gives the engine an enormous head-start. Free text goes through AI extraction
+// and sets aspiration.statedCareer. The MCQ "not sure" option applies nothing.
+
+const statedCareerQuestion: AdaptiveQuestion = {
+  id: "ctx_stated_career",
+  text: "Do you already have a career in mind? Type it below — or pick an option.",
+  kind: "context",
+  freeText: true,
+  freeTextPlaceholder: "e.g. CA, nurse, software engineer, pilot…",
+  options: [
+    { id: "a", label: "I have a rough idea but nothing specific" },
+    { id: "b", label: "No idea yet — just exploring" },
+  ],
+  apply: () => null, // free text handled by AI extractor; MCQ options → null (neutral)
+};
+
 export const ADAPTIVE_QUESTIONS: AdaptiveQuestion[] = [
   ...interestQuestions,
+  ...drillQuestions,
   ...aptitudeQuestions,
   ...personalityQuestions,
   ...contextQuestions,
+  statedCareerQuestion,
 ];
 
 export const ADAPTIVE_BY_ID: Record<string, AdaptiveQuestion> =

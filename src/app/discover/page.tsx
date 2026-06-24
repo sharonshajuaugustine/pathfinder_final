@@ -12,12 +12,13 @@ import type { Stream } from "@/types/onboarding";
 // Questions are confidence-based — the engine asks as many as needed, not a
 // fixed count. A live belief meter shows the top-3 careers narrowing down.
 
-const STREAM_CHOICES: Array<{ label: string; value: Stream; icon: string }> = [
-  { label: "Science (Biology)",         value: "science_bio",   icon: "microscope" },
-  { label: "Science (Maths)",           value: "science_maths", icon: "math" },
+const STREAM_CHOICES: Array<{ label: string; value: Stream | "vocational"; icon: string }> = [
+  { label: "Science (Biology group)",   value: "science_bio",   icon: "microscope" },
+  { label: "Science (Maths group)",     value: "science_maths", icon: "math" },
   { label: "Science (Computer Science)",value: "science_cs",    icon: "laptop" },
   { label: "Commerce",                  value: "commerce",      icon: "combo-chart" },
   { label: "Humanities / Arts",         value: "humanities",    icon: "paint-palette" },
+  { label: "Vocational / ITI",          value: "vocational",    icon: "factory" },
 ];
 const i8 = (n: string) => `https://img.icons8.com/3d-fluency/96/${n}.png`;
 
@@ -85,7 +86,7 @@ function DiscoverInner() {
   // intake
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [stream, setStream] = useState<Stream | null>(null);
+  const [stream, setStream] = useState<Stream | "vocational" | null>(null);
   const [percentage, setPercentage] = useState("");
 
   // adaptive
@@ -118,7 +119,7 @@ function DiscoverInner() {
       });
       await fetch("/api/start", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId, questionIndex: 1, value: stream, percentage: pct, isChoice: true }),
+        body: JSON.stringify({ sessionId, questionIndex: 1, value: stream === "vocational" ? null : stream, percentage: pct, isChoice: true }),
       });
       setPhase("adaptive");
     } catch { setErr("Something went wrong. Please try again."); }
@@ -408,7 +409,7 @@ function DiscoverInner() {
                 </button>
               </div>
 
-              {topCareers.length > 0 && <BeliefMeter careers={topCareers} />}
+              {topCareers.length > 0 && asked >= 6 && <BeliefMeter careers={topCareers} />}
 
               {err && <p className="text-xs" style={{ color: "#EF4444" }}>{err}</p>}
             </>

@@ -200,7 +200,7 @@ function academicFit(career: Career, profile: StudentProfile): number {
     "allied_health":    ["biology", "chemistry"],
     "sciences":         ["physics", "chemistry", "biology", "maths"],
     "commerce_finance": ["accountancy", "economics", "maths", "business"],
-    "management":       ["accountancy", "economics", "business"],
+    "management":       ["accountancy", "economics", "business", "art"],
     "law":              ["english", "political", "history"],
     "government":       ["english", "political", "history", "economics"],
     "humanities":       ["english", "history", "political", "social"],
@@ -208,7 +208,7 @@ function academicFit(career: Career, profile: StudentProfile): number {
     "design":           ["art", "computer"],
     "media":            ["english", "language", "art", "humanities", "history"],
     "agriculture":      ["biology", "chemistry"],
-    "hospitality":      ["english", "business", "commerce", "chemistry", "biology", "accountancy", "economics", "maths"],
+    "hospitality":      ["english", "business", "commerce", "chemistry", "accountancy", "economics", "maths"],
   };
   const hints = domainHints[career.domainId] ?? [];
   const hit = hints.some((h) => strong.some((s) => s.includes(h)));

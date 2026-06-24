@@ -171,16 +171,22 @@ function ResultInner() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-black" style={{ color: "#111827" }}>Your career report is ready</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mt-2">
             <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold" style={{ background: conf.bg, color: conf.color, border: `1px solid ${conf.border}` }}>
               {conf.label} · {Math.round(data.overallConfidence * 100)}%
             </span>
-            <span className="text-xs" style={{ color: "#9CA3AF" }}>KB v{data.kbVersion}</span>
           </div>
         </div>
 
         {(data.top ?? []).length > 0 && (
           <p className="mb-4 text-sm" style={{ color: "#6B7280" }}>Based on your interests, strengths, and goals — here are the courses that fit you best.</p>
+        )}
+        {(data.top ?? []).length === 0 && (
+          <div className="mb-6 clay-card px-5 py-6 text-center">
+            <p className="text-base font-bold" style={{ color: "#111827" }}>No recommendations yet</p>
+            <p className="mt-1 text-sm" style={{ color: "#9CA3AF" }}>We need a bit more information about you. Please go back and complete the quiz.</p>
+            <Link href="/" className="mt-4 inline-block text-sm font-semibold" style={{ color: "#1E6FFF" }}>← Start again</Link>
+          </div>
         )}
 
         {data.explanation && (

@@ -33,7 +33,7 @@ export type GoalOrientation = (typeof GOAL_ORIENTATIONS)[number];
 export const BUDGET_BANDS = ["low", "medium", "high", "no_constraint"] as const;
 export type BudgetBand = (typeof BUDGET_BANDS)[number];
 
-export const LOCATION_PREFS = ["kerala", "india", "abroad"] as const;
+export const LOCATION_PREFS = ["kerala", "india", "gulf", "abroad"] as const;
 export type LocationPref = (typeof LOCATION_PREFS)[number];
 
 // A single profile signal: value plus how confident we are and where it came from.
