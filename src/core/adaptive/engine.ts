@@ -209,7 +209,7 @@ export function pickNextQuestion(
       // where there is almost no realistic career path for that stream.
       const streamExclusions = new Set<string>();
       if (hasAnsweredSubjects) {
-        const stream = profile.academic.stream;
+        const stream = profile.academic.stream as string | undefined;
         const strongSubjects = profile.academic.strongSubjects.map((s) => s.toLowerCase());
         const hasCS = strongSubjects.some((s) => s.includes("computer") || s.includes("cs") || s.includes("it"));
 
