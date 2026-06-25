@@ -4,17 +4,17 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FlaskConical, Calculator, Laptop, TrendingUp, Palette, Wrench } from "lucide-react";
 import type { Stream } from "@/types/onboarding";
 
-const STREAM_CHOICES: Array<{ label: string; value: Stream | "vocational"; icon: string }> = [
-  { label: "Science (Biology group)",    value: "science_bio",   icon: "microscope" },
-  { label: "Science (Maths group)",      value: "science_maths", icon: "math" },
-  { label: "Science (Computer Science)", value: "science_cs",    icon: "laptop" },
-  { label: "Commerce",                   value: "commerce",      icon: "combo-chart" },
-  { label: "Humanities / Arts",          value: "humanities",    icon: "paint-palette" },
-  { label: "Vocational / ITI",           value: "vocational",    icon: "factory" },
+const STREAM_CHOICES: Array<{ label: string; value: Stream | "vocational"; Icon: React.ElementType }> = [
+  { label: "Science (Biology group)",    value: "science_bio",   Icon: FlaskConical },
+  { label: "Science (Maths group)",      value: "science_maths", Icon: Calculator },
+  { label: "Science (Computer Science)", value: "science_cs",    Icon: Laptop },
+  { label: "Commerce",                   value: "commerce",      Icon: TrendingUp },
+  { label: "Humanities / Arts",          value: "humanities",    Icon: Palette },
+  { label: "Vocational / ITI",           value: "vocational",    Icon: Wrench },
 ];
-const i8 = (n: string) => `https://img.icons8.com/3d-fluency/96/${n}.png`;
 
 const KERALA_DISTRICTS = [
   "Thiruvananthapuram", "Kollam", "Pathanamthitta", "Alappuzha",
@@ -83,10 +83,10 @@ function GridOptions({ options, onAnswer, busy }: {
           borderRadius: 22,
           border: `1.5px solid ${isPressed ? meta.border.replace("0.18", "0.6") : meta.border}`,
           background: isPressed ? meta.bg : "#ffffff",
-          padding: "16px 14px 18px",
+          padding: "14px 14px 16px",
           display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-start",
+          flexDirection: "row",
+          alignItems: "center",
           gap: 10,
           cursor: busy ? "not-allowed" : "pointer",
           textAlign: "left",
@@ -96,23 +96,17 @@ function GridOptions({ options, onAnswer, busy }: {
             ? "inset 2px 2px 4px rgba(255,255,255,0.7), 0 2px 0 rgba(165,150,130,0.12), 0 4px 10px rgba(165,150,130,0.08)"
             : "inset 3px 3px 6px rgba(255,255,255,0.95), inset -2px -2px 5px rgba(30,111,255,0.04), 0 6px 0 rgba(165,150,130,0.18), 0 10px 24px rgba(165,150,130,0.12)",
           transition: "transform 0.10s ease, box-shadow 0.10s ease, border-color 0.10s ease",
-          minHeight: 120,
+          minHeight: 90,
           ...style,
         }}
       >
-        {/* Coloured icon box with emoji */}
+        {/* Left accent bar */}
         <div style={{
-          width: 46, height: 46, borderRadius: 14,
-          background: meta.bg,
-          border: `1.5px solid ${meta.border}`,
-          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 3, alignSelf: "stretch", borderRadius: 99,
+          background: meta.border.replace("0.18", "0.7"),
           flexShrink: 0,
-          boxShadow: `inset 2px 2px 4px rgba(255,255,255,0.9), 0 2px 6px ${meta.iconRing}`,
-          fontSize: 24, lineHeight: 1,
-        }}>
-          {meta.emoji}
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#374151", lineHeight: 1.4 }}>
+        }} />
+        <span style={{ fontSize: 15, fontWeight: 800, color: "#111827", lineHeight: 1.35, letterSpacing: "-0.01em" }}>
           {o.label}
         </span>
       </button>
@@ -159,11 +153,11 @@ function MultiSelectGrid({ options, selected, onToggle, onConfirm, busy }: {
                 borderRadius: 22,
                 border: `1.5px solid ${isSelected ? "#1E6FFF" : meta.border}`,
                 background: isSelected ? "linear-gradient(135deg, #EEF4FF, #DBEAFE)" : "#ffffff",
-                padding: "14px 12px 16px",
+                padding: "14px 40px 14px 14px",
                 display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 8,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
                 cursor: busy ? "not-allowed" : "pointer",
                 textAlign: "left",
                 opacity: busy ? 0.65 : 1,
@@ -171,7 +165,7 @@ function MultiSelectGrid({ options, selected, onToggle, onConfirm, busy }: {
                   ? "inset 2px 2px 5px rgba(255,255,255,0.7), 0 3px 0 rgba(30,111,255,0.2)"
                   : "inset 3px 3px 6px rgba(255,255,255,0.95), 0 6px 0 rgba(165,150,130,0.18), 0 10px 24px rgba(165,150,130,0.12)",
                 transition: "all 0.15s ease",
-                minHeight: 100,
+                minHeight: 90,
                 position: "relative",
               }}
             >
@@ -191,18 +185,14 @@ function MultiSelectGrid({ options, selected, onToggle, onConfirm, busy }: {
                   </svg>
                 )}
               </div>
-              {/* Icon box */}
+              {/* Left accent bar */}
               <div style={{
-                width: 40, height: 40, borderRadius: 12,
-                background: isSelected ? "rgba(30,111,255,0.1)" : meta.bg,
-                border: `1.5px solid ${isSelected ? "rgba(30,111,255,0.25)" : meta.border}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 3, alignSelf: "stretch", borderRadius: 99,
+                background: isSelected ? "#1E6FFF" : meta.border.replace("0.18", "0.7"),
                 flexShrink: 0,
-                fontSize: 22, lineHeight: 1,
-              }}>
-                {meta.emoji}
-              </div>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: isSelected ? "#1D4ED8" : "#374151", lineHeight: 1.4, paddingRight: 22 }}>
+                transition: "background 0.15s ease",
+              }} />
+              <span style={{ fontSize: 15, fontWeight: 800, color: isSelected ? "#1D4ED8" : "#111827", lineHeight: 1.35, letterSpacing: "-0.01em" }}>
                 {o.label}
               </span>
             </button>
@@ -248,6 +238,7 @@ function DiscoverInner() {
   const loadedRef = useRef(false);
   const [textInput, setTextInput] = useState("");
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [skipWarning, setSkipWarning] = useState(false);
 
   useEffect(() => {
     fetch("/api/session", {
@@ -274,7 +265,7 @@ function DiscoverInner() {
         body: JSON.stringify({ sessionId, questionIndex: 1, value: stream === "vocational" ? null : stream, percentage: pct, isChoice: true }),
       });
       setPhase("adaptive");
-    } catch { setErr("Something went wrong. Please try again."); }
+    } catch { setErr("Something went wrong. Please try again — your info is safe."); }
     setBusy(false);
   }
 
@@ -296,7 +287,7 @@ function DiscoverInner() {
         body: JSON.stringify({ sessionId, ...prev }),
       });
       const data = await res.json().catch(() => ({ done: true }));
-      if (!res.ok) { setErr("Something went wrong. Please try again."); setBusy(false); return; }
+      if (!res.ok) { setErr("We hit a snag. Please try again."); setBusy(false); return; }
       if (data.done || !data.question) {
         setMascotState("celebrating");
         setQuestion(null); setPhase("email"); setBusy(false); return;
@@ -307,8 +298,9 @@ function DiscoverInner() {
       else setMascotState("idle_thinking");
       setQuestion(data.question);
       setSelectedOptions([]);
+      setSkipWarning(false);
       setAsked(typeof data.asked === "number" ? data.asked : asked + 1);
-    } catch { setErr("Connection error. Please try again."); }
+    } catch { setErr("No internet? Check your connection and try again."); }
     setBusy(false);
   }
 
@@ -344,6 +336,8 @@ function DiscoverInner() {
 
   function skip() {
     if (!question || busy) return;
+    if (!skipWarning) { setSkipWarning(true); return; }
+    setSkipWarning(false);
     setTextInput("");
     setHistory((h) => [...h, { question, optionId: "skip" }]);
     void stepAdaptive({ prevQuestionId: question.id, optionId: "skip" });
@@ -361,7 +355,7 @@ function DiscoverInner() {
       setTextInput("");
       setQuestion(prev.question);
       setAsked((n) => Math.max(0, n - 1));
-    } catch { setErr("Could not go back. Please try again."); }
+    } catch { setErr("Couldn't go back right now. Try again."); }
     setBusy(false);
   }
 
@@ -387,15 +381,20 @@ function DiscoverInner() {
         setBusy(false);
         return;
       }
-    } catch { setErr("Connection error. Please try again."); setBusy(false); return; }
+    } catch { setErr("No internet? Check your connection and try again."); setBusy(false); return; }
     setPhase("finishing");
     router.push(`/result?session=${sessionId}`);
   }
 
   if (sessionError) {
     return (
-      <main className="flex h-screen items-center justify-center px-6 text-center" style={{ background: "#F8F3EC", color: "#6B7280" }}>
-        Could not start a session. Please refresh the page.
+      <main className="flex h-screen items-center justify-center px-6 text-center" style={{ background: "#F8F3EC" }}>
+        <div className="space-y-3">
+          <p className="text-3xl">😵</p>
+          <p className="text-sm font-bold" style={{ color: "#111827" }}>Something went wrong at the start</p>
+          <p className="text-sm" style={{ color: "#9CA3AF" }}>Try refreshing the page — your progress will be saved.</p>
+          <button onClick={() => window.location.reload()} className="clay-btn px-5 text-sm" style={{ height: 44 }}>Refresh</button>
+        </div>
       </main>
     );
   }
@@ -451,13 +450,14 @@ function DiscoverInner() {
             {intakeStep === 1 && (
               <>
                 <div className="clay-card px-6 pt-6 pb-5">
-                  <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "#1E6FFF" }}>Let&apos;s get started</p>
-                  <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>Tell us a little about yourself.</h2>
+                  <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "#1E6FFF" }}>Hey, welcome! 👋</p>
+                  <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>Let&apos;s find the right career path for you.</h2>
+                  <p className="mt-2 text-xs" style={{ color: "#9CA3AF" }}>⏱ Takes about 5 minutes · Free forever · No account needed</p>
                 </div>
                 <div className="clay-card p-6 space-y-4">
-                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" autoFocus className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
-                  <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" placeholder="Phone number (10 digits)" className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
-                  <input value={age} onChange={(e) => setAge(e.target.value.replace(/\D/g, "").slice(0, 2))} inputMode="numeric" placeholder="Age (e.g. 17)" className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="What's your name?" autoFocus className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
+                  <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" placeholder="Your phone number (10 digits)" className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
+                  <input value={age} onChange={(e) => setAge(e.target.value.replace(/\D/g, "").slice(0, 2))} inputMode="numeric" placeholder="Your age (e.g. 17)" className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
                   <button disabled={!name.trim() || !/^[6-9]\d{9}$/.test(phone) || !age} onClick={() => setIntakeStep(2)} className="clay-btn w-full text-sm" style={{ height: 52 }}>
                     Next →
                   </button>
@@ -470,6 +470,7 @@ function DiscoverInner() {
                 <div className="clay-card px-6 pt-6 pb-5">
                   <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "#1E6FFF" }}>Your location</p>
                   <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>Which district are you from?</h2>
+                  <p className="mt-2 text-xs" style={{ color: "#9CA3AF" }}>We use this to find colleges and exams near you.</p>
                 </div>
                 <div className="clay-card p-4">
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -491,6 +492,7 @@ function DiscoverInner() {
                 <div className="clay-card px-6 pt-6 pb-5">
                   <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "#1E6FFF" }}>Your background</p>
                   <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>Which stream did you study in Plus Two?</h2>
+                  <p className="mt-2 text-xs" style={{ color: "#9CA3AF" }}>Don&apos;t worry — this doesn&apos;t limit your options. It&apos;s just a starting point.</p>
                 </div>
                 <div className="clay-card p-5 space-y-2">
                   {STREAM_CHOICES.map((c) => (
@@ -500,8 +502,7 @@ function DiscoverInner() {
                       onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#1E6FFF"; e.currentTarget.style.background = "#EEF4FF"; e.currentTarget.style.color = "#1E6FFF"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(30,111,255,0.1)"; e.currentTarget.style.background = "#F4F6FB"; e.currentTarget.style.color = "#374151"; }}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={i8(c.icon)} alt="" width={24} height={24} />
+                      <c.Icon size={20} style={{ color: "#1E6FFF", flexShrink: 0 }} />
                       <span className="flex-1">{c.label}</span>
                       <span style={{ color: "rgba(30,111,255,0.3)", fontSize: 12 }}>→</span>
                     </button>
@@ -514,8 +515,9 @@ function DiscoverInner() {
             {intakeStep === 4 && (
               <>
                 <div className="clay-card px-6 pt-6 pb-5">
-                  <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "#1E6FFF" }}>Almost there</p>
+                  <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "#1E6FFF" }}>Almost there 🎉</p>
                   <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>What was your Plus Two percentage?</h2>
+                  <p className="mt-2 text-xs" style={{ color: "#9CA3AF" }}>We use this only to check which courses you&apos;re eligible for — it doesn&apos;t define you!</p>
                 </div>
                 <div className="clay-card p-6 space-y-4">
                   <input value={percentage} onChange={(e) => setPercentage(e.target.value)} type="number" placeholder="e.g. 78" autoFocus className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
@@ -681,13 +683,20 @@ function DiscoverInner() {
                   })}
                 </div>
 
-                <button
-                  onClick={skip} disabled={busy}
-                  className="clay-btn"
-                  style={{ fontSize: 13, fontWeight: 700, height: 40, padding: "0 18px", opacity: busy ? 0.4 : 1 }}
-                >
-                  Skip for now
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                  {skipWarning && (
+                    <p style={{ fontSize: 11, color: "#F59E0B", fontWeight: 600, textAlign: "right", maxWidth: 160, lineHeight: 1.4 }}>
+                      ⚠ Skipping may make your results less accurate. Tap again to skip.
+                    </p>
+                  )}
+                  <button
+                    onClick={skip} disabled={busy}
+                    className="clay-btn"
+                    style={{ fontSize: 13, fontWeight: 700, height: 40, padding: "0 18px", opacity: busy ? 0.4 : 1 }}
+                  >
+                    Skip for now
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
