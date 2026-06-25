@@ -18,6 +18,7 @@ const bodySchema = z.object({
   sessionId: z.string().uuid(),
   prevQuestionId: z.string().max(40).optional(),
   optionId: z.string().max(4).optional(),
+  optionIds: z.array(z.string().max(4)).max(10).optional(), // multi-select answers
   textAnswer: z.string().max(500).optional(),
 });
 
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) return badRequest("Invalid adaptive payload", parsed.error.flatten());
 
-  const { sessionId, prevQuestionId, optionId, textAnswer } = parsed.data;
+  const { sessionId, prevQuestionId, optionId, optionIds, textAnswer } = parsed.data;
   const limited = await enforceRateLimit(limiters.write, "adaptive", [sessionId, ipHash]);
   if (limited) return limited;
 
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
       : [];
 
     // 1. Apply the previous answer (if any) to the profile + log it for admins.
-    if (prevQuestionId && (optionId || textAnswer)) {
+    if (prevQuestionId && (optionId || optionIds?.length || textAnswer)) {
       const q = ADAPTIVE_BY_ID[prevQuestionId];
       let logContent = textAnswer ?? optionId ?? "";
 
@@ -75,20 +76,22 @@ export async function POST(req: NextRequest) {
           Object.assign(profileRaw, mergedWithMeta);
         }
         logContent = textAnswer.trim();
-      } else if (q && optionId) {
-        // MCQ path: deterministic delta from question bank.
-        const delta = q.apply(optionId);
-        if (delta) {
-          const merged = mergeProfile(profileRaw as Partial<StudentProfile>, delta);
-          const meta = Object.fromEntries(Object.entries(profileRaw).filter(([k]) => k.startsWith("_")));
-          const mergedWithMeta = { ...merged, ...meta };
-          await db.from("student_profiles").upsert(
-            { session_id: sessionId, profile: mergedWithMeta, completeness_pct: computeCompleteness(merged), updated_at: new Date().toISOString() },
-            { onConflict: "session_id" }
-          );
-          Object.assign(profileRaw, mergedWithMeta);
+      } else if (q && (optionIds?.length || optionId)) {
+        // MCQ path (single or multi-select): apply each selected option's delta in turn.
+        const ids = optionIds?.length ? optionIds : optionId ? [optionId] : [];
+        let current = profileRaw as Partial<StudentProfile>;
+        for (const id of ids) {
+          const delta = q.apply(id);
+          if (delta) current = mergeProfile(current, delta);
         }
-        logContent = q.options.find((o) => o.id === optionId)?.label ?? optionId;
+        const meta = Object.fromEntries(Object.entries(profileRaw).filter(([k]) => k.startsWith("_")));
+        const mergedWithMeta = { ...current, ...meta };
+        await db.from("student_profiles").upsert(
+          { session_id: sessionId, profile: mergedWithMeta, completeness_pct: computeCompleteness(current), updated_at: new Date().toISOString() },
+          { onConflict: "session_id" }
+        );
+        Object.assign(profileRaw, mergedWithMeta);
+        logContent = ids.map((id) => q.options.find((o) => o.id === id)?.label ?? id).join(", ");
       }
 
       await db.from("conversations").insert({

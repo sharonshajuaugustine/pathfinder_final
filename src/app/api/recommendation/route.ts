@@ -5,7 +5,7 @@ import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } fro
 import { loadKnowledgeBase } from "@/lib/kb-loader";
 import { generateRecommendations } from "@/core/recommendation-engine";
 import { normalizeProfile, computeCompleteness, applyDerivedAptitude } from "@/core/profile-builder";
-import { explainRecommendation } from "@/core/ai";
+import { explainRecommendation, generateEnrichments } from "@/core/ai";
 import type { StudentProfile } from "@/types/profile";
 import type { Career } from "@/types/kb";
 import { audit } from "@/lib/audit";
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     // recomputed above. Matching kb_version means a KB update regenerates (Bug #3).
     const { data: cached } = await db
       .from("recommendations")
-      .select("id, explanation")
+      .select("id, explanation, parent_summary")
       .eq("session_id", sessionId)
       .eq("kb_version", kb.version)
       .order("created_at", { ascending: false })
@@ -111,6 +111,7 @@ export async function POST(req: NextRequest) {
 
     if (cached?.explanation) {
       result.explanation = cached.explanation;
+      if (cached.parent_summary) result.parentSummary = cached.parent_summary;
       return NextResponse.json({ recommendationId: cached.id, ...result });
     }
 
@@ -118,10 +119,38 @@ export async function POST(req: NextRequest) {
     const limited = await enforceRateLimit(limiters.recommend, "recommend", [sessionId, ipHash]);
     if (limited) return limited;
 
-    try {
-      result.explanation = await explainRecommendation(result, language, statedCareerGap);
-    } catch (e) {
-      console.error("explanation failed", e);
+    // Run explanation + enrichments in parallel — one Groq call each.
+    const interestLabels = Object.entries(profile.interests ?? {})
+      .filter(([, v]) => (v as number) >= 0.5)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
+      .slice(0, 3)
+      .map(([k]) => k.replace(/_/g, " "));
+    const streamLabel = profile.academic.stream?.replace(/_/g, " ") ?? undefined;
+
+    const [explanation, enrichments] = await Promise.allSettled([
+      explainRecommendation(result, language, statedCareerGap),
+      generateEnrichments({
+        top: result.top.map((c) => ({ careerId: c.careerId, name: c.name, fitScore: c.fitScore, factors: c.factors })),
+        streamLabel,
+        strongSubjects: profile.academic.strongSubjects,
+        topInterestLabels: interestLabels,
+        goalOrientation: profile.aspiration.goalOrientation ?? undefined,
+      }),
+    ]);
+
+    if (explanation.status === "fulfilled") result.explanation = explanation.value;
+    else console.error("explanation failed", explanation.reason);
+
+    if (enrichments.status === "fulfilled") {
+      const { personalInsights, parentSummary } = enrichments.value;
+      for (const career of result.top) {
+        if (personalInsights[career.careerId]) {
+          career.personalInsight = personalInsights[career.careerId];
+        }
+      }
+      if (parentSummary) result.parentSummary = parentSummary;
+    } else {
+      console.error("enrichments failed", enrichments.reason);
     }
 
     // Persist results + explanation with kb_version snapshot (no caveats column —
@@ -134,6 +163,7 @@ export async function POST(req: NextRequest) {
         results: result.top,
         overall_confidence: result.overallConfidence,
         explanation: result.explanation ?? null,
+        parent_summary: result.parentSummary ?? null,
       })
       .select("id")
       .single();

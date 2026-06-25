@@ -24,6 +24,7 @@ export interface CareerRecommendation {
   careerId: CareerId;
   name: string;
   domain: string;
+  domainId: string;
   fitScore: number;     // 0..1
   confidence: number;   // 0..1
   factors: ScoreFactor[];
@@ -32,6 +33,8 @@ export interface CareerRecommendation {
   // adjacent / fallback careers shown as alternatives
   alternatives: { careerId: CareerId; name: string; reason: string }[];
   shortDescription?: string;
+  personalInsight?: string;  // AI: why this career fits this specific student
+  gapToFix?: string;         // deterministic: most impactful gap to close
 }
 
 export interface RecommendationResult {
@@ -41,4 +44,6 @@ export interface RecommendationResult {
   top: CareerRecommendation[];
   caveats: string[];        // low-confidence / conflict warnings
   explanation?: string;     // AI prose over the above facts (added by reviewer step)
+  parentSummary?: string;   // AI: 3-sentence summary written for parents
+  streamMismatch?: string;  // deterministic alert if top careers are outside student's stream
 }

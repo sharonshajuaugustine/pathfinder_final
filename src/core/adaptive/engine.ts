@@ -17,10 +17,10 @@ import { ADAPTIVE_QUESTIONS, ADAPTIVE_BY_ID, type AdaptiveQuestion } from "./que
 // ---------------------------------------------------------------------------
 
 const TOP_K = 12;
-const MIN_QUESTIONS       = 6;    // minimum before early confidence stop
-const CONFIDENCE_GAP      = 0.15; // top career must lead #2 by this on 0-1 scale
-const MAX_INTEREST        = 8;    // max interest questions (up from 5)
-const MAX_APTITUDE        = 3;    // max aptitude questions (up from 2)
+const MIN_QUESTIONS       = 5;    // minimum before early confidence stop
+const CONFIDENCE_GAP      = 0.12; // top career must lead #2 by this on 0-1 scale
+const MAX_INTEREST        = 4;    // keep interest block short (stream filters cut further)
+const MAX_APTITUDE        = 2;    // max aptitude questions
 const EPS                 = 1e-6;
 
 export interface Belief {
@@ -204,26 +204,51 @@ export function pickNextQuestion(
         : byKind("interest");
 
       // Stream-aware exclusions: skip clusters that are very unlikely given
-      // the student's stream, so we don't ask a physicist about coding or a
-      // commerce student about building/nature. Only applied when the subject
-      // question has been answered (stream signal is reliable by then).
+      // the student's stream. Applied once the subject question is answered
+      // (stream signal is reliable by then). Be generous — only exclude clusters
+      // where there is almost no realistic career path for that stream.
       const streamExclusions = new Set<string>();
       if (hasAnsweredSubjects) {
         const stream = profile.academic.stream;
         const strongSubjects = profile.academic.strongSubjects.map((s) => s.toLowerCase());
         const hasCS = strongSubjects.some((s) => s.includes("computer") || s.includes("cs") || s.includes("it"));
-        if ((stream === "science_bio" || stream === "science_maths") && !hasCS) {
-          streamExclusions.add("technology_coding");
-        }
-        if (stream === "commerce") {
-          streamExclusions.add("nature_agriculture");
+
+        if (stream === "science_bio") {
+          // Bio students: coding/engineering/defence rarely relevant unless CS chosen
+          if (!hasCS) streamExclusions.add("technology_coding");
           streamExclusions.add("building_engineering");
           streamExclusions.add("defence_adventure");
         }
+
+        if (stream === "science_maths") {
+          // Maths students: defence and pure nature/agri are off-track
+          if (!hasCS) streamExclusions.add("technology_coding"); // already in aptitude path
+          streamExclusions.add("defence_adventure");
+          streamExclusions.add("nature_agriculture");
+        }
+
+        if (stream === "commerce") {
+          // Commerce students: hard sciences and physical/outdoor clusters not relevant
+          streamExclusions.add("nature_agriculture");
+          streamExclusions.add("building_engineering");
+          streamExclusions.add("defence_adventure");
+          streamExclusions.add("health_medicine");
+          streamExclusions.add("science_research");
+        }
+
         if (stream === "humanities") {
+          // Humanities: tech, hard engineering, outdoor/physical not relevant
           streamExclusions.add("technology_coding");
           streamExclusions.add("building_engineering");
           streamExclusions.add("nature_agriculture");
+          streamExclusions.add("defence_adventure");
+          streamExclusions.add("numbers_analysis");
+        }
+
+        if (stream === "vocational") {
+          // Vocational: law and pure science research unlikely
+          streamExclusions.add("law_justice");
+          streamExclusions.add("science_research");
         }
       }
 
@@ -250,8 +275,8 @@ export function pickNextQuestion(
   if (!asked.has("ctx_budget")) return ADAPTIVE_BY_ID.ctx_budget;
   if (!asked.has("ctx_location")) return ADAPTIVE_BY_ID.ctx_location;
 
-  // 8. Hobbies fallback if not yet asked (e.g. student was confident early).
-  if (!asked.has("ctx_hobbies")) return ADAPTIVE_BY_ID.ctx_hobbies;
+  // 8. Hobbies fallback — only if still not confident (skip if engine already knows enough).
+  if (!asked.has("ctx_hobbies") && !confident) return ADAPTIVE_BY_ID.ctx_hobbies;
 
   // 9. Risk personality if still undecided.
   if (!asked.has("per_risk") && !confident) return ADAPTIVE_BY_ID.per_risk;

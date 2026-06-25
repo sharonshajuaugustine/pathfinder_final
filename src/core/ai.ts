@@ -690,6 +690,78 @@ function pick(obj: Record<string, unknown>, allowed: readonly string[], min: num
   return r;
 }
 
+// --- enrichments (personalInsight per career + parentSummary) ------------------
+// One Groq call that produces:
+//   personalInsights: { careerId → 1 sentence why this career suits THIS student }
+//   parentSummary: 3 warm sentences written for the student's parents
+export async function generateEnrichments(params: {
+  top: Array<{ careerId: string; name: string; fitScore: number; factors: Array<{ dimension: string; label: string }> }>;
+  streamLabel?: string;
+  strongSubjects?: string[];
+  topInterestLabels?: string[];
+  goalOrientation?: string;
+  studentName?: string;
+}): Promise<{ personalInsights: Record<string, string>; parentSummary: string }> {
+  const { top, streamLabel, strongSubjects, topInterestLabels, goalOrientation, studentName } = params;
+
+  const studentCtx = [
+    streamLabel ? `Stream: ${streamLabel}` : "",
+    strongSubjects?.length ? `Strong subjects: ${strongSubjects.join(", ")}` : "",
+    topInterestLabels?.length ? `Top interests: ${topInterestLabels.join(", ")}` : "",
+    goalOrientation ? `Goal: ${goalOrientation}` : "",
+    studentName ? `Name: ${studentName}` : "",
+  ].filter(Boolean).join(" | ");
+
+  const careerList = top.map((c) => ({
+    id: c.careerId,
+    name: c.name,
+    fit: Math.round(c.fitScore * 100),
+    topFactors: c.factors.slice(0, 2).map((f) => f.label),
+  }));
+
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content:
+        "You write short, warm career guidance content for Plus Two students in Kerala, India (age 16–18). " +
+        "Use simple, everyday English. Return ONLY valid JSON — no extra text outside the JSON.",
+    },
+    {
+      role: "user",
+      content:
+        `Student profile: ${studentCtx || "not provided"}\n\n` +
+        `Top career matches:\n${JSON.stringify(careerList, null, 2)}\n\n` +
+        `Return a JSON object with exactly two keys:\n` +
+        `1. "personalInsights": an object where each key is the career id and the value is ONE sentence (max 20 words) explaining why that specific career fits THIS student. ` +
+        `Start each sentence with "Your" and reference something specific from the student profile (e.g. "Your love for biology", "Your interest in numbers", "Your goal to help people"). ` +
+        `Use the topFactors as hints — but phrase it in plain student-friendly language, not as a list.\n` +
+        `2. "parentSummary": a 3-sentence paragraph written FOR THE PARENTS of this student. ` +
+        `Sentence 1: what their child's strongest career match is and what makes it a good fit. ` +
+        `Sentence 2: what course leads there and roughly how long it takes. ` +
+        `Sentence 3: an encouraging, reassuring close about their child's future. ` +
+        `Keep it warm, clear, and jargon-free — parents may not know Plus Two terminology.\n\n` +
+        `Format: { "personalInsights": { "career_id": "sentence" }, "parentSummary": "..." }`,
+    },
+  ];
+
+  const { data } = await extractJson<{ personalInsights: Record<string, string>; parentSummary: string }>(
+    messages,
+    { temperature: 0.6 }
+  );
+
+  return {
+    personalInsights: data?.personalInsights && typeof data.personalInsights === "object"
+      ? Object.fromEntries(
+          Object.entries(data.personalInsights)
+            .filter(([, v]) => typeof v === "string" && v.length > 0)
+        )
+      : {},
+    parentSummary: typeof data?.parentSummary === "string" && data.parentSummary.length > 0
+      ? data.parentSummary
+      : "",
+  };
+}
+
 // --- reviewer / explainer ------------------------------------------------------
 // Writes a short explanation OVER the engine's already-decided result.
 //

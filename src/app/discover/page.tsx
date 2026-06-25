@@ -33,7 +33,7 @@ const GRID_META = [
 ];
 
 type Phase = "intake" | "adaptive" | "email" | "finishing";
-type Question = { id: string; text: string; options: Array<{ id: string; label: string }>; freeText?: boolean; freeTextPlaceholder?: string };
+type Question = { id: string; text: string; options: Array<{ id: string; label: string }>; freeText?: boolean; freeTextPlaceholder?: string; multiSelect?: boolean };
 type MascotState = "greeting" | "idle_thinking" | "curious_headtilt" | "excited" | "impressed" | "confused_squint" | "celebrating";
 
 const field = {
@@ -136,6 +136,93 @@ function GridOptions({ options, onAnswer, busy }: {
   );
 }
 
+// Multi-select version — checkmark grid, confirm button at bottom
+function MultiSelectGrid({ options, selected, onToggle, onConfirm, busy }: {
+  options: Array<{ id: string; label: string }>;
+  selected: string[];
+  onToggle: (id: string) => void;
+  onConfirm: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div style={{ padding: "4px 20px 0" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {options.map((o, i) => {
+          const meta = GRID_META[i % GRID_META.length];
+          const isSelected = selected.includes(o.id);
+          return (
+            <button
+              key={o.id}
+              disabled={busy}
+              onClick={() => onToggle(o.id)}
+              style={{
+                borderRadius: 22,
+                border: `1.5px solid ${isSelected ? "#1E6FFF" : meta.border}`,
+                background: isSelected ? "linear-gradient(135deg, #EEF4FF, #DBEAFE)" : "#ffffff",
+                padding: "14px 12px 16px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 8,
+                cursor: busy ? "not-allowed" : "pointer",
+                textAlign: "left",
+                opacity: busy ? 0.65 : 1,
+                boxShadow: isSelected
+                  ? "inset 2px 2px 5px rgba(255,255,255,0.7), 0 3px 0 rgba(30,111,255,0.2)"
+                  : "inset 3px 3px 6px rgba(255,255,255,0.95), 0 6px 0 rgba(165,150,130,0.18), 0 10px 24px rgba(165,150,130,0.12)",
+                transition: "all 0.15s ease",
+                minHeight: 100,
+                position: "relative",
+              }}
+            >
+              {/* Checkmark badge */}
+              <div style={{
+                position: "absolute", top: 10, right: 10,
+                width: 20, height: 20, borderRadius: "50%",
+                background: isSelected ? "#1E6FFF" : "rgba(30,111,255,0.1)",
+                border: `1.5px solid ${isSelected ? "#1E6FFF" : "rgba(30,111,255,0.2)"}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s ease",
+                flexShrink: 0,
+              }}>
+                {isSelected && (
+                  <svg viewBox="0 0 12 12" fill="none" style={{ width: 10, height: 10 }}>
+                    <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+              {/* Icon box */}
+              <div style={{
+                width: 40, height: 40, borderRadius: 12,
+                background: isSelected ? "rgba(30,111,255,0.1)" : meta.bg,
+                border: `1.5px solid ${isSelected ? "rgba(30,111,255,0.25)" : meta.border}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+                fontSize: 22, lineHeight: 1,
+              }}>
+                {meta.emoji}
+              </div>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: isSelected ? "#1D4ED8" : "#374151", lineHeight: 1.4, paddingRight: 22 }}>
+                {o.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <button
+        onClick={onConfirm}
+        disabled={busy || selected.length === 0}
+        className="clay-btn w-full"
+        style={{ marginTop: 16, height: 50, fontSize: 14, fontWeight: 700, opacity: (busy || selected.length === 0) ? 0.4 : 1 }}
+      >
+        {selected.length === 0
+          ? "Pick at least one subject"
+          : `Confirm ${selected.length} subject${selected.length > 1 ? "s" : ""} →`}
+      </button>
+    </div>
+  );
+}
+
 function DiscoverInner() {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -160,6 +247,7 @@ function DiscoverInner() {
   const [history, setHistory] = useState<{ question: Question; optionId: string }[]>([]);
   const loadedRef = useRef(false);
   const [textInput, setTextInput] = useState("");
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
 
   useEffect(() => {
     fetch("/api/session", {
@@ -198,7 +286,7 @@ function DiscoverInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, sessionId]);
 
-  async function stepAdaptive(prev?: { prevQuestionId: string; optionId?: string; textAnswer?: string }) {
+  async function stepAdaptive(prev?: { prevQuestionId: string; optionId?: string; optionIds?: string[]; textAnswer?: string }) {
     if (!sessionId) return;
     setBusy(true); setErr(null);
     setMascotState("idle_thinking");
@@ -218,6 +306,7 @@ function DiscoverInner() {
       else if (data.question.freeText) setMascotState("curious_headtilt");
       else setMascotState("idle_thinking");
       setQuestion(data.question);
+      setSelectedOptions([]);
       setAsked(typeof data.asked === "number" ? data.asked : asked + 1);
     } catch { setErr("Connection error. Please try again."); }
     setBusy(false);
@@ -229,6 +318,19 @@ function DiscoverInner() {
     setTextInput("");
     setHistory((h) => [...h, { question, optionId }]);
     void stepAdaptive({ prevQuestionId: question.id, optionId });
+  }
+
+  function answerMulti() {
+    if (!question || busy || selectedOptions.length === 0) return;
+    setMascotState("excited");
+    setHistory((h) => [...h, { question, optionId: selectedOptions.join(",") }]);
+    void stepAdaptive({ prevQuestionId: question.id, optionIds: selectedOptions });
+  }
+
+  function toggleOption(id: string) {
+    setSelectedOptions((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   }
 
   function answerText() {
@@ -472,9 +574,19 @@ function DiscoverInner() {
                 />
               </div>
 
-              {/* 2×2 clay option grid */}
+              {/* 2×2 clay option grid — single or multi-select */}
               <div style={{ marginTop: 16 }}>
-                <GridOptions options={question.options} onAnswer={answer} busy={busy} />
+                {question.multiSelect ? (
+                  <MultiSelectGrid
+                    options={question.options}
+                    selected={selectedOptions}
+                    onToggle={toggleOption}
+                    onConfirm={answerMulti}
+                    busy={busy}
+                  />
+                ) : (
+                  <GridOptions options={question.options} onAnswer={answer} busy={busy} />
+                )}
               </div>
 
               {/* Free-text input */}

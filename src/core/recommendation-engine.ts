@@ -1,7 +1,7 @@
 import type { StudentProfile } from "@/types/profile";
 import type { KnowledgeBase, Career } from "@/types/kb";
 import type {
-  RecommendationResult, CareerRecommendation, CourseRecommendation,
+  RecommendationResult, CareerRecommendation, CourseRecommendation, ScoreFactor,
 } from "@/types/recommendation";
 import { scoreCareer, evaluateEligibility } from "./scoring-engine";
 import { computeConfidence } from "./confidence";
@@ -63,6 +63,7 @@ export function generateRecommendations(
       careerId: s.career.id,
       name: s.career.name,
       domain: kb.domains.find((d) => d.id === s.career.domainId)?.name ?? s.career.domainId,
+      domainId: s.career.domainId,
       fitScore: s.fitScore,
       confidence: careerConfidence,
       factors: s.factors,
@@ -70,6 +71,7 @@ export function generateRecommendations(
       skills,
       alternatives: buildAlternatives(s.career, scored.map((x) => x.career), idx),
       shortDescription: s.career.shortDescription,
+      gapToFix: buildGapToFix(s.factors),
     };
   });
 
@@ -79,6 +81,7 @@ export function generateRecommendations(
     overallConfidence,
     top,
     caveats: buildCaveats(conflicts, completeness, overallConfidence),
+    streamMismatch: detectStreamMismatch(profile.academic.stream, top),
   };
 }
 
@@ -140,4 +143,50 @@ function buildCaveats(conflicts: ReturnType<typeof detectConflicts>, completenes
 
 function routeRank(r: string): number {
   return { primary: 0, alternative: 1, "higher-study-route": 2, fallback: 3 }[r] ?? 9;
+}
+
+const SCORING_WEIGHTS: Record<string, number> = {
+  interest: 0.3, aptitude: 0.25, academic: 0.15,
+  personality: 0.1, aspiration: 0.1, constraint: 0.1,
+};
+
+const GAP_ADVICE: Record<string, string> = {
+  interest: "Your interest in this field is still developing — speak to someone working in this role before committing.",
+  aptitude: "This career tests specific skills. Focus on your weakest subject now so it doesn't hold you back.",
+  academic: "Your stream doesn't directly align with this path — check the exact eligibility for the courses listed.",
+  personality: "This career involves a lot of people interaction. Volunteering or joining clubs will help you build comfort with that.",
+  aspiration: "This path involves several years of study. Be honest with yourself about whether you are ready for that commitment.",
+  constraint: "Some courses here can be expensive. Research government college seats and scholarship options well in advance.",
+};
+
+function buildGapToFix(factors: ScoreFactor[]): string {
+  if (!factors.length) return "";
+  const gaps = factors.map((f) => ({
+    dim: f.dimension,
+    relativeGap: 1 - f.contribution / (SCORING_WEIGHTS[f.dimension] ?? 0.1),
+  })).sort((a, b) => b.relativeGap - a.relativeGap);
+  const top = gaps[0];
+  if (!top || top.relativeGap < 0.3) return "";
+  return GAP_ADVICE[top.dim] ?? "";
+}
+
+const STREAM_HOME_DOMAINS: Record<string, string[]> = {
+  science_bio:   ["medical", "allied_health", "sciences", "agriculture"],
+  science_maths: ["engineering", "computing", "sciences", "architecture"],
+  science_cs:    ["computing", "engineering", "sciences"],
+  commerce:      ["commerce_finance", "management", "law"],
+  humanities:    ["humanities", "law", "government", "media"],
+};
+
+const STREAM_LABELS: Record<string, string> = {
+  science_bio: "Science (Biology)", science_maths: "Science (Maths)",
+  science_cs: "Science (CS)", commerce: "Commerce", humanities: "Humanities",
+};
+
+function detectStreamMismatch(stream: string | undefined, top: CareerRecommendation[]): string | undefined {
+  if (!stream || !STREAM_HOME_DOMAINS[stream]) return undefined;
+  const homeDomains = STREAM_HOME_DOMAINS[stream];
+  const outsideCount = top.slice(0, 3).filter((c) => !homeDomains.includes(c.domainId)).length;
+  if (outsideCount < 2) return undefined;
+  return `Most of your top matches are outside your ${STREAM_LABELS[stream] ?? stream} stream. That is perfectly fine — many of these courses are open to all streams regardless of Plus Two subjects. Check the eligibility tab for each course to confirm.`;
 }

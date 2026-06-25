@@ -13,8 +13,9 @@ export interface AdaptiveQuestion {
   text: string;
   kind: AdaptiveKind;
   signalKey?: string;
-  freeText?: boolean;       // show free-text input below options?
-  freeTextPlaceholder?: string; // context-aware hint for the input
+  freeText?: boolean;
+  freeTextPlaceholder?: string;
+  multiSelect?: boolean;    // student can pick multiple options; each is applied in turn
   options: AdaptiveOption[];
   apply: (optionId: string) => ProfileDelta | null;
 }
@@ -369,10 +370,9 @@ const contextQuestions: AdaptiveQuestion[] = [
   },
   {
     id: "ctx_subjects_bio",
-    text: "Which subject are you strongest in or enjoy the most?",
+    text: "Which subjects do you enjoy or do best in? Pick all that apply.",
     kind: "context",
-    freeText: true,
-    freeTextPlaceholder: "e.g. I love Biology practicals, or I'm really good at Chemistry…",
+    multiSelect: true,
     options: [
       { id: "a", label: "Biology" },
       { id: "b", label: "Chemistry" },
@@ -384,10 +384,9 @@ const contextQuestions: AdaptiveQuestion[] = [
   },
   {
     id: "ctx_subjects_maths",
-    text: "Which subject are you strongest in or enjoy the most?",
+    text: "Which subjects do you enjoy or do best in? Pick all that apply.",
     kind: "context",
-    freeText: true,
-    freeTextPlaceholder: "e.g. I love solving Maths problems, or Physics is my strong suit…",
+    multiSelect: true,
     options: [
       { id: "a", label: "Mathematics" },
       { id: "b", label: "Physics" },
@@ -399,10 +398,9 @@ const contextQuestions: AdaptiveQuestion[] = [
   },
   {
     id: "ctx_subjects_commerce",
-    text: "Which subject are you strongest in or enjoy the most?",
+    text: "Which subjects do you enjoy or do best in? Pick all that apply.",
     kind: "context",
-    freeText: true,
-    freeTextPlaceholder: "e.g. I enjoy Accountancy, or Business Studies is my best subject…",
+    multiSelect: true,
     options: [
       { id: "a", label: "Business Studies" },
       { id: "b", label: "Accountancy" },
@@ -414,10 +412,9 @@ const contextQuestions: AdaptiveQuestion[] = [
   },
   {
     id: "ctx_subjects_humanities",
-    text: "Which subject are you strongest in or enjoy the most?",
+    text: "Which subjects do you enjoy or do best in? Pick all that apply.",
     kind: "context",
-    freeText: true,
-    freeTextPlaceholder: "e.g. I love writing English essays, or History is my favourite…",
+    multiSelect: true,
     options: [
       { id: "a", label: "English / Literature" },
       { id: "b", label: "History / Political Science" },
@@ -429,10 +426,9 @@ const contextQuestions: AdaptiveQuestion[] = [
   },
   {
     id: "ctx_subjects_vocational",
-    text: "Which area is your vocational / ITI course in?",
+    text: "Which area is your vocational / ITI course in? Pick all that apply.",
     kind: "context",
-    freeText: true,
-    freeTextPlaceholder: "e.g. I'm doing Electronics, or my ITI trade is Mechanical…",
+    multiSelect: true,
     options: [
       { id: "a", label: "Electronics / Electrical" },
       { id: "b", label: "Mechanical / Automobile" },
@@ -629,6 +625,7 @@ export interface AdaptiveQuestionPublic {
   options: AdaptiveOption[];
   freeText?: boolean;
   freeTextPlaceholder?: string;
+  multiSelect?: boolean;
 }
 
 export function toPublicQuestion(q: AdaptiveQuestion): AdaptiveQuestionPublic {
@@ -638,5 +635,6 @@ export function toPublicQuestion(q: AdaptiveQuestion): AdaptiveQuestionPublic {
     options: q.options,
     freeText: q.freeText ?? false,
     freeTextPlaceholder: q.freeTextPlaceholder,
+    multiSelect: q.multiSelect ?? false,
   };
 }

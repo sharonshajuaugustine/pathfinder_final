@@ -92,6 +92,118 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
   );
 }
 
+// ── Strength Radar ──────────────────────────────────────────────────────────
+
+const STRENGTH_DIMS = [
+  { key: "aptitude",    label: "Analytical\nThinking", emoji: "🧠", color: "#1E6FFF" },
+  { key: "academic",    label: "Problem\nSolving",     emoji: "💡", color: "#F59E0B" },
+  { key: "interest",    label: "Interest\nMatch",      emoji: "🎯", color: "#EF4444" },
+  { key: "personality", label: "People\nSkills",       emoji: "🤝", color: "#10B981" },
+  { key: "aspiration",  label: "Future\nGrowth",       emoji: "🚀", color: "#8B5CF6" },
+];
+
+function deriveStrengths(top: RecommendationResult["top"]) {
+  const totals: Record<string, { sum: number; count: number }> = {};
+  for (const d of STRENGTH_DIMS) totals[d.key] = { sum: 0, count: 0 };
+  for (const career of top) {
+    for (const f of (career.factors ?? [])) {
+      if (totals[f.dimension]) {
+        totals[f.dimension].sum += f.contribution;
+        totals[f.dimension].count += 1;
+      }
+    }
+  }
+  return STRENGTH_DIMS.map((d) => {
+    const t = totals[d.key];
+    const raw = t.count > 0 ? t.sum / t.count : 0.5;
+    return { ...d, value: Math.min(1, Math.max(0.15, raw)) };
+  });
+}
+
+function StrengthRadar({ top }: { top: RecommendationResult["top"] }) {
+  const strengths = deriveStrengths(top);
+  const cx = 78, cy = 78, R = 58;
+  const angles = [0, 1, 2, 3, 4].map((i) => ((-90 + i * 72) * Math.PI) / 180);
+  const pt = (r: number, i: number): [number, number] => [cx + r * Math.cos(angles[i]), cy + r * Math.sin(angles[i])];
+  const poly = (f: number) => strengths.map((_, i) => pt(R * f, i).join(",")).join(" ");
+  const filled = strengths.map((s, i) => pt(R * s.value, i).join(",")).join(" ");
+
+  return (
+    <div className="clay-card overflow-hidden">
+      <div style={{ padding: "18px 18px 4px" }}>
+        <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#1E6FFF" }}>
+          Your strength profile
+        </p>
+        <p style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginTop: 3 }}>
+          What makes these a good fit?
+        </p>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px 20px" }}>
+
+        {/* Pentagon radar chart */}
+        <svg width="156" height="156" viewBox="0 0 156 156" style={{ flexShrink: 0 }}>
+          {/* Grid rings */}
+          {[0.33, 0.66, 1].map((f) => (
+            <polygon key={f} points={poly(f)} fill="none" stroke="rgba(30,111,255,0.1)" strokeWidth={f === 1 ? 1.5 : 1} />
+          ))}
+          {/* Axis spokes */}
+          {strengths.map((_, i) => {
+            const [x, y] = pt(R, i);
+            return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="rgba(30,111,255,0.1)" strokeWidth="1" />;
+          })}
+          {/* Filled shape */}
+          <polygon points={filled} fill="rgba(30,111,255,0.13)" stroke="#1E6FFF" strokeWidth="2" strokeLinejoin="round" />
+          {/* Vertex dots */}
+          {strengths.map((s, i) => {
+            const [x, y] = pt(R * s.value, i);
+            return <circle key={i} cx={x} cy={y} r={4} fill="#1E6FFF" stroke="#fff" strokeWidth="1.5" />;
+          })}
+          {/* Axis labels — two-line via tspan */}
+          {strengths.map((s, i) => {
+            const [x, y] = pt(R + 18, i);
+            const lines = s.label.split("\n");
+            return (
+              <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fontSize="8.5" fontWeight="700" fill="#6B7280">
+                {lines.map((l, li) => (
+                  <tspan key={li} x={x} dy={li === 0 ? (lines.length > 1 ? -5 : 0) : 11}>{l}</tspan>
+                ))}
+              </text>
+            );
+          })}
+        </svg>
+
+        {/* Bar list */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", lineHeight: 1.45, marginBottom: 10 }}>
+            Your answers align strongly in these key areas
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            {strengths.map((s) => (
+              <div key={s.key}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#374151", display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 13 }}>{s.emoji}</span>
+                    {s.label.replace("\n", " ")}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: s.color, flexShrink: 0 }}>
+                    {Math.round(s.value * 100)}%
+                  </span>
+                </div>
+                <div style={{ height: 5, borderRadius: 99, background: "rgba(0,0,0,0.06)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${s.value * 100}%`, borderRadius: 99, background: s.color, transition: "width 0.9s cubic-bezier(0.34,1.56,0.64,1)" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 function confidenceLevel(c: number) {
   if (c >= 0.75) return { label: "High confidence", bg: "rgba(74,222,128,0.12)", color: "#166534", border: "rgba(74,222,128,0.25)" };
   if (c >= 0.5)  return { label: "Good confidence", bg: "rgba(245,158,11,0.1)",  color: "#92400E", border: "rgba(245,158,11,0.2)" };
@@ -171,7 +283,7 @@ function ResultInner() {
   const conf = confidenceLevel(data.overallConfidence);
 
   // Group courses, sorted by best fit
-  type CareerEntry = { name: string; fitScore: number; routeType: string; shortDescription?: string };
+  type CareerEntry = { name: string; fitScore: number; routeType: string; shortDescription?: string; personalInsight?: string; gapToFix?: string };
   const map = new Map<string, {
     course: NonNullable<typeof data.top[0]["courses"][0]>;
     careers: CareerEntry[];
@@ -186,7 +298,7 @@ function ResultInner() {
       }
       const entry = map.get(course.courseId)!;
       if (!entry.careers.find((x) => x.name === c.name)) {
-        entry.careers.push({ name: c.name, fitScore: c.fitScore, routeType: course.routeType, shortDescription: c.shortDescription });
+        entry.careers.push({ name: c.name, fitScore: c.fitScore, routeType: course.routeType, shortDescription: c.shortDescription, personalInsight: c.personalInsight, gapToFix: c.gapToFix });
       }
       if (c.fitScore > entry.bestFitScore) entry.bestFitScore = c.fitScore;
     }
@@ -249,6 +361,17 @@ function ResultInner() {
             />
           </div>
         </div>
+
+        {/* ── Stream mismatch alert ── */}
+        {data.streamMismatch && (
+          <div className="clay-card px-5 py-4" style={{ background: "rgba(255,251,235,0.9)", border: "1px solid rgba(245,158,11,0.25)" }}>
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-1.5" style={{ color: "#B45309" }}>💡 Good to know</p>
+            <p className="text-sm leading-relaxed" style={{ color: "#92400E" }}>{data.streamMismatch}</p>
+          </div>
+        )}
+
+        {/* ── Strength radar ── */}
+        {(data.top ?? []).length > 0 && <StrengthRadar top={data.top} />}
 
         {/* ── AI explanation ── */}
         {data.explanation && (
@@ -341,11 +464,15 @@ function ResultInner() {
                           <p style={{ fontSize: 13, fontWeight: 700, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {career.name}
                           </p>
-                          {career.shortDescription && (
+                          {career.personalInsight ? (
+                            <p style={{ fontSize: 11, color: "#1D4ED8", marginTop: 2, lineHeight: 1.4, fontStyle: "italic" }}>
+                              {career.personalInsight}
+                            </p>
+                          ) : career.shortDescription ? (
                             <p style={{ fontSize: 11, color: "#6B7280", marginTop: 1, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                               {career.shortDescription}
                             </p>
-                          )}
+                          ) : null}
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, flexShrink: 0 }}>
                           <span style={{ fontSize: 12, fontWeight: 800, color: rank.accent }}>{careerPct}%</span>
@@ -382,6 +509,17 @@ function ResultInner() {
                     </span>
                   )}
                 </div>
+
+                {/* Gap-to-fix tip — deterministic advice on the weakest scoring dimension */}
+                {careers[0]?.gapToFix && (
+                  <div style={{ marginTop: 14, borderRadius: 12, padding: "10px 13px", background: "rgba(30,111,255,0.05)", border: "1px solid rgba(30,111,255,0.12)", display: "flex", gap: 8, alignItems: "flex-start" }}>
+                    <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>💡</span>
+                    <p style={{ fontSize: 11.5, color: "#1D4ED8", lineHeight: 1.5, margin: 0 }}>
+                      <span style={{ fontWeight: 700 }}>One thing to work on: </span>
+                      {careers[0].gapToFix}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -396,6 +534,19 @@ function ResultInner() {
                 <li key={i} style={{ fontSize: 12.5, color: "#92400E", lineHeight: 1.55 }}>{cv}</li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* ── Parent summary card ── */}
+        {data.parentSummary && (
+          <div className="clay-card overflow-hidden">
+            <div style={{ padding: "16px 18px 12px", background: "linear-gradient(135deg, #F0FDF4, #DCFCE7)", borderBottom: "1px solid rgba(74,222,128,0.2)" }}>
+              <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "#166534" }}>👪 For parents</p>
+              <p style={{ marginTop: 4, fontSize: 13, fontWeight: 700, color: "#14532D" }}>Share this with your family</p>
+            </div>
+            <div style={{ padding: "14px 18px 18px" }}>
+              <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.65 }}>{data.parentSummary}</p>
+            </div>
           </div>
         )}
 
