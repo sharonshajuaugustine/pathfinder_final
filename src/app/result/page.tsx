@@ -402,7 +402,7 @@ function ResultInner() {
         {/* ── What to do next ── */}
         <div className="clay-card overflow-hidden">
           <div style={{ padding: "20px 20px 6px" }}>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-1" style={{ color: "#1E6FFF" }}>What's next?</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-1" style={{ color: "#1E6FFF" }}>What&apos;s next?</p>
             <h3 style={{ fontSize: 17, fontWeight: 800, color: "#111827", lineHeight: 1.3 }}>
               Talk to someone who&apos;s been there
             </h3>
@@ -420,14 +420,14 @@ function ResultInner() {
               boxShadow: "inset 2px 2px 4px rgba(255,255,255,0.9), 0 3px 0 rgba(165,150,130,0.14)",
               textDecoration: "none",
             }}>
-              ← Start again
+              ← Home
             </Link>
             <button
               onClick={() => { if (typeof window !== "undefined") window.print(); }}
               className="clay-btn"
               style={{ height: 42, padding: "0 20px", fontSize: 13, fontWeight: 700 }}
             >
-              Save report
+              Save report 🖨
             </button>
           </div>
         </div>
