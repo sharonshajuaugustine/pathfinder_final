@@ -13,12 +13,14 @@ import type { EligibilityStatus, ScoreFactor } from "@/types/recommendation";
 // ---------------------------------------------------------------------------
 
 // Default scoring weights (tunable; mirror the blueprint).
+// aspiration raised from 0.1 → 0.15: student's stated career / priorities are a strong self-signal.
+// academic lowered from 0.15 → 0.10: stream is a filter, not a strong differentiator post-stream-question.
 export const SCORING_WEIGHTS = {
   interest: 0.3,
   aptitude: 0.25,
-  academic: 0.15,
+  academic: 0.10,
   personality: 0.1,
-  aspiration: 0.1,
+  aspiration: 0.15,
   constraint: 0.1,
 } as const;
 
