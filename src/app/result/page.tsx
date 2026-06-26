@@ -141,13 +141,33 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
   );
 }
 
-// ── Strength bars (plain language) ───────────────────────────────────────────
+// ── Strength trait cards ──────────────────────────────────────────────────────
 
 const PLAIN_DIMS = [
-  { keys: ["aptitude", "academic"], emoji: "🧩", text: "Great at problem solving",     color: "#1E6FFF" },
-  { keys: ["interest"],             emoji: "🎯", text: "Strong interest in this field", color: "#EF4444" },
-  { keys: ["personality"],          emoji: "🤝", text: "You work well with people",     color: "#10B981" },
-  { keys: ["aspiration"],           emoji: "🚀", text: "Set up for future growth",      color: "#8B5CF6" },
+  {
+    keys: ["aptitude", "academic"],
+    emoji: "🧠", trait: "Analytical",     color: "#1E6FFF",
+    bg: "#EEF4FF", border: "rgba(30,111,255,0.15)",
+    desc: "You break problems down well — a natural fit for science, tech & data careers.",
+  },
+  {
+    keys: ["interest"],
+    emoji: "🔥", trait: "High Drive",     color: "#F97316",
+    bg: "#FFF7ED", border: "rgba(249,115,22,0.15)",
+    desc: "Your curiosity and motivation are strong. You're likely to stick with whatever you choose.",
+  },
+  {
+    keys: ["personality"],
+    emoji: "🤝", trait: "Collaborative",  color: "#10B981",
+    bg: "#ECFDF5", border: "rgba(16,185,129,0.15)",
+    desc: "You work well with people — great for roles involving teams, clients or patients.",
+  },
+  {
+    keys: ["aspiration"],
+    emoji: "🚀", trait: "Future-Focused", color: "#8B5CF6",
+    bg: "#F5F3FF", border: "rgba(139,92,246,0.15)",
+    desc: "You think long-term. You'll keep pushing for growth no matter which path you take.",
+  },
 ];
 
 function deriveStrengths(top: RecommendationResult["top"]) {
@@ -178,43 +198,72 @@ function deriveStrengths(top: RecommendationResult["top"]) {
   }));
 }
 
-function StrengthBars({ top }: { top: RecommendationResult["top"] }) {
-  const bars = deriveStrengths(top);
+function StrengthCards({ top }: { top: RecommendationResult["top"] }) {
+  const cards = deriveStrengths(top);
+
+  // Signal strength label based on normalised value
+  function signalLabel(v: number) {
+    if (v >= 0.85) return { label: "Very strong", dot: 4 };
+    if (v >= 0.75) return { label: "Strong",      dot: 3 };
+    if (v >= 0.65) return { label: "Good",         dot: 2 };
+    return               { label: "Moderate",      dot: 1 };
+  }
+
   return (
     <div className="clay-card px-5 py-5">
       <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#1E6FFF", marginBottom: 6 }}>
         Your strengths
       </p>
-      <p style={{ fontSize: 16, fontWeight: 800, color: "#111827", marginBottom: 16, lineHeight: 1.3 }}>
-        Here&apos;s what your answers say about you
+      <p style={{ fontSize: 16, fontWeight: 800, color: "#111827", marginBottom: 2, lineHeight: 1.3 }}>
+        What your answers reveal about you
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {bars.map((b) => (
-          <div key={b.text}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#111827", display: "flex", alignItems: "center", gap: 7 }}>
-                <span style={{ fontSize: 18 }}>{b.emoji}</span>
-                {b.text}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 800, color: b.color, flexShrink: 0, marginLeft: 8 }}>
-                {Math.round(b.value * 100)}%
-              </span>
+      <p style={{ fontSize: 11.5, color: "#6B7280", marginBottom: 14, lineHeight: 1.5 }}>
+        Based on the patterns across all your quiz answers.
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        {cards.map((c) => {
+          const sig = signalLabel(c.value);
+          return (
+            <div key={c.trait} style={{
+              borderRadius: 20,
+              border: `1.5px solid ${c.border}`,
+              background: c.bg,
+              padding: "14px 12px 16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 0,
+            }}>
+              {/* Signal dots */}
+              <div style={{ display: "flex", gap: 3, marginBottom: 10 }}>
+                {[1, 2, 3, 4].map((n) => (
+                  <div key={n} style={{
+                    width: 6, height: 6, borderRadius: "50%",
+                    background: n <= sig.dot ? c.color : "rgba(0,0,0,0.1)",
+                    transition: "background 0.3s",
+                  }} />
+                ))}
+                <span style={{ fontSize: 9.5, fontWeight: 700, color: c.color, marginLeft: 4, lineHeight: "6px", alignSelf: "center" }}>
+                  {sig.label}
+                </span>
+              </div>
+
+              {/* Emoji */}
+              <span style={{ fontSize: 30, lineHeight: 1, marginBottom: 8 }}>{c.emoji}</span>
+
+              {/* Trait name */}
+              <p style={{ fontSize: 15, fontWeight: 800, color: "#111827", lineHeight: 1.2, marginBottom: 6 }}>
+                {c.trait}
+              </p>
+
+              {/* Description */}
+              <p style={{ fontSize: 11, color: "#6B7280", lineHeight: 1.55, margin: 0 }}>
+                {c.desc}
+              </p>
             </div>
-            <div style={{ height: 8, borderRadius: 99, background: "rgba(0,0,0,0.06)", overflow: "hidden" }}>
-              <div style={{
-                height: "100%",
-                width: `${b.value * 100}%`,
-                borderRadius: 99,
-                background: `linear-gradient(90deg, ${b.color}bb, ${b.color})`,
-                transition: "width 1s cubic-bezier(0.34,1.2,0.64,1)",
-              }} />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      <p style={{ marginTop: 14, fontSize: 11, color: "#9CA3AF", lineHeight: 1.55 }}>
-        These scores are based on the patterns in your answers — the higher the bar, the stronger the signal.
-      </p>
     </div>
   );
 }
@@ -407,7 +456,7 @@ function ResultInner() {
         )}
 
         {/* ── Strength bars ── */}
-        {(data.top ?? []).length > 0 && <StrengthBars top={data.top} />}
+        {(data.top ?? []).length > 0 && <StrengthCards top={data.top} />}
 
         {/* ── AI explanation ── */}
         {data.explanation && (
