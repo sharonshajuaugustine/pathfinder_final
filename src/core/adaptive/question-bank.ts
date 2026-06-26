@@ -16,6 +16,7 @@ export interface AdaptiveQuestion {
   freeText?: boolean;
   freeTextPlaceholder?: string;
   multiSelect?: boolean;    // student can pick multiple options; each is applied in turn
+  whyWeAsk?: string;        // shown as a subtle hint so students understand the purpose
   options: AdaptiveOption[];
   apply: (optionId: string) => ProfileDelta | null;
 }
@@ -30,11 +31,11 @@ const INTEREST_QUESTION_DATA: Record<string, { text: string; options: { a: strin
     },
   },
   health_medicine: {
-    text: "If someone around you gets hurt or falls sick, how do you react?",
+    text: "When you picture yourself working in healthcare, what feels true?",
     options: {
-      a: "I stay calm and want to help — medical situations don't bother me",
-      b: "I try to help, but prefer someone else to take charge",
-      c: "I'd rather step back — medical stuff makes me uncomfortable",
+      a: "I'd love it — caring for patients and being in a clinical environment feels meaningful",
+      b: "I'm more drawn to the science or research side than direct patient care",
+      c: "Not really my path — I'd rather work in a different field entirely",
     },
   },
   business_money: {
@@ -102,11 +103,11 @@ const INTEREST_QUESTION_DATA: Record<string, { text: string; options: { a: strin
     },
   },
   defence_adventure: {
-    text: "What kind of weekend activity excites you most?",
+    text: "Which type of career environment appeals to you most?",
     options: {
-      a: "Trekking, martial arts, sports, or any physically challenging outdoor activity",
-      b: "A casual walk or light sport with friends",
-      c: "Staying home — relaxing, gaming, or reading",
+      a: "Physically demanding, high-discipline roles — army, police, sports, or emergency services",
+      b: "Active but less intense — coaching, adventure tourism, or outdoor fieldwork",
+      c: "I prefer a desk-based or less physically demanding career",
     },
   },
   numbers_analysis: {
@@ -119,7 +120,9 @@ const INTEREST_QUESTION_DATA: Record<string, { text: string; options: { a: strin
   },
 };
 
-const INTEREST_VALUES: Record<string, number> = { a: 0.9, b: 0.5, c: 0.05 };
+// b = 0.3 (mild interest), not 0.5 — prevents "okay" answers from inflating all clusters equally
+// x = "not sure" → apply() returns null → cluster stays at default; isStuck() handles fallback
+const INTEREST_VALUES: Record<string, number> = { a: 0.9, b: 0.3, c: 0.05 };
 const APTITUDE_VALUES: Record<string, number> = { a: 85, b: 55, c: 25 };
 const PERSONALITY_VALUES: Record<string, number> = { a: 0.8, b: 0.1, c: -0.8 };
 
@@ -149,10 +152,12 @@ const interestQuestions: AdaptiveQuestion[] = INTEREST_CLUSTERS.map((key) => {
     // avoids confusing students into thinking they must type something.
     options: [
       { id: "a", label: data?.options.a ?? "I'd love it" },
-      { id: "b", label: data?.options.b ?? "It's okay" },
+      { id: "b", label: data?.options.b ?? "Sort of — it's okay but not my first choice" },
       { id: "c", label: data?.options.c ?? "Not really for me" },
+      { id: "x", label: "I'm honestly not sure" },
     ],
     apply: (opt) => {
+      if (opt === "x") return null; // neutral — leave cluster at default, isStuck() handles fallback
       const v = INTEREST_VALUES[opt];
       return v == null ? null : { interests: { [key]: v } };
     },
@@ -227,6 +232,7 @@ const personalityQuestions: AdaptiveQuestion[] = [
     text: "In a group project or social situation, where do you naturally fit?",
     kind: "personality",
     signalKey: "social",
+    whyWeAsk: "This tells us whether people-facing roles or independent focused work suits you better.",
     options: [
       { id: "a", label: "Taking charge, talking, bouncing ideas — I'm energised by people" },
       { id: "b", label: "I can do both — team time and quiet solo work" },
@@ -242,6 +248,7 @@ const personalityQuestions: AdaptiveQuestion[] = [
     text: "When you learn something new, what works best for you?",
     kind: "personality",
     signalKey: "practical",
+    whyWeAsk: "This helps us separate hands-on practical careers from desk-based thinking roles.",
     options: [
       { id: "a", label: "Doing it — hands-on, building, or practising in real life" },
       { id: "b", label: "A mix — some theory, then trying it out" },
@@ -257,6 +264,7 @@ const personalityQuestions: AdaptiveQuestion[] = [
     text: "When starting something new with uncertain outcomes, how do you feel?",
     kind: "personality",
     signalKey: "risk_taking",
+    whyWeAsk: "This helps us gauge your fit for entrepreneurial paths vs stable, structured careers.",
     options: [
       { id: "a", label: "Excited — I like taking big bets for big rewards" },
       { id: "b", label: "Open to some risk, but I want a safety net" },
@@ -343,6 +351,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_goal",
     text: "What's your main plan after Plus Two?",
     kind: "context",
+    whyWeAsk: "Your timeline shapes everything — short-term job paths and long-term degree paths are very different.",
     options: [
       { id: "a", label: "Study a degree or diploma" },
       { id: "b", label: "Get a job as soon as possible" },
@@ -443,6 +452,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_hobbies",
     text: "Outside school, what do you enjoy doing most?",
     kind: "context",
+    whyWeAsk: "What you do for fun often points directly to the right career — it's a strong signal we don't want to miss.",
     freeText: true,
     freeTextPlaceholder: "e.g. I love cooking, playing chess, or making short films…",
     options: [
@@ -464,6 +474,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_budget",
     text: "Can your family manage private college fees if needed?",
     kind: "context",
+    whyWeAsk: "We use this to filter courses and highlight government seats and scholarship-friendly options.",
     options: [
       { id: "a", label: "Yes — fees aren't a concern" },
       { id: "b", label: "Up to around ₹1 lakh per year is okay" },
@@ -478,6 +489,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_location",
     text: "Are you open to studying outside Kerala?",
     kind: "context",
+    whyWeAsk: "This helps us show courses that are actually reachable for you.",
     options: [
       { id: "a", label: "I'd prefer to stay in Kerala" },
       { id: "b", label: "Anywhere in India is fine" },
@@ -598,6 +610,7 @@ const statedCareerQuestion: AdaptiveQuestion = {
   id: "ctx_stated_career",
   text: "Do you already have a career in mind? Type it below — or pick an option.",
   kind: "context",
+  whyWeAsk: "If you have a goal in mind, we can tell you exactly what steps to take to get there.",
   freeText: true,
   freeTextPlaceholder: "e.g. CA, nurse, software engineer, pilot…",
   options: [
@@ -626,6 +639,7 @@ export interface AdaptiveQuestionPublic {
   freeText?: boolean;
   freeTextPlaceholder?: string;
   multiSelect?: boolean;
+  whyWeAsk?: string;
 }
 
 export function toPublicQuestion(q: AdaptiveQuestion): AdaptiveQuestionPublic {
@@ -636,5 +650,6 @@ export function toPublicQuestion(q: AdaptiveQuestion): AdaptiveQuestionPublic {
     freeText: q.freeText ?? false,
     freeTextPlaceholder: q.freeTextPlaceholder,
     multiSelect: q.multiSelect ?? false,
+    whyWeAsk: q.whyWeAsk,
   };
 }

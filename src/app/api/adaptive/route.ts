@@ -4,7 +4,7 @@ import { getServiceClient } from "@/lib/supabase/admin";
 import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { loadKnowledgeBase } from "@/lib/kb-loader";
 import { normalizeProfile, mergeProfile, computeCompleteness } from "@/core/profile-builder";
-import { pickNextQuestion, scoreBeliefs } from "@/core/adaptive/engine";
+import { pickNextQuestion, scoreBeliefs, estimateQuestionsRemaining } from "@/core/adaptive/engine";
 import { ADAPTIVE_BY_ID, toPublicQuestion } from "@/core/adaptive/question-bank";
 import { extractProfileDelta } from "@/core/ai";
 import type { StudentProfile } from "@/types/profile";
@@ -134,7 +134,9 @@ export async function POST(req: NextRequest) {
       .slice(0, 3)
       .map((b) => ({ name: b.career.name, score: Math.round(b.score * 100) }));
 
-    return NextResponse.json({ question: toPublicQuestion(next), asked: nextAsked.length, done: false, beliefs });
+    const estimatedRemaining = estimateQuestionsRemaining(updatedProfile, kb, nextAsked);
+
+    return NextResponse.json({ question: toPublicQuestion(next), asked: nextAsked.length, done: false, beliefs, estimatedRemaining });
   } catch (e) {
     console.error(e);
     return serverError("Adaptive step failed");

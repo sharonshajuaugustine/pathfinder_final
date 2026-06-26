@@ -17,8 +17,8 @@ import { ADAPTIVE_QUESTIONS, ADAPTIVE_BY_ID, type AdaptiveQuestion } from "./que
 // ---------------------------------------------------------------------------
 
 const TOP_K = 12;
-const MIN_QUESTIONS       = 5;    // minimum before early confidence stop
-const CONFIDENCE_GAP      = 0.12; // top career must lead #2 by this on 0-1 scale
+const MIN_QUESTIONS       = 4;    // first 4 fixed Qs (goal/career/stream/subjects) establish strong priors
+const CONFIDENCE_GAP      = 0.15; // require a bigger lead before early stop to avoid noise termination
 const MAX_INTEREST        = 4;    // keep interest block short (stream filters cut further)
 const MAX_APTITUDE        = 2;    // max aptitude questions
 const EPS                 = 1e-6;
@@ -260,9 +260,12 @@ export function pickNextQuestion(
     }
   }
 
-  // 5. Core personality questions (always asked).
-  for (const id of ["per_social", "per_practical"]) {
-    if (!asked.has(id)) return ADAPTIVE_BY_ID[id];
+  // 5. Personality questions — skip if already confident (personality weight is 0.1;
+  //    won't flip a clear winner). Still ask if undecided.
+  if (!confident) {
+    for (const id of ["per_social", "per_practical"]) {
+      if (!asked.has(id)) return ADAPTIVE_BY_ID[id];
+    }
   }
 
   // 6. Aptitude questions by relevance (skip if confident).
@@ -271,9 +274,10 @@ export function pickNextQuestion(
     if (q) return q;
   }
 
-  // 7. Budget and location — always asked (needed to filter course recommendations).
+  // 7. Budget — always needed to filter course options.
   if (!asked.has("ctx_budget")) return ADAPTIVE_BY_ID.ctx_budget;
-  if (!asked.has("ctx_location")) return ADAPTIVE_BY_ID.ctx_location;
+  // Location — skip if confident (top career is clear; location only refines course list).
+  if (!asked.has("ctx_location") && !confident) return ADAPTIVE_BY_ID.ctx_location;
 
   // 8. Hobbies fallback — only if still not confident (skip if engine already knows enough).
   if (!asked.has("ctx_hobbies") && !confident) return ADAPTIVE_BY_ID.ctx_hobbies;
@@ -282,4 +286,38 @@ export function pickNextQuestion(
   if (!asked.has("per_risk") && !confident) return ADAPTIVE_BY_ID.per_risk;
 
   return null;
+}
+
+// Estimate how many questions are likely left — used by the client to show a progress hint.
+// This is a rough upper bound, not a guarantee; the engine may stop early.
+export function estimateQuestionsRemaining(
+  profile: StudentProfile,
+  kb: KnowledgeBase,
+  askedIds: string[]
+): number {
+  const asked = new Set(askedIds);
+  const beliefs = scoreBeliefs(profile, kb);
+  const confident = isConfident(beliefs, askedIds.length);
+
+  let n = 0;
+
+  // Budget is always asked.
+  if (!asked.has("ctx_budget")) n++;
+
+  if (!confident) {
+    // Location, personality, hobbies, risk — all conditional on not-confident.
+    if (!asked.has("ctx_location")) n++;
+    if (!asked.has("per_social")) n++;
+    if (!asked.has("per_practical")) n++;
+
+    // Remaining interest questions up to the cap.
+    const interestAsked = byKind("interest").filter((q) => asked.has(q.id)).length;
+    n += Math.max(0, MAX_INTEREST - interestAsked);
+
+    // Remaining aptitude questions up to the cap.
+    const aptAsked = byKind("aptitude").filter((q) => asked.has(q.id)).length;
+    n += Math.max(0, MAX_APTITUDE - aptAsked);
+  }
+
+  return n;
 }
