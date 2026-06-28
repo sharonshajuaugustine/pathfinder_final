@@ -72,6 +72,13 @@ export function generateRecommendations(
       alternatives: buildAlternatives(s.career, scored.map((x) => x.career), idx),
       shortDescription: s.career.shortDescription,
       gapToFix: buildGapToFix(s.factors),
+      typicalRoles: s.career.typicalRoles,
+      earningBand: s.career.earningBand,
+      jobMarketKerala: s.career.jobMarketKerala,
+      jobMarketIndia: s.career.jobMarketIndia,
+      riskLevel: s.career.riskLevel,
+      minYearsToEarn: s.career.minYearsToEarn,
+      higherStudyRequired: s.career.higherStudyRequired,
     };
   });
 
@@ -119,6 +126,7 @@ function resolveCourses(
       eligibilityNotes: elig.notes,
       exams,
       feeBand: course.typicalFeeBand,
+      demandWeight: course.demandWeight,
     });
   }
   return out;

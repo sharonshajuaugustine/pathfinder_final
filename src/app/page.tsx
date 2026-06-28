@@ -87,57 +87,86 @@ export default function LandingPage() {
       </header>
 
       {/* ── Hero ── */}
-      <section className="hero-gradient relative overflow-hidden px-6 pb-28 pt-20 text-white sm:pb-36 sm:pt-28">
+      <section className="hero-gradient relative overflow-hidden px-6 pb-28 pt-16 text-white sm:pb-36 sm:pt-24">
         <div className="pointer-events-none absolute" style={{ top: -80, right: -80, width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(147,197,253,0.28) 0%, transparent 70%)" }} />
         <div className="pointer-events-none absolute" style={{ bottom: -60, left: -60, width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(196,181,253,0.22) 0%, transparent 70%)" }} />
 
-        <div className="relative mx-auto max-w-3xl text-center">
+        <div className="relative mx-auto max-w-lg">
+
+          {/* Badge */}
           <span
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold"
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold mb-6"
             style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.22)", color: "rgba(255,255,255,0.9)" }}
           >
             ✨ Free career guidance for Plus Two students in Kerala
           </span>
 
-          {/* Floating icon cluster */}
-          <div className="my-10 flex items-end justify-center gap-5">
-            {HERO_ITEMS.map((item, idx) => (
-              <div
-                key={idx}
-                className="animate-clay-float"
-                style={{
-                  width: item.size, height: item.size,
-                  borderRadius: item.size * 0.28,
-                  background: "rgba(255,255,255,0.18)",
-                  backdropFilter: "blur(10px)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.3) inset",
-                  animationDelay: item.delay, flexShrink: 0,
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.icon} alt="" width={Math.round(item.size * 0.58)} height={Math.round(item.size * 0.58)} />
-              </div>
-            ))}
+          {/* Headline + mascot side by side */}
+          <div className="relative" style={{ minHeight: 320 }}>
+
+            {/* Mascot — absolute right, head peeks above text */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/coyot/greeting.png"
+              alt="Coyot waving hello"
+              width={220}
+              height={248}
+              style={{
+                position: "absolute",
+                right: -24,
+                bottom: 0,
+                width: 220,
+                height: 248,
+                objectFit: "contain",
+                filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.28))",
+                pointerEvents: "none",
+              }}
+            />
+
+            {/* Bot companion — bottom-left of mascot */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/coyot/bot_smiling.png"
+              alt=""
+              width={72}
+              height={72}
+              style={{
+                position: "absolute",
+                right: 172,
+                bottom: 12,
+                width: 72,
+                height: 72,
+                objectFit: "contain",
+                filter: "drop-shadow(0 6px 12px rgba(0,0,0,0.22))",
+                pointerEvents: "none",
+              }}
+            />
+
+            {/* Headline — right padding leaves room for mascot */}
+            <h1
+              className="font-black leading-[1.1] text-white"
+              style={{ fontSize: "clamp(2.4rem, 9vw, 3.4rem)", paddingRight: 180, paddingTop: 8 }}
+            >
+              Find the<br />career<br />path
+              <br />
+              <span style={{ background: "linear-gradient(90deg, #93C5FD 0%, #C4B5FD 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+                that fits<br />you.
+              </span>
+            </h1>
+
           </div>
 
-          <h1 className="text-balance text-4xl font-black leading-[1.1] text-white sm:text-5xl lg:text-6xl">
-            Find the career path
-            <br />
-            <span style={{ background: "linear-gradient(90deg, #93C5FD 0%, #C4B5FD 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-              that actually fits you.
-            </span>
-          </h1>
-
-          <p className="mt-5 text-balance text-base leading-relaxed sm:text-lg" style={{ color: "rgba(255,255,255,0.72)" }}>
+          {/* Description */}
+          <p className="mt-5 text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.72)" }}>
             A guided AI conversation maps your interests, strengths, and goals to honest, explained
             recommendations — built for Kerala&apos;s Plus Two students.
           </p>
 
-          <div className="mt-10 flex flex-col items-center gap-3">
+          {/* CTA */}
+          <div className="mt-8 flex flex-col gap-3">
             <Link
               href="/discover"
-              className="clay-btn h-14 px-10 text-base"
+              className="clay-btn h-14 px-10 text-base text-center"
               style={{ background: "#ffffff", color: "#1E6FFF", boxShadow: "0 5px 0 rgba(0,0,0,0.1), 0 12px 32px rgba(0,0,0,0.12)" }}
             >
               Start now — it&apos;s free →
