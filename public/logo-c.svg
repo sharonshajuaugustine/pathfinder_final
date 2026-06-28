@@ -1,0 +1,20 @@
+<svg viewBox="0 0 220 260" xmlns="http://www.w3.org/2000/svg" fill="#1B38CC">
+  <!-- Left body of C with chamfered corners -->
+  <polygon points="0,46 46,0 46,260 0,214"/>
+
+  <!-- Top arm (trapezoid — angled on right end) -->
+  <polygon points="46,0 148,0 172,30 172,68 46,68"/>
+
+  <!-- Bottom arm (trapezoid — angled on right end) -->
+  <polygon points="46,192 172,192 172,230 148,260 46,260"/>
+
+  <!-- Top circuit trace (thin rect off right edge of arm, centered on the vertical part) -->
+  <rect x="172" y="37" width="13" height="28" rx="4"/>
+  <!-- Top circuit via (small circle after the trace) -->
+  <circle cx="196" cy="51" r="11"/>
+
+  <!-- Bottom circuit trace -->
+  <rect x="172" y="199" width="13" height="28" rx="4"/>
+  <!-- Bottom circuit via -->
+  <circle cx="196" cy="213" r="11"/>
+</svg>

@@ -558,7 +558,7 @@ const drillQuestions: AdaptiveQuestion[] = [
     apply: (opt) => {
       if (opt === "a") return { interests: { technology_coding: 0.9 }, aptitude: { logical: 80 } };
       if (opt === "b") return { interests: { building_engineering: 0.75 }, aptitude: { spatial: 70 } };
-      if (opt === "c") return { interests: { numbers_analysis: 0.75, science_research: 0.6 }, aptitude: { logical: 75 } };
+      if (opt === "c") return { interests: { numbers_analysis: 0.75, technology_coding: 0.75, science_research: 0.3 }, aptitude: { logical: 75 } };
       if (opt === "d") return { interests: { technology_coding: 0.7, building_engineering: 0.5 } };
       return null;
     },

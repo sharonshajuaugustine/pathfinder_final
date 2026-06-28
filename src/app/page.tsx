@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CoyotCIcon } from "@/components/coyot-logo";
 
 const i8 = (n: string) => `https://img.icons8.com/3d-fluency/96/${n}.png`;
 
@@ -70,16 +71,7 @@ export default function LandingPage() {
       >
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <div
-              style={{
-                width: 34, height: 34, borderRadius: 12,
-                background: "linear-gradient(145deg, #3B82FF, #1E6FFF)",
-                boxShadow: "0 3px 0 rgba(6,26,138,0.4), 0 6px 16px rgba(30,111,255,0.3)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <span style={{ color: "#fff", fontWeight: 800, fontSize: 14, fontFamily: "var(--font-heading)" }}>P</span>
-            </div>
+            <CoyotCIcon size={28} />
             <span className="text-base font-black tracking-tight" style={{ color: "#111827", fontFamily: "var(--font-heading)" }}>
               PathFinder
             </span>

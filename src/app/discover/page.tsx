@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CoyotCIcon } from "@/components/coyot-logo";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FlaskConical, Calculator, Laptop, TrendingUp, Palette, Wrench } from "lucide-react";
 import type { Stream } from "@/types/onboarding";
@@ -421,14 +422,7 @@ function DiscoverInner() {
       >
         <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-5">
           <Link href="/" className="flex items-center gap-2">
-            <div style={{
-              width: 30, height: 30, borderRadius: 10,
-              background: "linear-gradient(145deg,#3B82FF,#1E6FFF)",
-              boxShadow: "0 3px 0 rgba(6,26,138,0.4)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <span style={{ color: "#fff", fontWeight: 800, fontSize: 12 }}>P</span>
-            </div>
+            <CoyotCIcon size={24} />
             <span className="text-sm font-black tracking-tight" style={{ color: "#111827" }}>PathFinder</span>
           </Link>
           {phase === "adaptive" && (
@@ -871,7 +865,7 @@ function DiscoverInner() {
               <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>Where should we send your full report?</h2>
             </div>
             <form onSubmit={submitEmail} className="clay-card p-6 space-y-4">
-              <input name="email" type="email" required placeholder="your@email.com" autoFocus className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
+              <input name="email" type="email" placeholder="your@email.com (optional)" autoFocus className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
               <label className="flex items-start gap-2.5 rounded-2xl p-3 text-xs" style={{ border: "1.5px solid rgba(30,111,255,0.1)", background: "#F4F6FB" }}>
                 <Checkbox name="consentGiven" required className="mt-0.5 shrink-0" />
                 <span style={{ color: "#6B7280" }}>I agree to my data being processed for career guidance and possibly shared with a counsellor.</span>

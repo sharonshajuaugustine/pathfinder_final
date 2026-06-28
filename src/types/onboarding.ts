@@ -26,8 +26,8 @@ export const KERALA_DISTRICTS = [
 export const onboardingSchema = z.object({
   sessionId: z.string().uuid(),
   phone: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number").optional(),
-  email: z.string().email(),
-  district: z.enum(KERALA_DISTRICTS),
+  email: z.string().email().optional().or(z.literal("")),
+  district: z.enum(KERALA_DISTRICTS).optional(),
   gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(),
   preferredLanguage: z.enum(LANGUAGES).default("en"),
   consentGiven: z.literal(true, {

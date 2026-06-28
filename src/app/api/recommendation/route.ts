@@ -4,7 +4,7 @@ import { getServiceClient } from "@/lib/supabase/admin";
 import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { loadKnowledgeBase } from "@/lib/kb-loader";
 import { generateRecommendations } from "@/core/recommendation-engine";
-import { normalizeProfile, computeCompleteness, applyDerivedAptitude } from "@/core/profile-builder";
+import { normalizeProfile, computeCompleteness, applyDerivedAptitude, applyDerivedPersonality } from "@/core/profile-builder";
 import { explainRecommendation, generateEnrichments, reviewRecommendations } from "@/core/ai";
 import type { StudentProfile } from "@/types/profile";
 import type { Career } from "@/types/kb";
@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
     const profile = normalizeProfile(prof?.profile as Partial<StudentProfile> | null);
     // Fill aptitude from subjects/stream for profiles saved before this was derived at merge time.
     applyDerivedAptitude(profile);
+    // Fill personality traits inferred from aptitude for older profiles.
+    applyDerivedPersonality(profile);
     const { data: lead } = await db.from("leads").select("age, preferred_language").eq("session_id", sessionId).maybeSingle();
     const language = lead?.preferred_language === "ml" ? "ml" : "en";
 

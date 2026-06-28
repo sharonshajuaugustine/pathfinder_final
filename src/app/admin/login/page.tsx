@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { CoyotCIcon } from "@/components/coyot-logo";
 
 export default function AdminLogin() {
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +40,7 @@ export default function AdminLogin() {
       <header className="sticky top-0 z-50 border-b border-border/60 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-lg bg-primary" />
+            <CoyotCIcon size={22} />
             <span className="text-sm font-semibold tracking-tight">PathFinder</span>
           </Link>
           <Link
@@ -55,7 +56,7 @@ export default function AdminLogin() {
       <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-8">
         <div className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
           <div className="mb-6 flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-primary" />
+            <CoyotCIcon size={18} />
             <span className="text-sm font-semibold">PathFinder</span>
             <span className="text-xs text-muted-foreground">Admin</span>
           </div>

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { CoyotCIcon } from "@/components/coyot-logo";
 import { cn } from "@/lib/utils";
 import type { RecommendationResult } from "@/types/recommendation";
 
@@ -91,7 +92,6 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
   if (submitted) {
     return (
       <div className="clay-card px-5 py-6 text-center" style={{ background: "linear-gradient(135deg,#F0FDF4,#DCFCE7)", border: "1px solid rgba(74,222,128,0.2)" }}>
-        <p className="text-2xl mb-2">🙏</p>
         <p className="text-sm font-bold" style={{ color: "#166534" }}>Thanks for the feedback!</p>
         <p className="mt-1 text-sm" style={{ color: "#15803D" }}>It helps us improve PathFinder for students like you.</p>
       </div>
@@ -119,9 +119,12 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
           </button>
         ))}
       </div>
-      <div className={cn("overflow-hidden transition-all duration-200", reaction ? "max-h-48 opacity-100 mt-4" : "max-h-0 opacity-0")}>
+      <div className={cn("overflow-hidden transition-all duration-200", reaction ? "max-h-72 opacity-100 mt-4" : "max-h-0 opacity-0")}>
+        <p className="mb-2 text-xs" style={{ color: "#6B7280", lineHeight: 1.6 }}>
+          Tell us anything — what you liked, what felt off, or what you wish was different. Every bit helps us make PathFinder better for students like you.
+        </p>
         <textarea ref={textRef} value={message} onChange={(e) => setMessage(e.target.value)}
-          placeholder="Anything we should improve? (optional)" maxLength={1000} rows={3}
+          placeholder="Share your thoughts… (optional)" maxLength={1000} rows={3}
           className="w-full resize-none px-3 py-2.5 text-sm outline-none placeholder:text-gray-400"
           style={{ borderRadius: 14, border: "1.5px solid rgba(30,111,255,0.15)", background: "#F4F6FB", color: "#111827" }}
           onFocus={(e) => { e.target.style.borderColor = "#1E6FFF"; e.target.style.background = "#fff"; }}
@@ -392,9 +395,7 @@ function ResultInner() {
       <header className="sticky top-0 z-50" style={{ background: "rgba(248,243,236,0.92)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(30,111,255,0.07)" }}>
         <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-5">
           <Link href="/" className="flex items-center gap-2">
-            <div style={{ width: 30, height: 30, borderRadius: 10, background: "linear-gradient(145deg,#3B82FF,#1E6FFF)", boxShadow: "0 3px 0 rgba(6,26,138,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "#fff", fontWeight: 800, fontSize: 12 }}>P</span>
-            </div>
+            <CoyotCIcon size={24} />
             <span className="text-sm font-black tracking-tight" style={{ color: "#111827" }}>PathFinder</span>
           </Link>
           <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: "rgba(30,111,255,0.09)", color: "#1E6FFF" }}>Your Report</span>
