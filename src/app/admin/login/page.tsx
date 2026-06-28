@@ -41,7 +41,7 @@ export default function AdminLogin() {
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2.5">
             <CoyotCIcon size={22} />
-            <span className="text-sm font-semibold tracking-tight">PathFinder</span>
+            <span className="text-sm font-semibold tracking-tight">Coyot PathFinder</span>
           </Link>
           <Link
             href="/"
@@ -57,7 +57,7 @@ export default function AdminLogin() {
         <div className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
           <div className="mb-6 flex items-center gap-2">
             <CoyotCIcon size={18} />
-            <span className="text-sm font-semibold">PathFinder</span>
+            <span className="text-sm font-semibold">Coyot PathFinder</span>
             <span className="text-xs text-muted-foreground">Admin</span>
           </div>
 

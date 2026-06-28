@@ -22,7 +22,7 @@ export async function GET() {
     status: 200,
     headers: {
       "Content-Type":        "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="pathfinder-students-${date}.csv"`,
+      "Content-Disposition": `attachment; filename="coyot-pathfinder-students-${date}.csv"`,
     },
   });
 }

@@ -7,14 +7,14 @@ const STEPS = [
   {
     num: "01",
     icon: i8("chat-message"),
-    title: "Tell us about yourself",
-    desc: "A guided AI conversation explores your interests, strengths, and goals — asking follow-up questions based on what you say until it really understands you.",
+    title: "Share your basics",
+    desc: "Tell us your stream, marks, and where you're from — takes under a minute.",
   },
   {
     num: "02",
-    icon: i8("puzzle"),
-    title: "Quick aptitude check",
-    desc: "15 questions measure your numerical, logical, and spatial strengths — making guidance specific, not generic.",
+    icon: i8("idea"),
+    title: "Answer a few smart questions",
+    desc: "Our AI asks about your interests, goals, and strengths — adapting based on what you say, not a fixed list.",
   },
   {
     num: "03",
@@ -45,7 +45,7 @@ const WHY = [
 const STATS = [
   { val: "40+", label: "Career paths", icon: i8("compass") },
   { val: "5", label: "Streams", icon: i8("books") },
-  { val: "~20 min", label: "To complete", icon: i8("clock") },
+  { val: "~10 min", label: "To complete", icon: i8("clock") },
   { val: "Free", label: "Always", icon: i8("confetti") },
 ];
 
@@ -73,7 +73,7 @@ export default function LandingPage() {
           <Link href="/" className="flex items-center gap-2.5">
             <CoyotCIcon size={28} />
             <span className="text-base font-black tracking-tight" style={{ color: "#111827", fontFamily: "var(--font-heading)" }}>
-              PathFinder
+              Coyot PathFinder
             </span>
           </Link>
           <Link
@@ -87,65 +87,19 @@ export default function LandingPage() {
       </header>
 
       {/* ── Hero ── */}
-      <section className="hero-gradient relative overflow-hidden px-6 pb-28 pt-16 text-white sm:pb-36 sm:pt-24">
+      <section className="hero-gradient relative overflow-hidden px-6 pb-28 -mt-10 pt-0 text-white sm:pb-36 sm:pt-0">
         <div className="pointer-events-none absolute" style={{ top: -80, right: -80, width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(147,197,253,0.28) 0%, transparent 70%)" }} />
         <div className="pointer-events-none absolute" style={{ bottom: -60, left: -60, width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(196,181,253,0.22) 0%, transparent 70%)" }} />
 
         <div className="relative mx-auto max-w-lg">
 
-          {/* Badge */}
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold mb-6"
-            style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.22)", color: "rgba(255,255,255,0.9)" }}
-          >
-            ✨ Free career guidance for Plus Two students in Kerala
-          </span>
+{/* Headline + mascot side by side */}
+          <div className="flex items-end gap-4">
 
-          {/* Headline + mascot side by side */}
-          <div className="relative" style={{ minHeight: 320 }}>
-
-            {/* Mascot — absolute right, head peeks above text */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/coyot/greeting.png"
-              alt="Coyot waving hello"
-              width={220}
-              height={248}
-              style={{
-                position: "absolute",
-                right: -24,
-                bottom: 0,
-                width: 220,
-                height: 248,
-                objectFit: "contain",
-                filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.28))",
-                pointerEvents: "none",
-              }}
-            />
-
-            {/* Bot companion — bottom-left of mascot */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/coyot/bot_smiling.png"
-              alt=""
-              width={72}
-              height={72}
-              style={{
-                position: "absolute",
-                right: 172,
-                bottom: 12,
-                width: 72,
-                height: 72,
-                objectFit: "contain",
-                filter: "drop-shadow(0 6px 12px rgba(0,0,0,0.22))",
-                pointerEvents: "none",
-              }}
-            />
-
-            {/* Headline — right padding leaves room for mascot */}
+            {/* Headline */}
             <h1
-              className="font-black leading-[1.1] text-white"
-              style={{ fontSize: "clamp(2.4rem, 9vw, 3.4rem)", paddingRight: 180, paddingTop: 8 }}
+              className="font-black leading-[1.1] text-white flex-1"
+              style={{ fontSize: "clamp(2.2rem, 9vw, 3.4rem)", paddingTop: 8 }}
             >
               Find the<br />career<br />path
               <br />
@@ -153,6 +107,23 @@ export default function LandingPage() {
                 that fits<br />you.
               </span>
             </h1>
+
+            {/* Mascot + bot combined */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/coyot/landing.png"
+              alt="Coyot holding the bot"
+              className="flex-shrink-0"
+              style={{
+                width: 320,
+                height: 352,
+                objectFit: "contain",
+                filter: "drop-shadow(0 16px 32px rgba(0,0,0,0.22))",
+                pointerEvents: "none",
+                marginLeft: -40,
+                transform: "translateY(60px)",
+              }}
+            />
 
           </div>
 
@@ -171,7 +142,7 @@ export default function LandingPage() {
             >
               Start now — it&apos;s free →
             </Link>
-            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>No account needed · ~20 minutes · Free forever</p>
+            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>No account needed · ~10 minutes · Free forever</p>
           </div>
         </div>
       </section>
@@ -221,10 +192,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Why PathFinder ── */}
+      {/* ── Why Coyot PathFinder ── */}
       <section className="px-6 py-20 sm:py-24" style={{ background: "rgba(30,111,255,0.03)", borderTop: "1px solid rgba(30,111,255,0.07)", borderBottom: "1px solid rgba(30,111,255,0.07)" }}>
         <div className="mx-auto max-w-5xl">
-          <h2 className="mb-12 text-center text-2xl font-black text-gray-900 sm:text-3xl">Why students trust PathFinder</h2>
+          <h2 className="mb-12 text-center text-2xl font-black text-gray-900 sm:text-3xl">Why students trust Coyot PathFinder</h2>
           <div className="grid gap-5 sm:grid-cols-3">
             {WHY.map((f) => (
               <div key={f.title} className="clay-card p-6">
@@ -244,7 +215,7 @@ export default function LandingPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={i8("graduation-cap")} alt="" width={72} height={72} className="mx-auto mb-5" />
           <h2 className="text-2xl font-black text-gray-900 sm:text-3xl">Ready to find your path?</h2>
-          <p className="mt-3 text-sm" style={{ color: "#6B7280" }}>Free, in about 20 minutes. No account needed.</p>
+          <p className="mt-3 text-sm" style={{ color: "#6B7280" }}>Free, in about 10 minutes. No account needed.</p>
           <div className="mt-8">
             <Link href="/discover" className="clay-btn h-14 px-10 text-sm">Get started for free →</Link>
           </div>
@@ -255,9 +226,9 @@ export default function LandingPage() {
       <footer className="px-6 py-10" style={{ borderTop: "1px solid rgba(30,111,255,0.08)", background: "rgba(255,255,255,0.45)" }}>
         <div className="mx-auto max-w-5xl space-y-1.5 text-center">
           <p className="text-xs" style={{ color: "#9CA3AF" }}>
-            PathFinder is a career guidance tool. It supports your decision — it does not make it for you. All advice should be discussed with family, teachers, and counsellors.
+            Coyot PathFinder is a career guidance tool. It supports your decision — it does not make it for you. All advice should be discussed with family, teachers, and counsellors.
           </p>
-          <p className="text-xs" style={{ color: "#D1D5DB" }}>© {new Date().getFullYear()} PathFinder · Made for Kerala students</p>
+          <p className="text-xs" style={{ color: "#D1D5DB" }}>© {new Date().getFullYear()} Coyot PathFinder · Made for Kerala students</p>
         </div>
       </footer>
     </div>

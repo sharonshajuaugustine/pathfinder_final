@@ -450,7 +450,7 @@ function DiscoverInner() {
         <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-5">
           <Link href="/" className="flex items-center gap-2">
             <CoyotCIcon size={24} />
-            <span className="text-sm font-black tracking-tight" style={{ color: "#111827" }}>PathFinder</span>
+            <span className="text-sm font-black tracking-tight" style={{ color: "#111827" }}>Coyot PathFinder</span>
           </Link>
           {phase === "adaptive" && (
             <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: "rgba(30,111,255,0.09)", color: "#1E6FFF" }}>

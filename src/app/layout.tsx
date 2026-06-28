@@ -18,7 +18,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "PathFinder — AI Career Guidance for Plus Two Students | Kerala",
+  title: "Coyot PathFinder — AI Career Guidance for Plus Two Students | Kerala",
   description:
     "Discover your strengths, interests, and the right career path after Plus Two. Free, guided, and built for Kerala students.",
 };
