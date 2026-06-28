@@ -132,10 +132,13 @@ export function pickNextQuestion(
   const asked = new Set(askedIds);
 
   // 1. Goal — always first (frames everything).
-  if (!asked.has("ctx_goal")) return ADAPTIVE_BY_ID.ctx_goal;
+  // Skip if already committed to profile — back-nav can remove it from askedIds.
+  if (!asked.has("ctx_goal") && !profile.aspiration.goalOrientation) return ADAPTIVE_BY_ID.ctx_goal;
 
   // 1b. Stated career — right after goal while student is thinking about their future.
-  if (!asked.has("ctx_stated_career")) return ADAPTIVE_BY_ID.ctx_stated_career;
+  // Skip if statedCareer is already set — back-navigation can remove it from askedIds
+  // but the answer was already committed to the profile, so we must never re-ask it.
+  if (!asked.has("ctx_stated_career") && !profile.aspiration.statedCareer) return ADAPTIVE_BY_ID.ctx_stated_career;
 
   // 2. Stream — gates which subject question to show next.
   // Skip if stream is already known (collected during intake).
@@ -280,7 +283,9 @@ export function pickNextQuestion(
   if (!asked.has("ctx_location") && !confident) return ADAPTIVE_BY_ID.ctx_location;
 
   // 8. Hobbies fallback — only if still not confident (skip if engine already knows enough).
-  if (!asked.has("ctx_hobbies") && !confident) return ADAPTIVE_BY_ID.ctx_hobbies;
+  // Also skip if already committed (value 0.85 is the hobbies sentinel) — back-nav guard.
+  const hobbiesCommitted = Object.values(profile.interests).some((v) => v === 0.85);
+  if (!asked.has("ctx_hobbies") && !confident && !hobbiesCommitted) return ADAPTIVE_BY_ID.ctx_hobbies;
 
   // 9. Risk personality if still undecided.
   if (!asked.has("per_risk") && !confident) return ADAPTIVE_BY_ID.per_risk;

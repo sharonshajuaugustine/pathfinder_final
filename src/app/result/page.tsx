@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, DollarSign, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RecommendationResult } from "@/types/recommendation";
 
@@ -29,14 +28,12 @@ function SkeletonResult() {
     <div className="min-h-screen" style={{ background: "#F8F3EC" }}>
       <header style={{ height: 56, background: "rgba(248,243,236,0.92)", borderBottom: "1px solid rgba(30,111,255,0.07)" }} />
       <main className="mx-auto max-w-lg px-5 py-6 space-y-5 animate-pulse">
-        {/* hero */}
         <div className="clay-card p-6 space-y-3">
           <SkeletonBar w="35%" h={18} />
           <SkeletonBar w="80%" h={26} />
           <SkeletonBar w="55%" h={26} />
           <SkeletonBar w="45%" h={13} />
         </div>
-        {/* strength bars */}
         <div className="clay-card p-6 space-y-4">
           <SkeletonBar w="50%" h={14} />
           {[1, 2, 3, 4].map((n) => (
@@ -46,7 +43,6 @@ function SkeletonResult() {
             </div>
           ))}
         </div>
-        {/* course cards */}
         {[1, 2].map((n) => (
           <div key={n} className="clay-card overflow-hidden">
             <div style={{ height: 72, background: "#EDE7DF" }} />
@@ -96,16 +92,16 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
     return (
       <div className="clay-card px-5 py-6 text-center" style={{ background: "linear-gradient(135deg,#F0FDF4,#DCFCE7)", border: "1px solid rgba(74,222,128,0.2)" }}>
         <p className="text-2xl mb-2">🙏</p>
-        <p className="text-sm font-bold" style={{ color: "#166534" }}>Thank you for your feedback!</p>
-        <p className="mt-1 text-xs" style={{ color: "#15803D" }}>It helps us improve PathFinder for students like you.</p>
+        <p className="text-sm font-bold" style={{ color: "#166534" }}>Thanks for the feedback!</p>
+        <p className="mt-1 text-sm" style={{ color: "#15803D" }}>It helps us improve PathFinder for students like you.</p>
       </div>
     );
   }
 
   return (
     <div className="clay-card px-5 py-6">
-      <p className="text-sm font-bold text-center" style={{ color: "#111827" }}>How was your experience?</p>
-      <p className="mt-0.5 text-xs text-center" style={{ color: "#9CA3AF" }}>Your feedback helps us improve PathFinder</p>
+      <p className="text-base font-bold text-center" style={{ color: "#111827" }}>How was your experience?</p>
+      <p className="mt-1 text-sm text-center" style={{ color: "#9CA3AF" }}>Your feedback helps us improve PathFinder</p>
       <div className="mt-4 flex items-center justify-center gap-3">
         {REACTIONS.map((r) => (
           <button key={r.id} onClick={() => { setReaction(r.id); setTimeout(() => textRef.current?.focus(), 50); }}
@@ -119,7 +115,7 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
             }}
           >
             <span className="text-2xl leading-none">{r.emoji}</span>
-            <span className="text-[10px] font-semibold" style={{ color: reaction === r.id ? "#1E6FFF" : "#9CA3AF" }}>{r.label}</span>
+            <span className="text-xs font-semibold" style={{ color: reaction === r.id ? "#1E6FFF" : "#9CA3AF" }}>{r.label}</span>
           </button>
         ))}
       </div>
@@ -154,19 +150,19 @@ const PLAIN_DIMS = [
     keys: ["interest"],
     emoji: "🔥", trait: "High Drive",     color: "#F97316",
     bg: "#FFF7ED", border: "rgba(249,115,22,0.15)",
-    desc: "Your curiosity and motivation are strong. You're likely to stick with whatever you choose.",
+    desc: "Your curiosity and motivation are strong. You'll stick with whatever you choose.",
   },
   {
     keys: ["personality"],
     emoji: "🤝", trait: "Collaborative",  color: "#10B981",
     bg: "#ECFDF5", border: "rgba(16,185,129,0.15)",
-    desc: "You work well with people — great for roles involving teams, clients or patients.",
+    desc: "You work well with people — great for teams, clients or patients.",
   },
   {
     keys: ["aspiration"],
     emoji: "🚀", trait: "Future-Focused", color: "#8B5CF6",
     bg: "#F5F3FF", border: "rgba(139,92,246,0.15)",
-    desc: "You think long-term. You'll keep pushing for growth no matter which path you take.",
+    desc: "You think long-term. You'll keep pushing for growth no matter the path.",
   },
 ];
 
@@ -200,69 +196,45 @@ function deriveStrengths(top: RecommendationResult["top"]) {
 
 function StrengthCards({ top }: { top: RecommendationResult["top"] }) {
   const cards = deriveStrengths(top);
-
-  // Signal strength label based on normalised value
-  function signalLabel(v: number) {
-    if (v >= 0.85) return { label: "Very strong", dot: 4 };
-    if (v >= 0.75) return { label: "Strong",      dot: 3 };
-    if (v >= 0.65) return { label: "Good",         dot: 2 };
-    return               { label: "Moderate",      dot: 1 };
-  }
+  const sorted = [...cards].sort((a, b) => b.value - a.value);
+  const [featured, ...rest] = sorted;
 
   return (
-    <div className="clay-card px-5 py-5">
-      <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#1E6FFF", marginBottom: 6 }}>
-        Your strengths
-      </p>
-      <p style={{ fontSize: 16, fontWeight: 800, color: "#111827", marginBottom: 2, lineHeight: 1.3 }}>
-        What your answers reveal about you
-      </p>
-      <p style={{ fontSize: 11.5, color: "#6B7280", marginBottom: 14, lineHeight: 1.5 }}>
-        Based on the patterns across all your quiz answers.
-      </p>
+    <div className="clay-card overflow-hidden">
+      {/* Featured top trait — full-width, editorial */}
+      <div style={{
+        background: featured.bg,
+        padding: "22px 22px 20px",
+        borderBottom: `1px solid ${featured.border}`,
+      }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", marginBottom: 14, letterSpacing: "0.01em" }}>
+          What your answers reveal about you
+        </p>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+          <span style={{ fontSize: 48, lineHeight: 1, flexShrink: 0 }}>{featured.emoji}</span>
+          <div>
+            <p style={{ fontSize: 22, fontWeight: 900, color: "#111827", lineHeight: 1.15, marginBottom: 6 }}>
+              {featured.trait}
+            </p>
+            <p style={{ fontSize: 13, color: "#4B5563", lineHeight: 1.6, margin: 0 }}>
+              {featured.desc}
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        {cards.map((c) => {
-          const sig = signalLabel(c.value);
-          return (
-            <div key={c.trait} style={{
-              borderRadius: 20,
-              border: `1.5px solid ${c.border}`,
-              background: c.bg,
-              padding: "14px 12px 16px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 0,
-            }}>
-              {/* Signal dots */}
-              <div style={{ display: "flex", gap: 3, marginBottom: 10 }}>
-                {[1, 2, 3, 4].map((n) => (
-                  <div key={n} style={{
-                    width: 6, height: 6, borderRadius: "50%",
-                    background: n <= sig.dot ? c.color : "rgba(0,0,0,0.1)",
-                    transition: "background 0.3s",
-                  }} />
-                ))}
-                <span style={{ fontSize: 9.5, fontWeight: 700, color: c.color, marginLeft: 4, lineHeight: "6px", alignSelf: "center" }}>
-                  {sig.label}
-                </span>
-              </div>
-
-              {/* Emoji */}
-              <span style={{ fontSize: 30, lineHeight: 1, marginBottom: 8 }}>{c.emoji}</span>
-
-              {/* Trait name */}
-              <p style={{ fontSize: 15, fontWeight: 800, color: "#111827", lineHeight: 1.2, marginBottom: 6 }}>
-                {c.trait}
-              </p>
-
-              {/* Description */}
-              <p style={{ fontSize: 11, color: "#6B7280", lineHeight: 1.55, margin: 0 }}>
-                {c.desc}
-              </p>
+      {/* Remaining traits as a simple horizontal list */}
+      <div style={{ padding: "16px 22px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF" }}>Also in your profile</p>
+        {rest.map((c) => (
+          <div key={c.trait} style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+            <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>{c.emoji}</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 2 }}>{c.trait}</p>
+              <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.55, margin: 0 }}>{c.desc}</p>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -275,16 +247,17 @@ function WhatsAppShare({ sessionId, topCareer, topScore }: { sessionId: string; 
 
   function share() {
     if (typeof window === "undefined") return;
-    const url = `${window.location.origin}/result?session=${sessionId}`;
+    const url = `${window.location.origin}/discover`;
     const lines = [
-      "🎉 I just found my career path on PathFinder!",
+      "🎉 I just got my career report on PathFinder!",
       "",
-      topCareer ? `My top match: *${topCareer}*${topScore ? ` — ${topScore}% fit` : ""}` : "My career report is ready!",
+      topCareer ? `My top match: *${topCareer}*${topScore ? ` (${topScore}% fit)` : ""}` : "My career report is ready!",
       "",
-      "It's free and takes about 5 minutes. Try yours 👇",
+      "It's a free AI career guide for Plus Two students — takes about 20 mins. Try it here 👇",
       url,
     ];
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`, "_blank", "noopener,noreferrer");
+    const text = encodeURIComponent(lines.join("\n"));
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank", "noopener,noreferrer");
     setOpened(true);
     setTimeout(() => setOpened(false), 3000);
   }
@@ -296,7 +269,7 @@ function WhatsAppShare({ sessionId, topCareer, topScore }: { sessionId: string; 
         display: "inline-flex", alignItems: "center", gap: 8,
         height: 44, padding: "0 20px", borderRadius: 22,
         background: opened ? "#128C7E" : "#25D366",
-        color: "#fff", fontWeight: 700, fontSize: 13,
+        color: "#fff", fontWeight: 700, fontSize: 14,
         border: "none", cursor: "pointer", flexShrink: 0,
         boxShadow: `0 4px 0 ${opened ? "#0a6b60" : "#128C7E"}, 0 8px 20px rgba(37,211,102,0.3)`,
         transition: "all 0.2s ease",
@@ -319,16 +292,23 @@ function confidenceLevel(c: number) {
 }
 
 const RANK_CONFIG = [
-  { medal: "🏆", label: "Best Match",   accent: "#F59E0B", accentDark: "#D97706", bannerFrom: "#FFFBEB", bannerTo: "#FEF3C7", barColor: "#F59E0B" },
-  { medal: "🥈", label: "Strong Match", accent: "#1E6FFF", accentDark: "#1D4ED8", bannerFrom: "#EEF4FF", bannerTo: "#DBEAFE", barColor: "#1E6FFF" },
-  { medal: "🥉", label: "Good Match",   accent: "#7C3AED", accentDark: "#6D28D9", bannerFrom: "#F5F3FF", bannerTo: "#EDE9FE", barColor: "#7C3AED" },
+  { num: "01", label: "Top pick",      accent: "#D97706", accentDark: "#92400E", bannerBg: "#FFFBEB", barColor: "#F59E0B" },
+  { num: "02", label: "Strong option", accent: "#1E6FFF", accentDark: "#1D4ED8", bannerBg: "#EEF4FF", barColor: "#1E6FFF" },
+  { num: "03", label: "Worth exploring", accent: "#7C3AED", accentDark: "#6D28D9", bannerBg: "#F5F3FF", barColor: "#7C3AED" },
 ];
 
-const ROUTE_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-  primary:              { label: "Direct path", color: "#1D4ED8", bg: "rgba(59,130,246,0.09)" },
-  alternative:          { label: "Alternative",  color: "#6D28D9", bg: "rgba(139,92,246,0.09)" },
-  fallback:             { label: "Fallback",     color: "#92400E", bg: "rgba(245,158,11,0.1)"  },
-  "higher-study-route": { label: "After PG",    color: "#166534", bg: "rgba(74,222,128,0.1)"  },
+const ROUTE_LABEL: Record<string, string> = {
+  primary:              "Direct path",
+  alternative:          "Alternative",
+  fallback:             "Fallback",
+  "higher-study-route": "After postgrad",
+};
+
+const FEE_LABEL: Record<string, string> = {
+  low:       "₹ Affordable",
+  medium:    "₹₹ Moderate fees",
+  high:      "₹₹₹ Higher fees",
+  "very-high": "₹₹₹₹ Premium fees",
 };
 
 // ── Main result view ─────────────────────────────────────────────────────────
@@ -399,6 +379,12 @@ function ResultInner() {
   const topCareerName = groups[0]?.careers[0]?.name;
   const topCareerScore = groups[0] ? Math.round(groups[0].bestFitScore * 100) : undefined;
 
+  // When all scores cluster within 5 points, showing the same % on every card is misleading.
+  // Instead we show qualitative fit labels and hide the raw number.
+  const scores = groups.map((g) => g.bestFitScore);
+  const scoreSpread = scores.length > 1 ? Math.max(...scores) - Math.min(...scores) : 1;
+  const flatScores = scoreSpread < 0.05;
+
   return (
     <div className="min-h-screen" style={{ background: "#F8F3EC" }}>
 
@@ -415,30 +401,19 @@ function ResultInner() {
         </div>
       </header>
 
-      {/* ── Breadcrumb ── */}
-      <div className="px-5 py-2.5" style={{ borderBottom: "1px solid rgba(30,111,255,0.06)", background: "rgba(255,255,255,0.45)" }}>
-        <div className="mx-auto max-w-lg flex items-center gap-2 text-xs">
-          <span style={{ color: "#9CA3AF" }}>Your details</span>
-          <div className="h-px flex-1" style={{ background: "#1E6FFF" }} />
-          <span style={{ color: "#9CA3AF" }}>Conversation</span>
-          <div className="h-px flex-1" style={{ background: "#1E6FFF" }} />
-          <span className="font-bold" style={{ color: "#1E6FFF" }}>✦ Report</span>
-        </div>
-      </div>
-
       <main className="mx-auto max-w-lg px-5 py-6 space-y-5">
 
         {/* ── Celebration hero ── */}
         <div className="clay-card overflow-hidden" style={{ background: "linear-gradient(145deg,#EEF4FF 0%,#F8F3EC 100%)" }}>
           <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <div style={{ flex: 1, padding: "22px 0 22px 22px" }}>
-              <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider" style={{ background: conf.bg, color: conf.color, border: `1px solid ${conf.border}` }}>
+            <div style={{ flex: 1, padding: "24px 0 24px 22px" }}>
+              <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold" style={{ background: conf.bg, color: conf.color, border: `1px solid ${conf.border}` }}>
                 {conf.label} · {Math.round(data.overallConfidence * 100)}%
               </span>
-              <h1 className="mt-3 text-[22px] font-black leading-tight" style={{ color: "#111827" }}>
+              <h1 className="mt-3 text-2xl font-black leading-tight" style={{ color: "#111827" }}>
                 Your career<br />report is ready 🎉
               </h1>
-              <p className="mt-2 text-xs leading-relaxed" style={{ color: "#6B7280" }}>
+              <p className="mt-2 text-sm leading-relaxed" style={{ color: "#6B7280" }}>
                 Based on your interests,<br />strengths &amp; goals.
               </p>
             </div>
@@ -450,7 +425,7 @@ function ResultInner() {
         {/* ── Stream mismatch alert ── */}
         {data.streamMismatch && (
           <div className="clay-card px-5 py-4" style={{ background: "rgba(255,251,235,0.9)", border: "1px solid rgba(245,158,11,0.25)" }}>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-1.5" style={{ color: "#B45309" }}>💡 Good to know</p>
+            <p className="text-xs font-bold mb-2" style={{ color: "#B45309" }}>💡 Good to know</p>
             <p className="text-sm leading-relaxed" style={{ color: "#92400E" }}>{data.streamMismatch}</p>
           </div>
         )}
@@ -460,8 +435,8 @@ function ResultInner() {
 
         {/* ── AI explanation ── */}
         {data.explanation && (
-          <div className="clay-card px-5 py-4" style={{ borderLeft: "3px solid #1E6FFF" }}>
-            <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "#1E6FFF" }}>What we found</p>
+          <div className="clay-card px-5 py-5">
+            <p className="mb-2 text-sm font-bold" style={{ color: "#111827" }}>A note on your results</p>
             <p className="text-sm leading-relaxed" style={{ color: "#374151" }}>{data.explanation}</p>
           </div>
         )}
@@ -476,92 +451,100 @@ function ResultInner() {
           </div>
         )}
 
+        {/* ── Divider label ── */}
+        {groups.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 2px" }}>
+            <div style={{ flex: 1, height: 1, background: "rgba(30,111,255,0.1)" }} />
+            <p style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", whiteSpace: "nowrap" }}>Your top matches</p>
+            <div style={{ flex: 1, height: 1, background: "rgba(30,111,255,0.1)" }} />
+          </div>
+        )}
+
         {/* ── Course cards ── */}
         {groups.map(({ course, careers, bestFitScore, eligibilityNotes }, i) => {
           const rank = RANK_CONFIG[i] ?? RANK_CONFIG[2];
           const pct = Math.round(bestFitScore * 100);
-          const elig = course.eligibility === "eligible"
-            ? { pill: "rgba(74,222,128,0.12)", color: "#166534", border: "rgba(74,222,128,0.25)", icon: "#16A34A", label: "✓ Eligible" }
-            : course.eligibility === "conditional"
-            ? { pill: "rgba(245,158,11,0.1)", color: "#92400E", border: "rgba(245,158,11,0.2)", icon: "#D97706", label: "~ Conditional" }
-            : { pill: "rgba(239,68,68,0.08)", color: "#991B1B", border: "rgba(239,68,68,0.2)", icon: "#EF4444", label: "? Check eligibility" };
+          const eligColor =
+            course.eligibility === "eligible"   ? { color: "#16A34A", bg: "rgba(74,222,128,0.12)", border: "rgba(74,222,128,0.25)", label: "Eligible" } :
+            course.eligibility === "conditional" ? { color: "#D97706", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.2)",  label: "Conditional" } :
+                                                   { color: "#EF4444", bg: "rgba(239,68,68,0.08)",  border: "rgba(239,68,68,0.2)",   label: "Check eligibility" };
+
+          const metaParts: string[] = [];
+          if (course.feeBand && FEE_LABEL[course.feeBand]) metaParts.push(FEE_LABEL[course.feeBand]);
+          if ((course.exams ?? []).length > 0) metaParts.push((course.exams ?? []).map((ex) => ex.name).join(", "));
 
           return (
             <div key={course.courseId} className="clay-card overflow-hidden">
               {/* Banner */}
-              <div style={{ background: `linear-gradient(135deg,${rank.bannerFrom},${rank.bannerTo})`, padding: "14px 18px", borderBottom: "1px solid rgba(0,0,0,0.04)", position: "relative", overflow: "hidden" }}>
-                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 72, fontWeight: 900, lineHeight: 1, color: rank.accent, opacity: 0.07, pointerEvents: "none", userSelect: "none" }}>{i + 1}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 28, lineHeight: 1, flexShrink: 0 }}>{rank.medal}</span>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: rank.accentDark, marginBottom: 2 }}>{rank.label}</p>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ flex: 1, height: 6, borderRadius: 99, background: "rgba(0,0,0,0.08)", overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, borderRadius: 99, background: rank.barColor, transition: "width 0.7s ease" }} />
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: rank.accentDark, flexShrink: 0 }}>{pct}%</span>
-                    </div>
-                    {/* Match % explanation */}
-                    <p style={{ fontSize: 10, color: rank.accentDark, opacity: 0.65, marginTop: 3, lineHeight: 1.4 }}>
-                      {pct}% means your answers closely match what people already working in this field say about themselves.
+              <div style={{ background: rank.bannerBg, padding: "18px 20px 16px", borderBottom: "1px solid rgba(0,0,0,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: rank.accentDark, opacity: 0.6, marginBottom: 2 }}>{rank.label}</p>
+                  {flatScores ? (
+                    <p style={{ fontSize: 22, fontWeight: 900, color: rank.accentDark, lineHeight: 1.1 }}>
+                      {i === 0 ? "Strong fit" : i === 1 ? "Good fit" : "Worth exploring"}
                     </p>
-                  </div>
+                  ) : (
+                    <p style={{ fontSize: 28, fontWeight: 900, color: rank.accentDark, lineHeight: 1 }}>{pct}% fit</p>
+                  )}
                 </div>
+                <p style={{ fontSize: 64, fontWeight: 900, color: rank.accent, opacity: 0.12, lineHeight: 1, letterSpacing: "-0.04em", userSelect: "none" }}>{rank.num}</p>
               </div>
 
               {/* Body */}
-              <div style={{ padding: "18px 18px 20px" }}>
-                <h2 style={{ fontSize: 20, fontWeight: 900, color: "#111827", lineHeight: 1.25, marginBottom: 14 }}>{course.name}</h2>
+              <div style={{ padding: "20px 20px 22px" }}>
+                <h2 style={{ fontSize: 21, fontWeight: 900, color: "#111827", lineHeight: 1.2, marginBottom: 6 }}>{course.name}</h2>
 
-                <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#9CA3AF", marginBottom: 8 }}>Careers this opens up</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {/* Eligibility + meta on one line */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 99, padding: "3px 10px", background: eligColor.bg, color: eligColor.color, border: `1px solid ${eligColor.border}` }}>
+                    {eligColor.label}
+                  </span>
+                  {metaParts.length > 0 && (
+                    <span style={{ fontSize: 12, color: "#9CA3AF" }}>·</span>
+                  )}
+                  {metaParts.length > 0 && (
+                    <span style={{ fontSize: 12, color: "#6B7280" }}>{metaParts.join("  ·  ")}</span>
+                  )}
+                </div>
+
+                {/* Career list */}
+                <p style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", marginBottom: 10 }}>Careers this opens up</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {careers.map((career, ci) => {
-                    const routeBadge = ROUTE_BADGE[career.routeType] ?? ROUTE_BADGE.alternative;
-                    const careerPct = Math.round(career.fitScore * 100);
-                    const medals = ["🥇", "🥈", "🥉"];
                     const isTop = ci === 0;
+                    const routeLabel = ROUTE_LABEL[career.routeType] ?? "Alternative";
                     return (
-                      <div key={career.name} style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: 16, padding: "10px 12px", background: isTop ? `${rank.accent}0D` : "#F7F8FA", border: isTop ? `1.5px solid ${rank.accent}28` : "1.5px solid transparent" }}>
-                        <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>{medals[ci] ?? "·"}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{career.name}</p>
-                          {career.personalInsight ? (
-                            <p style={{ fontSize: 11, color: "#1D4ED8", marginTop: 2, lineHeight: 1.4, fontStyle: "italic" }}>{career.personalInsight}</p>
-                          ) : career.shortDescription ? (
-                            <p style={{ fontSize: 11, color: "#6B7280", marginTop: 1, lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>{career.shortDescription}</p>
-                          ) : null}
+                      <div key={career.name} style={{
+                        borderRadius: 16,
+                        padding: "12px 14px",
+                        background: isTop ? `${rank.accent}0D` : "#F7F8FA",
+                        border: isTop ? `1.5px solid ${rank.accent}28` : "1.5px solid transparent",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: "#111827", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{career.name}</p>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: rank.accent, flexShrink: 0 }}>{Math.round(career.fitScore * 100)}%</span>
                         </div>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, flexShrink: 0 }}>
-                          <span style={{ fontSize: 12, fontWeight: 800, color: rank.accent }}>{careerPct}%</span>
-                          <span style={{ fontSize: 9, fontWeight: 700, borderRadius: 99, padding: "2px 7px", background: routeBadge.bg, color: routeBadge.color, whiteSpace: "nowrap" }}>{routeBadge.label}</span>
+                        <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          {career.personalInsight ? (
+                            <p style={{ fontSize: 12, color: "#4B5563", lineHeight: 1.45, flex: 1 }}>{career.personalInsight}</p>
+                          ) : career.shortDescription ? (
+                            <p style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.45, flex: 1, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{career.shortDescription}</p>
+                          ) : null}
+                          <span style={{ fontSize: 11, fontWeight: 600, borderRadius: 99, padding: "2px 8px", background: "rgba(0,0,0,0.05)", color: "#6B7280", whiteSpace: "nowrap", flexShrink: 0 }}>{routeLabel}</span>
                         </div>
                       </div>
                     );
                   })}
                 </div>
 
-                {eligibilityNotes.length > 0 && <p style={{ marginTop: 10, fontSize: 11, color: "#9CA3AF", lineHeight: 1.5 }}>{eligibilityNotes.join(" · ")}</p>}
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 14 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 99, padding: "5px 11px", fontSize: 11, fontWeight: 600, background: elig.pill, color: elig.color, border: `1px solid ${elig.border}` }}>
-                    <CheckCircle2 size={12} style={{ color: elig.icon, flexShrink: 0 }} />{elig.label}
-                  </span>
-                  {course.feeBand && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 99, padding: "5px 11px", fontSize: 11, fontWeight: 600, background: "rgba(59,130,246,0.08)", color: "#1D4ED8", border: "1px solid rgba(59,130,246,0.15)" }}>
-                      <DollarSign size={12} style={{ flexShrink: 0 }} />{course.feeBand.charAt(0).toUpperCase() + course.feeBand.slice(1)} fee
-                    </span>
-                  )}
-                  {(course.exams ?? []).length > 0 && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 99, padding: "5px 11px", fontSize: 11, fontWeight: 600, background: "rgba(139,92,246,0.08)", color: "#6D28D9", border: "1px solid rgba(139,92,246,0.15)" }}>
-                      <BookOpen size={12} style={{ flexShrink: 0 }} />{(course.exams ?? []).map((ex) => ex.name).join(", ")}
-                    </span>
-                  )}
-                </div>
+                {eligibilityNotes.length > 0 && (
+                  <p style={{ marginTop: 12, fontSize: 12, color: "#9CA3AF", lineHeight: 1.6 }}>{eligibilityNotes.join(" · ")}</p>
+                )}
 
                 {careers[0]?.gapToFix && (
-                  <div style={{ marginTop: 14, borderRadius: 12, padding: "10px 13px", background: "rgba(30,111,255,0.05)", border: "1px solid rgba(30,111,255,0.12)", display: "flex", gap: 8, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>💡</span>
-                    <p style={{ fontSize: 11.5, color: "#1D4ED8", lineHeight: 1.5, margin: 0 }}>
+                  <div style={{ marginTop: 16, borderRadius: 14, padding: "12px 14px", background: "rgba(30,111,255,0.05)", border: "1px solid rgba(30,111,255,0.1)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span style={{ fontSize: 15, flexShrink: 0 }}>💡</span>
+                    <p style={{ fontSize: 13, color: "#1D4ED8", lineHeight: 1.55, margin: 0 }}>
                       <span style={{ fontWeight: 700 }}>One thing to work on: </span>{careers[0].gapToFix}
                     </p>
                   </div>
@@ -574,9 +557,9 @@ function ResultInner() {
         {/* ── Caveats ── */}
         {(data.caveats ?? []).length > 0 && (
           <div className="clay-card px-5 py-4" style={{ background: "rgba(255,251,235,0.8)", border: "1px solid rgba(245,158,11,0.2)" }}>
-            <p className="text-xs font-black uppercase tracking-[0.1em] mb-2" style={{ color: "#B45309" }}>⚠ Keep in mind</p>
-            <ul style={{ margin: 0, padding: "0 0 0 16px", listStyle: "disc", display: "flex", flexDirection: "column", gap: 4 }}>
-              {(data.caveats ?? []).map((cv, i) => <li key={i} style={{ fontSize: 12.5, color: "#92400E", lineHeight: 1.55 }}>{cv}</li>)}
+            <p className="text-xs font-bold mb-3" style={{ color: "#B45309" }}>⚠ Keep in mind</p>
+            <ul style={{ margin: 0, padding: "0 0 0 16px", listStyle: "disc", display: "flex", flexDirection: "column", gap: 6 }}>
+              {(data.caveats ?? []).map((cv, i) => <li key={i} style={{ fontSize: 13, color: "#92400E", lineHeight: 1.6 }}>{cv}</li>)}
             </ul>
           </div>
         )}
@@ -584,22 +567,20 @@ function ResultInner() {
         {/* ── Parent summary ── */}
         {data.parentSummary && (
           <div className="clay-card overflow-hidden">
-            <div style={{ padding: "16px 18px 12px", background: "linear-gradient(135deg,#F0FDF4,#DCFCE7)", borderBottom: "1px solid rgba(74,222,128,0.2)" }}>
-              <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: "#166534" }}>👪 For parents</p>
-              <p style={{ marginTop: 4, fontSize: 13, fontWeight: 700, color: "#14532D" }}>Share this with your family</p>
+            <div style={{ padding: "16px 20px 12px", background: "linear-gradient(135deg,#F0FDF4,#DCFCE7)", borderBottom: "1px solid rgba(74,222,128,0.2)" }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#14532D" }}>👪 Share this with your family</p>
             </div>
-            <div style={{ padding: "14px 18px 18px" }}>
-              <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.65 }}>{data.parentSummary}</p>
+            <div style={{ padding: "16px 20px 20px" }}>
+              <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.7 }}>{data.parentSummary}</p>
             </div>
           </div>
         )}
 
         {/* ── What's next ── */}
         <div className="clay-card overflow-hidden">
-          <div style={{ padding: "20px 20px 6px" }}>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] mb-1" style={{ color: "#1E6FFF" }}>What&apos;s next?</p>
-            <h3 style={{ fontSize: 17, fontWeight: 800, color: "#111827", lineHeight: 1.3 }}>Talk to someone who&apos;s been there</h3>
-            <p style={{ marginTop: 8, fontSize: 12.5, color: "#6B7280", lineHeight: 1.6 }}>
+          <div style={{ padding: "22px 20px 8px" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: "#111827", lineHeight: 1.3 }}>Talk to someone who&apos;s been there</h3>
+            <p style={{ marginTop: 8, fontSize: 13, color: "#6B7280", lineHeight: 1.65 }}>
               Share this with your parents, a teacher, or a school counsellor. Use it as a starting point — not a final decision.
             </p>
           </div>
@@ -611,8 +592,8 @@ function ResultInner() {
             </button>
           </div>
           <div style={{ borderTop: "1px solid rgba(30,111,255,0.07)", padding: "12px 20px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <p style={{ fontSize: 12, color: "#9CA3AF" }}>Want different results?</p>
-            <Link href="/discover" style={{ fontSize: 12.5, fontWeight: 700, color: "#1E6FFF", textDecoration: "none" }}>
+            <p style={{ fontSize: 13, color: "#9CA3AF" }}>Want different results?</p>
+            <Link href="/discover" style={{ fontSize: 13, fontWeight: 700, color: "#1E6FFF", textDecoration: "none" }}>
               Retake quiz →
             </Link>
           </div>
