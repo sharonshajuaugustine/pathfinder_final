@@ -5,7 +5,7 @@ import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } fro
 import { loadKnowledgeBase } from "@/lib/kb-loader";
 import { generateRecommendations } from "@/core/recommendation-engine";
 import { normalizeProfile, computeCompleteness, applyDerivedAptitude } from "@/core/profile-builder";
-import { explainRecommendation, generateEnrichments } from "@/core/ai";
+import { explainRecommendation, generateEnrichments, reviewRecommendations } from "@/core/ai";
 import type { StudentProfile } from "@/types/profile";
 import type { Career } from "@/types/kb";
 import { audit } from "@/lib/audit";
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     // deterministic, so we re-run it every time (incl. page refreshes). This keeps
     // caveats fresh and avoids depending on a persisted caveats column. Only the
     // expensive AI explanation is cached below.
-    const result = generateRecommendations(sessionId, profile, kb, { topN: 5, age: lead?.age });
+    const result = generateRecommendations(sessionId, profile, kb, { topN: 10, age: lead?.age });
 
     // 1b. Out-of-KB check: if the student named a specific career we don't cover,
     // flag it so the explainer addresses it honestly instead of silently passing
@@ -95,6 +95,45 @@ export async function POST(req: NextRequest) {
       result.caveats.unshift(
         `You mentioned wanting to become a "${statedCareer}". We couldn't build a full guided path for that specific career here — the paths below are the closest related options to explore.`
       );
+    }
+
+    // 1c. AI review: pick the best 3–5 from the extended candidate list.
+    // Runs every time (cheap relative to explain/enrichments) so a KB update
+    // can change the selection without requiring a new session.
+    if (result.top.length > 0) {
+      try {
+        const interestLabelsForReview = Object.entries(profile.interests ?? {})
+          .filter(([, v]) => (v as number) >= 0.5)
+          .sort(([, a], [, b]) => (b as number) - (a as number))
+          .slice(0, 3)
+          .map(([k]) => k.replace(/_/g, " "));
+
+        const { selectedIds } = await reviewRecommendations({
+          candidates: result.top.map((c) => ({
+            careerId: c.careerId,
+            name: c.name,
+            domain: c.domain,
+            fitScore: c.fitScore,
+            factors: c.factors,
+          })),
+          streamLabel: profile.academic.stream?.replace(/_/g, " ") ?? undefined,
+          strongSubjects: profile.academic.strongSubjects,
+          topInterestLabels: interestLabelsForReview,
+          goalOrientation: profile.aspiration.goalOrientation ?? undefined,
+          statedCareer: profile.aspiration.statedCareer ?? undefined,
+          budgetBand: profile.constraints.budgetBand ?? undefined,
+          locationPref: profile.constraints.locationPref ?? undefined,
+        });
+
+        const idOrder = new Map(selectedIds.map((id, i) => [id, i]));
+        result.top = result.top
+          .filter((c) => idOrder.has(c.careerId))
+          .sort((a, b) => (idOrder.get(a.careerId) ?? 99) - (idOrder.get(b.careerId) ?? 99));
+      } catch (reviewErr) {
+        // Non-fatal: if the review step fails, keep the top 5 engine results.
+        console.warn("[recommendation] AI review failed, using engine top-5", reviewErr);
+        result.top = result.top.slice(0, 5);
+      }
     }
 
     // 2. Reuse a cached AI explanation for this session + KB version if one exists.

@@ -3,10 +3,10 @@ import { z } from "zod";
 import { getServiceClient } from "@/lib/supabase/admin";
 import { clientIpHash, enforceRateLimit, limiters, badRequest, serverError } from "@/lib/request";
 import { loadKnowledgeBase } from "@/lib/kb-loader";
-import { normalizeProfile, mergeProfile, computeCompleteness } from "@/core/profile-builder";
+import { normalizeProfile, mergeProfile, computeCompleteness, type ProfileDelta } from "@/core/profile-builder";
 import { pickNextQuestion, scoreBeliefs, estimateQuestionsRemaining } from "@/core/adaptive/engine";
 import { ADAPTIVE_BY_ID, toPublicQuestion } from "@/core/adaptive/question-bank";
-import { extractProfileDelta } from "@/core/ai";
+import { extractProfileDelta, extractStatedCareer, generateCareerFollowUp } from "@/core/ai";
 import type { StudentProfile } from "@/types/profile";
 
 // POST /api/adaptive — one step of the Akinator-style adaptive interview.
@@ -57,16 +57,88 @@ export async function POST(req: NextRequest) {
       : [];
 
     // 1. Apply the previous answer (if any) to the profile + log it for admins.
+    let careerConfirmation: string | null = null;
+    let aiFollowUpQuestion: { id: string; text: string; options: Array<{ id: string; label: string }>; freeText: false } | null = null;
+
     if (prevQuestionId && (optionId || optionIds?.length || textAnswer)) {
       const q = ADAPTIVE_BY_ID[prevQuestionId];
       let logContent = textAnswer ?? optionId ?? "";
 
       if (textAnswer && textAnswer.trim()) {
-        // Free-text path: extract a ProfileDelta via Groq, then merge.
-        const precedingQuestion = q?.text;
-        const { delta } = await extractProfileDelta({ reply: textAnswer.trim(), precedingQuestion });
-        if (delta) {
-          const merged = mergeProfile(profileRaw as Partial<StudentProfile>, delta);
+        const isStatedCareerQ = prevQuestionId === "ctx_stated_career";
+
+        if (isStatedCareerQ) {
+          // Dedicated smarter extractor for the "career in mind" question.
+          const streamLabel = (profileRaw as Record<string, unknown>).academic
+            ? ((profileRaw as Record<string, unknown>).academic as Record<string, unknown>).stream as string | undefined
+            : undefined;
+          const { career, confirmation, delta } = await extractStatedCareer(textAnswer.trim(), streamLabel?.replace(/_/g, " "));
+          if (delta) {
+            const merged = mergeProfile(profileRaw as Partial<StudentProfile>, delta);
+            const meta = Object.fromEntries(Object.entries(profileRaw).filter(([k]) => k.startsWith("_")));
+            const mergedWithMeta = { ...merged, ...meta };
+            await db.from("student_profiles").upsert(
+              { session_id: sessionId, profile: mergedWithMeta, completeness_pct: computeCompleteness(merged), updated_at: new Date().toISOString() },
+              { onConflict: "session_id" }
+            );
+            Object.assign(profileRaw, mergedWithMeta);
+          }
+          careerConfirmation = confirmation;
+
+          // Generate a tailored follow-up question about their specific career.
+          if (career) {
+            try {
+              const streamLabel2 = (profileRaw as Record<string, unknown>).academic
+                ? ((profileRaw as Record<string, unknown>).academic as Record<string, unknown>).stream as string | undefined
+                : undefined;
+              const { question: fuText, choices } = await generateCareerFollowUp({
+                statedCareer: career,
+                streamLabel: streamLabel2?.replace(/_/g, " "),
+              });
+              const fuOptions = choices.map((c, i) => ({ id: String(i), label: c.label, _cluster: c.value }));
+              aiFollowUpQuestion = {
+                id: "ai_career_followup",
+                text: fuText,
+                options: fuOptions.map(({ id, label }) => ({ id, label })),
+                freeText: false,
+              };
+              // Store options in profile so we can look them up when the student answers.
+              const meta2 = Object.fromEntries(Object.entries(profileRaw).filter(([k]) => k.startsWith("_")));
+              await db.from("student_profiles").upsert(
+                { session_id: sessionId, profile: { ...profileRaw, ...meta2, _aiFollowupOptions: fuOptions }, updated_at: new Date().toISOString() },
+                { onConflict: "session_id" }
+              );
+              Object.assign(profileRaw, { _aiFollowupOptions: fuOptions });
+            } catch (fuErr) {
+              console.warn("[adaptive] career follow-up generation failed", fuErr);
+            }
+          }
+        } else {
+          // Generic free-text path: general extractor.
+          const precedingQuestion = q?.text;
+          const { delta } = await extractProfileDelta({ reply: textAnswer.trim(), precedingQuestion });
+          if (delta) {
+            const merged = mergeProfile(profileRaw as Partial<StudentProfile>, delta);
+            const meta = Object.fromEntries(Object.entries(profileRaw).filter(([k]) => k.startsWith("_")));
+            const mergedWithMeta = { ...merged, ...meta };
+            await db.from("student_profiles").upsert(
+              { session_id: sessionId, profile: mergedWithMeta, completeness_pct: computeCompleteness(merged), updated_at: new Date().toISOString() },
+              { onConflict: "session_id" }
+            );
+            Object.assign(profileRaw, mergedWithMeta);
+          }
+        }
+        logContent = textAnswer.trim();
+      } else if (prevQuestionId === "ai_career_followup" && optionId) {
+        // AI follow-up answer: look up the option label + cluster from the stored options,
+        // then run a general extract so the interest cluster lands in the profile.
+        const storedOptions = Array.isArray(profileRaw._aiFollowupOptions)
+          ? (profileRaw._aiFollowupOptions as Array<{ id: string; label: string; _cluster: string }>)
+          : [];
+        const picked = storedOptions.find((o) => o.id === optionId);
+        if (picked) {
+          const clusterDelta: ProfileDelta = { interests: { [picked._cluster]: 0.75 } };
+          const merged = mergeProfile(profileRaw as Partial<StudentProfile>, clusterDelta);
           const meta = Object.fromEntries(Object.entries(profileRaw).filter(([k]) => k.startsWith("_")));
           const mergedWithMeta = { ...merged, ...meta };
           await db.from("student_profiles").upsert(
@@ -74,8 +146,8 @@ export async function POST(req: NextRequest) {
             { onConflict: "session_id" }
           );
           Object.assign(profileRaw, mergedWithMeta);
+          logContent = picked.label;
         }
-        logContent = textAnswer.trim();
       } else if (q && (optionIds?.length || optionId)) {
         // MCQ path (single or multi-select): apply each selected option's delta in turn.
         const ids = optionIds?.length ? optionIds : optionId ? [optionId] : [];
@@ -91,7 +163,7 @@ export async function POST(req: NextRequest) {
           { onConflict: "session_id" }
         );
         Object.assign(profileRaw, mergedWithMeta);
-        logContent = ids.map((id) => q.options.find((o) => o.id === id)?.label ?? id).join(", ");
+        logContent = ids.map((id) => q?.options.find((o) => o.id === id)?.label ?? id).join(", ");
       }
 
       await db.from("conversations").insert({
@@ -99,7 +171,31 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Pick the next question from the (updated) profile.
+    // 2. If the stated-career question just produced a tailored follow-up, serve it
+    // directly without running the engine — it's more useful than the next generic question.
+    if (aiFollowUpQuestion) {
+      const nextAsked = [...askedIds, aiFollowUpQuestion.id];
+      await db.from("student_profiles").upsert(
+        { session_id: sessionId, profile: { ...profileRaw, _adaptiveAsked: nextAsked }, updated_at: new Date().toISOString() },
+        { onConflict: "session_id" }
+      );
+      await db.from("conversations").insert({
+        session_id: sessionId, role: "assistant", stage: "adaptive", content: aiFollowUpQuestion.text,
+      });
+      const kb2 = await loadKnowledgeBase();
+      const p2 = normalizeProfile({ ...profileRaw, _adaptiveAsked: nextAsked } as Partial<StudentProfile>);
+      const beliefs2 = scoreBeliefs(p2, kb2).slice(0, 3).map((b) => ({ name: b.career.name, score: Math.round(b.score * 100) }));
+      return NextResponse.json({
+        question: aiFollowUpQuestion,
+        asked: nextAsked.length,
+        done: false,
+        beliefs: beliefs2,
+        estimatedRemaining: estimateQuestionsRemaining(p2, kb2, nextAsked),
+        careerConfirmation,
+      });
+    }
+
+    // 3. Pick the next question from the (updated) profile via the engine.
     const kb = await loadKnowledgeBase();
     const profile = normalizeProfile(profileRaw as Partial<StudentProfile>);
     const next = pickNextQuestion(profile, kb, askedIds);
@@ -111,7 +207,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ done: true, asked: askedIds.length });
     }
 
-    // 3. Mark it asked + log the question, then return it.
+    // 4. Mark it asked + log the question, then return it.
     const nextAsked = [...askedIds, next.id];
     await db.from("student_profiles").upsert(
       {
@@ -136,7 +232,7 @@ export async function POST(req: NextRequest) {
 
     const estimatedRemaining = estimateQuestionsRemaining(updatedProfile, kb, nextAsked);
 
-    return NextResponse.json({ question: toPublicQuestion(next), asked: nextAsked.length, done: false, beliefs, estimatedRemaining });
+    return NextResponse.json({ question: toPublicQuestion(next), asked: nextAsked.length, done: false, beliefs, estimatedRemaining, careerConfirmation });
   } catch (e) {
     console.error(e);
     return serverError("Adaptive step failed");

@@ -762,6 +762,212 @@ export async function generateEnrichments(params: {
   };
 }
 
+// --- stated career extractor ---------------------------------------------------
+// Dedicated extractor for the "Do you have a career in mind?" question.
+// More focused than the general extractor: handles typos, Malayalam career names,
+// and informal phrases. Returns a clean career name, interest clusters, and
+// a warm confirmation message to show the student.
+export async function extractStatedCareer(text: string, streamLabel?: string): Promise<{
+  career: string | null;
+  confirmation: string | null;
+  delta: ProfileDelta | null;
+}> {
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content:
+        "You extract the career a Plus Two student (Kerala, India) wants to pursue from their free-text reply. " +
+        "Handle typos, shorthand, and informal phrases (e.g. 'CA' → 'Chartered Accountant', 'docter' → 'doctor', 'softwar engg' → 'software engineer'). " +
+        "Also understand Malayalam-influenced phrases (e.g. 'nursing cheyynam' → 'nurse'). " +
+        "Return ONLY valid JSON — no extra text.",
+    },
+    {
+      role: "user",
+      content:
+        `Student stream: ${streamLabel ?? "unknown"}\n` +
+        `Student replied: "${text}"\n\n` +
+        `Extract:\n` +
+        `1. "career": the clean, short career name they want (e.g. "doctor", "software engineer", "CA"). ` +
+        `   null if they are clearly not naming a specific career (e.g. "not sure", "exploring").\n` +
+        `2. "confirmation": a warm 1-sentence acknowledgement (max 12 words) to show the student. ` +
+        `   Start with "Got it —" and name the career. null if no career found.\n` +
+        `   Example: "Got it — we'll build your path around becoming a doctor 🎯"\n` +
+        `3. "interestClusters": object mapping the 1–2 most relevant interest cluster IDs to 0.7–0.8. ` +
+        `   Only from: health_medicine, technology_coding, business_money, science_research, ` +
+        `   design_visual, helping_teaching, law_justice, building_engineering, ` +
+        `   media_communication, nature_agriculture, defence_adventure, numbers_analysis. ` +
+        `   Empty object if no career was found.\n\n` +
+        `Return: { "career": "...", "confirmation": "...", "interestClusters": { ... } }`,
+    },
+  ];
+
+  const { data } = await extractJson<{ career: string | null; confirmation: string | null; interestClusters: Record<string, number> }>(
+    messages,
+    { temperature: 0.2 }
+  );
+
+  if (!data?.career) return { career: null, confirmation: null, delta: null };
+
+  const career = data.career.trim().slice(0, 60);
+  const confirmation = typeof data.confirmation === "string" ? data.confirmation.trim() : null;
+
+  const validClusters = new Set(INTEREST_CLUSTERS as readonly string[]);
+  const interests: Record<string, number> = {};
+  if (data.interestClusters && typeof data.interestClusters === "object") {
+    for (const [k, v] of Object.entries(data.interestClusters)) {
+      if (validClusters.has(k) && typeof v === "number") {
+        interests[k] = Math.min(0.85, Math.max(0.5, v));
+      }
+    }
+  }
+
+  const delta: ProfileDelta = {
+    aspiration: { statedCareer: career },
+    ...(Object.keys(interests).length > 0 ? { interests } : {}),
+  };
+
+  return { career, confirmation, delta };
+}
+
+// --- career follow-up question -------------------------------------------------
+// After the student names a specific career, generate one targeted follow-up
+// question that digs into what specifically draws them to it — helping the engine
+// distinguish between closely related paths (e.g. MBBS vs nursing vs pharmacy).
+export async function generateCareerFollowUp(params: {
+  statedCareer: string;
+  streamLabel?: string;
+}): Promise<{ question: string; choices: AIChoice[] }> {
+  const { statedCareer, streamLabel } = params;
+
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content:
+        "You are a career counsellor helping a Plus Two student in Kerala, India narrow down their career goal. " +
+        "Write in simple English a 16-year-old understands. Return ONLY valid JSON.",
+    },
+    {
+      role: "user",
+      content:
+        `The student wants to become: "${statedCareer}"\n` +
+        `Their Plus Two stream: ${streamLabel ?? "unknown"}\n\n` +
+        `Write ONE friendly follow-up question (max 20 words) that helps us understand WHICH specific direction within "${statedCareer}" appeals to them most. ` +
+        `For example, if they said "doctor": ask if they mean clinical medicine, research, nursing, or pharmacy.\n\n` +
+        `RULES FOR THE 4 CHOICES:\n` +
+        `- Write each choice as a plain everyday activity or outcome a 16-year-old can picture — NOT professional jargon.\n` +
+        `  BAD: "Auditing and Finance", "Tax Consulting", "Financial Analysis"\n` +
+        `  GOOD: "Checking company accounts and spotting errors", "Helping people save on taxes", "Working with data and business numbers"\n` +
+        `- All must be realistic for their stream\n` +
+        `- One option should be a simple "I'm not sure yet — just exploring" type option\n` +
+        `- Each choice "value" must be the single best-fitting interest cluster ID from:\n` +
+        `  health_medicine, technology_coding, business_money, science_research,\n` +
+        `  design_visual, helping_teaching, law_justice, building_engineering,\n` +
+        `  media_communication, nature_agriculture, defence_adventure, numbers_analysis\n\n` +
+        `Return: { "question": "...", "choices": [{ "label": "...", "value": "cluster_id" }, ...] }`,
+    },
+  ];
+
+  const { data } = await extractJson<{ question: string; choices: AIChoice[] }>(messages, { temperature: 0.5 });
+
+  const question = data?.question?.trim();
+  const choices = Array.isArray(data?.choices)
+    ? data!.choices.filter((c) => c?.label && c?.value).slice(0, 4)
+    : [];
+
+  if (!question || choices.length < 2) {
+    return {
+      question: `What draws you most to becoming a ${statedCareer}?`,
+      choices: [
+        { label: "Helping and working with people", value: "helping_teaching" },
+        { label: "The technical and scientific side", value: "science_research" },
+        { label: "The stability and career prospects", value: "business_money" },
+        { label: "It's a passion I've had for a long time", value: "helping_teaching" },
+      ],
+    };
+  }
+
+  return { question, choices };
+}
+
+// --- result reviewer -----------------------------------------------------------
+// Reviews the engine's extended candidate list and picks the best 3–5 careers
+// to show the student. AI can drop poor fits or reorder, but cannot add careers
+// outside the engine's list (prevents hallucination of invalid career IDs).
+export async function reviewRecommendations(params: {
+  candidates: Array<{ careerId: string; name: string; domain: string; fitScore: number; factors: Array<{ dimension: string; label: string }> }>;
+  streamLabel?: string;
+  strongSubjects?: string[];
+  topInterestLabels?: string[];
+  goalOrientation?: string;
+  statedCareer?: string;
+  budgetBand?: string;
+  locationPref?: string;
+}): Promise<{ selectedIds: string[] }> {
+  const { candidates, streamLabel, strongSubjects, topInterestLabels, goalOrientation, statedCareer, budgetBand, locationPref } = params;
+
+  const studentCtx = [
+    streamLabel ? `Stream: ${streamLabel}` : "",
+    strongSubjects?.length ? `Strong subjects: ${strongSubjects.join(", ")}` : "",
+    topInterestLabels?.length ? `Top interests: ${topInterestLabels.join(", ")}` : "",
+    goalOrientation ? `Goal: ${goalOrientation}` : "",
+    statedCareer ? `Stated career: ${statedCareer}` : "",
+    budgetBand ? `Budget: ${budgetBand}` : "",
+    locationPref ? `Location: ${locationPref}` : "",
+  ].filter(Boolean).join(" | ");
+
+  const candidateList = candidates.map((c) => ({
+    id: c.careerId,
+    name: c.name,
+    domain: c.domain,
+    fit: Math.round(c.fitScore * 100),
+    reasons: c.factors.slice(0, 3).map((f) => f.label),
+  }));
+
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content:
+        "You are a senior career counsellor reviewing AI-generated career recommendations for a Plus Two student in Kerala, India (age 16–18). " +
+        "Your job is to select the 3–5 best-fitting careers from the candidate list to show the student. " +
+        "You may drop careers that are clearly a poor fit given the student's profile. You may reorder them by quality of fit. " +
+        "You MUST only return IDs from the provided candidate list — never invent new ones. " +
+        "Return ONLY valid JSON — no extra text.",
+    },
+    {
+      role: "user",
+      content:
+        `Student profile: ${studentCtx || "not provided"}\n\n` +
+        `Candidate careers (engine-ranked):\n${JSON.stringify(candidateList, null, 2)}\n\n` +
+        `Select the 3–5 careers that best fit this student. Consider:\n` +
+        `- Relevance to their stated interests, subjects, and stream\n` +
+        `- Whether their goal orientation (job soon / higher study / business / government) aligns\n` +
+        `- Budget and location fit where relevant\n` +
+        `- Drop any career that clearly contradicts their profile (e.g. engineering for a pure arts student with no maths)\n` +
+        `- Keep at least 3 careers unless fewer than 3 candidates exist\n` +
+        (statedCareer
+          ? `- IMPORTANT: The student said they want to become "${statedCareer}". When two candidates are similarly scored, ` +
+            `rank careers that are closer to "${statedCareer}" or its related field higher. ` +
+            `Do NOT put a career that has no connection to "${statedCareer}" at #1 unless it is dramatically better-scored than all alternatives.\n`
+          : "") +
+        `\nReturn: { "selectedIds": ["career_id_1", "career_id_2", ...] } — ordered best-fit first.`,
+    },
+  ];
+
+  const { data } = await extractJson<{ selectedIds: string[] }>(messages, { temperature: 0.2 });
+
+  const validIds = new Set(candidates.map((c) => c.careerId));
+  const selected = Array.isArray(data?.selectedIds)
+    ? data!.selectedIds.filter((id): id is string => typeof id === "string" && validIds.has(id))
+    : [];
+
+  // Fallback: if AI returned nothing useful, keep the top 5 as-is.
+  if (selected.length < 3) {
+    return { selectedIds: candidates.slice(0, 5).map((c) => c.careerId) };
+  }
+
+  return { selectedIds: selected.slice(0, 5) };
+}
+
 // --- reviewer / explainer ------------------------------------------------------
 // Writes a short explanation OVER the engine's already-decided result.
 //

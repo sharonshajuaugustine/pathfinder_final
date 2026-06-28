@@ -151,9 +151,9 @@ function MultiSelectGrid({ options, selected, onToggle, onConfirm, busy }: {
               onClick={() => onToggle(o.id)}
               style={{
                 borderRadius: 22,
-                border: `1.5px solid ${isSelected ? "#1E6FFF" : meta.border}`,
+                border: isSelected ? "2px solid #1E6FFF" : `1.5px solid ${meta.border}`,
                 background: isSelected ? "linear-gradient(135deg, #EEF4FF, #DBEAFE)" : "#ffffff",
-                padding: "14px 40px 14px 14px",
+                padding: "14px 14px 14px 14px",
                 display: "flex",
                 flexDirection: "row",
                 alignItems: "center",
@@ -164,27 +164,28 @@ function MultiSelectGrid({ options, selected, onToggle, onConfirm, busy }: {
                 boxShadow: isSelected
                   ? "inset 2px 2px 5px rgba(255,255,255,0.7), 0 3px 0 rgba(30,111,255,0.2)"
                   : "inset 3px 3px 6px rgba(255,255,255,0.95), 0 6px 0 rgba(165,150,130,0.18), 0 10px 24px rgba(165,150,130,0.12)",
+                transform: isSelected ? "scale(0.97)" : "scale(1)",
                 transition: "all 0.15s ease",
                 minHeight: 90,
                 position: "relative",
+                overflow: "hidden",
               }}
             >
-              {/* Checkmark badge */}
-              <div style={{
-                position: "absolute", top: 10, right: 10,
-                width: 20, height: 20, borderRadius: "50%",
-                background: isSelected ? "#1E6FFF" : "rgba(30,111,255,0.1)",
-                border: `1.5px solid ${isSelected ? "#1E6FFF" : "rgba(30,111,255,0.2)"}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all 0.15s ease",
-                flexShrink: 0,
-              }}>
-                {isSelected && (
-                  <svg viewBox="0 0 12 12" fill="none" style={{ width: 10, height: 10 }}>
-                    <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Corner tick ribbon — only visible when selected */}
+              {isSelected && (
+                <div style={{
+                  position: "absolute", top: 0, right: 0,
+                  width: 36, height: 36,
+                  background: "#1E6FFF",
+                  clipPath: "polygon(100% 0, 0 0, 100% 100%)",
+                  display: "flex", alignItems: "flex-start", justifyContent: "flex-end",
+                  paddingTop: 4, paddingRight: 4,
+                }}>
+                  <svg viewBox="0 0 10 10" fill="none" style={{ width: 9, height: 9 }}>
+                    <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                )}
-              </div>
+                </div>
+              )}
               {/* Left accent bar */}
               <div style={{
                 width: 3, alignSelf: "stretch", borderRadius: 99,
@@ -229,6 +230,7 @@ function DiscoverInner() {
   const [district, setDistrict] = useState("");
   const [stream, setStream] = useState<Stream | "vocational" | null>(null);
   const [percentage, setPercentage] = useState("");
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   // adaptive
   const [question, setQuestion] = useState<Question | null>(null);
@@ -239,6 +241,7 @@ function DiscoverInner() {
   const [textInput, setTextInput] = useState("");
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [skipWarning, setSkipWarning] = useState(false);
+  const [careerConfirmation, setCareerConfirmation] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/session", {
@@ -291,6 +294,10 @@ function DiscoverInner() {
       if (data.done || !data.question) {
         setMascotState("celebrating");
         setQuestion(null); setPhase("email"); setBusy(false); return;
+      }
+      if (data.careerConfirmation) {
+        setCareerConfirmation(data.careerConfirmation);
+        setTimeout(() => setCareerConfirmation(null), 2500);
       }
       const topScore = Array.isArray(data.beliefs) && data.beliefs[0]?.score;
       if (topScore > 60) setMascotState("impressed");
@@ -454,11 +461,72 @@ function DiscoverInner() {
                   <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>Let&apos;s find the right career path for you.</h2>
                   <p className="mt-2 text-xs" style={{ color: "#9CA3AF" }}>⏱ Takes about 5 minutes · Free forever · No account needed</p>
                 </div>
-                <div className="clay-card p-6 space-y-4">
-                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="What's your name?" autoFocus className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
-                  <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" placeholder="Your phone number (10 digits)" className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
-                  <input value={age} onChange={(e) => setAge(e.target.value.replace(/\D/g, "").slice(0, 2))} inputMode="numeric" placeholder="Your age (e.g. 17)" className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
-                  <button disabled={!name.trim() || !/^[6-9]\d{9}$/.test(phone) || !age} onClick={() => setIntakeStep(2)} className="clay-btn w-full text-sm" style={{ height: 52 }}>
+                <div className="clay-card p-6 space-y-3">
+                  {/* Name */}
+                  <div className="space-y-1">
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+                      placeholder="What's your name?"
+                      autoFocus
+                      className="w-full px-4 py-3.5 text-sm outline-none"
+                      style={{ ...field, borderColor: touched.name && !name.trim() ? "#EF4444" : undefined }}
+                    />
+                    {touched.name && !name.trim() && (
+                      <p style={{ fontSize: 12, color: "#EF4444", paddingLeft: 4 }}>Please enter your name</p>
+                    )}
+                  </div>
+
+                  {/* Phone */}
+                  <div className="space-y-1">
+                    <input
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
+                      inputMode="numeric"
+                      placeholder="Your phone number (10 digits)"
+                      className="w-full px-4 py-3.5 text-sm outline-none"
+                      style={{ ...field, borderColor: touched.phone && phone && !/^[6-9]\d{9}$/.test(phone) ? "#EF4444" : undefined }}
+                    />
+                    {touched.phone && phone.length > 0 && !/^[6-9]\d{9}$/.test(phone) && (
+                      <p style={{ fontSize: 12, color: "#EF4444", paddingLeft: 4 }}>
+                        {phone.length < 10 ? `${10 - phone.length} more digit${10 - phone.length > 1 ? "s" : ""} needed` : "Must start with 6, 7, 8, or 9"}
+                      </p>
+                    )}
+                    {touched.phone && !phone && (
+                      <p style={{ fontSize: 12, color: "#EF4444", paddingLeft: 4 }}>Phone number is required</p>
+                    )}
+                  </div>
+
+                  {/* Age */}
+                  <div className="space-y-1">
+                    <input
+                      value={age}
+                      onChange={(e) => setAge(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                      onBlur={() => setTouched((t) => ({ ...t, age: true }))}
+                      inputMode="numeric"
+                      placeholder="Your age (e.g. 17)"
+                      className="w-full px-4 py-3.5 text-sm outline-none"
+                      style={{ ...field, borderColor: touched.age && age && (parseInt(age) < 14 || parseInt(age) > 25) ? "#EF4444" : undefined }}
+                    />
+                    {touched.age && !age && (
+                      <p style={{ fontSize: 12, color: "#EF4444", paddingLeft: 4 }}>Age is required</p>
+                    )}
+                    {touched.age && age && (parseInt(age) < 14 || parseInt(age) > 25) && (
+                      <p style={{ fontSize: 12, color: "#EF4444", paddingLeft: 4 }}>Age should be between 14 and 25</p>
+                    )}
+                  </div>
+
+                  <button
+                    disabled={!name.trim() || !/^[6-9]\d{9}$/.test(phone) || !age || parseInt(age) < 14 || parseInt(age) > 25}
+                    onClick={() => {
+                      setTouched((t) => ({ ...t, name: true, phone: true, age: true }));
+                      if (name.trim() && /^[6-9]\d{9}$/.test(phone) && age && parseInt(age) >= 14 && parseInt(age) <= 25) setIntakeStep(2);
+                    }}
+                    className="clay-btn w-full text-sm"
+                    style={{ height: 52, marginTop: 4 }}
+                  >
                     Next →
                   </button>
                 </div>
@@ -520,8 +588,35 @@ function DiscoverInner() {
                   <p className="mt-2 text-xs" style={{ color: "#9CA3AF" }}>We use this only to check which courses you&apos;re eligible for — it doesn&apos;t define you!</p>
                 </div>
                 <div className="clay-card p-6 space-y-4">
-                  <input value={percentage} onChange={(e) => setPercentage(e.target.value)} type="number" placeholder="e.g. 78" autoFocus className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
-                  <button disabled={busy || !percentage} onClick={submitIntake} className="clay-btn w-full text-sm" style={{ height: 52 }}>
+                  <div className="space-y-1">
+                    <input
+                      value={percentage}
+                      onChange={(e) => setPercentage(e.target.value)}
+                      onBlur={() => setTouched((t) => ({ ...t, percentage: true }))}
+                      type="number"
+                      min={0}
+                      max={100}
+                      placeholder="e.g. 78"
+                      autoFocus
+                      className="w-full px-4 py-3.5 text-sm outline-none"
+                      style={{ ...field, borderColor: touched.percentage && percentage && (parseFloat(percentage) < 0 || parseFloat(percentage) > 100) ? "#EF4444" : undefined }}
+                    />
+                    {touched.percentage && !percentage && (
+                      <p style={{ fontSize: 12, color: "#EF4444", paddingLeft: 4 }}>Please enter your percentage</p>
+                    )}
+                    {touched.percentage && percentage && (parseFloat(percentage) < 0 || parseFloat(percentage) > 100) && (
+                      <p style={{ fontSize: 12, color: "#EF4444", paddingLeft: 4 }}>Percentage must be between 0 and 100</p>
+                    )}
+                  </div>
+                  <button
+                    disabled={busy || !percentage || parseFloat(percentage) < 0 || parseFloat(percentage) > 100}
+                    onClick={() => {
+                      setTouched((t) => ({ ...t, percentage: true }));
+                      submitIntake();
+                    }}
+                    className="clay-btn w-full text-sm"
+                    style={{ height: 52 }}
+                  >
                     {busy ? "Saving…" : "Find my career →"}
                   </button>
                   {err && <p className="text-xs" style={{ color: "#EF4444" }}>{err}</p>}
@@ -552,6 +647,22 @@ function DiscoverInner() {
                   You&apos;re building your future. One step at a time. 🚀
                 </p>
               </div>
+
+              {/* Career confirmation toast */}
+              {careerConfirmation && (
+                <div style={{
+                  margin: "10px 20px 0",
+                  padding: "12px 16px",
+                  borderRadius: 18,
+                  background: "linear-gradient(135deg, #ECFDF5, #D1FAE5)",
+                  border: "1.5px solid rgba(16,185,129,0.25)",
+                  display: "flex", alignItems: "center", gap: 10,
+                  animation: "fadeIn 0.25s ease",
+                }}>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>🎯</span>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#065F46", margin: 0 }}>{careerConfirmation}</p>
+                </div>
+              )}
 
               {/* Question clay card + mascot overlap */}
               <div style={{ position: "relative", margin: "14px 20px 0" }}>
