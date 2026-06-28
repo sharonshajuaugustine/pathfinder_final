@@ -95,7 +95,7 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/coyot/bowing.png" alt="" width={100} height={114} style={{ objectFit: "contain", margin: "0 auto 8px" }} />
         <p className="text-sm font-bold" style={{ color: "#166534" }}>Thanks for the feedback!</p>
-        <p className="mt-1 text-sm" style={{ color: "#15803D" }}>It helps us improve PathFinder for students like you.</p>
+        <p className="mt-1 text-sm" style={{ color: "#15803D" }}>It helps us improve Coyot PathFinder for students like you.</p>
       </div>
     );
   }
@@ -103,7 +103,7 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
   return (
     <div className="clay-card px-5 py-6">
       <p className="text-base font-bold text-center" style={{ color: "#111827" }}>How was your experience?</p>
-      <p className="mt-1 text-sm text-center" style={{ color: "#9CA3AF" }}>Your feedback helps us improve PathFinder</p>
+      <p className="mt-1 text-sm text-center" style={{ color: "#9CA3AF" }}>Your feedback helps us improve Coyot PathFinder</p>
       <div className="mt-4 flex items-center justify-center gap-2">
         {REACTIONS.map((r) => (
           <button key={r.id} onClick={() => { setReaction(r.id); setTimeout(() => textRef.current?.focus(), 50); }}
@@ -123,7 +123,7 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
       </div>
       <div className={cn("overflow-hidden transition-all duration-200", reaction ? "max-h-72 opacity-100 mt-4" : "max-h-0 opacity-0")}>
         <p className="mb-2 text-xs" style={{ color: "#6B7280", lineHeight: 1.6 }}>
-          Tell us anything — what you liked, what felt off, or what you wish was different. Every bit helps us make PathFinder better for students like you.
+          Tell us anything — what you liked, what felt off, or what you wish was different. Every bit helps us make Coyot PathFinder better for students like you.
         </p>
         <textarea ref={textRef} value={message} onChange={(e) => setMessage(e.target.value)}
           placeholder="Share your thoughts… (optional)" maxLength={1000} rows={3}
@@ -265,7 +265,7 @@ function WhatsAppShare({ sessionId, topCareer, topScore, allCareers, topStrength
     const url = `${window.location.origin}/discover`;
     const lines: string[] = [];
 
-    lines.push("🎉 I just got my career report on *PathFinder*!");
+    lines.push("🎉 I just got my career report on *Coyot PathFinder*!");
     lines.push("");
 
     if (topCareer) {
@@ -458,7 +458,7 @@ function ResultInner() {
         <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-5">
           <Link href="/" className="flex items-center gap-2">
             <CoyotCIcon size={24} />
-            <span className="text-sm font-black tracking-tight" style={{ color: "#111827" }}>PathFinder</span>
+            <span className="text-sm font-black tracking-tight" style={{ color: "#111827" }}>Coyot PathFinder</span>
           </Link>
           <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: "rgba(30,111,255,0.09)", color: "#1E6FFF" }}>Your Report</span>
         </div>

@@ -5,7 +5,7 @@ import { getCounsellor } from "@/lib/auth";
 import AdminLogout from "../_logout";
 import AdminExport from "../_export";
 
-export const metadata: Metadata = { title: "Admin — PathFinder" };
+export const metadata: Metadata = { title: "Admin — Coyot PathFinder" };
 
 export default async function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
   const me = await getCounsellor();
@@ -16,7 +16,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 border-r pr-3 mr-1 sm:pr-4 sm:mr-2 hover:opacity-75 transition-opacity">
             <CoyotCIcon size={18} />
-            <span className="text-sm font-semibold">PathFinder</span>
+            <span className="text-sm font-semibold">Coyot PathFinder</span>
             <span className="hidden text-xs text-muted-foreground sm:inline">Admin</span>
           </Link>
           <div className="hidden sm:flex items-center gap-1">
