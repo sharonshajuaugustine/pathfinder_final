@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (existingLead) {
       // Lead already exists (created at Q0) — update with remaining fields.
       await db.from("leads").update({
-        email: d.email,
+        email: d.email || null,
         district: d.district,
         stream: stream ?? undefined,
         percentage: percentage ?? undefined,
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
           session_id: d.sessionId,
           name,
           phone,
-          email: d.email,
+          email: d.email || null,
           age,
           is_minor: age != null ? age < 18 : null,
           district: d.district,

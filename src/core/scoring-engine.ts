@@ -250,33 +250,49 @@ function personalityFit(career: Career, profile: StudentProfile): number {
   return clamp(0.3 + 0.7 * ratio);
 }
 
+const GOVT_CAREER_IDS = new Set([
+  "civil_services_officer", "defence_officer", "bank_officer",
+  "forest_officer", "customs_excise_officer", "revenue_officer",
+]);
+const BUSINESS_CAREER_IDS = new Set([
+  "business_manager", "mobile_app_developer", "game_developer",
+]);
+
 function aspirationFit(career: Career, profile: StudentProfile): number {
   const goal = profile.aspiration.goalOrientation;
   const priorities = profile.aspiration.careerPriorities ?? [];
 
-  let score = 0.5;
+  // Start with a base score from career properties, then apply goal multiplier.
+  // Base: neutral 0.5 unless goal is known.
+  let base = 0.5;
+  let multiplier = 1.0;
 
-  if (goal) {
-    if (goal === "higher_study") {
-      if (career.higherStudyRequired === "mandatory") score = 0.9;
-      else if (career.higherStudyRequired === "preferred") score = 0.75;
-      else score = 0.6;
-    } else if (goal === "job_soon") {
-      score = career.minYearsToEarn && career.minYearsToEarn <= 4 ? 0.9 : 0.4;
-    } else if (goal === "business") {
-      if (career.riskLevel === "entrepreneurial") score = 0.9;
-      else if (career.riskLevel === "moderate") score = 0.6;
-      else score = 0.4;
-    } else if (goal === "government") {
-      if (career.domainId === "government") score = 0.9;
-      else if (["humanities", "law", "commerce_finance", "engineering"].includes(career.domainId)) score = 0.6;
-      else score = 0.4;
-    }
+  if (goal === "job_soon") {
+    // Penalise long-study careers hard; boost careers where income starts in ≤2 years.
+    if (career.higherStudyRequired === "mandatory") multiplier = 0.4;
+    else if (career.minYearsToEarn !== undefined && career.minYearsToEarn <= 2) multiplier = 1.3;
+    else if (career.minYearsToEarn !== undefined && career.minYearsToEarn > 4) multiplier = 0.7;
+    base = 0.7;
+  } else if (goal === "higher_study") {
+    if (career.higherStudyRequired === "mandatory") { base = 0.9; multiplier = 1.2; }
+    else if (career.higherStudyRequired === "preferred") { base = 0.75; multiplier = 1.2; }
+    else { base = 0.6; multiplier = 0.85; }
+  } else if (goal === "government") {
+    if (GOVT_CAREER_IDS.has(career.id)) { base = 0.9; multiplier = 1.4; }
+    else if (career.domainId === "government") { base = 0.85; multiplier = 1.2; }
+    else if (["humanities", "law", "commerce_finance", "engineering"].includes(career.domainId)) base = 0.6;
+    else if (career.riskLevel === "entrepreneurial") { base = 0.3; multiplier = 0.5; }
+    else base = 0.4;
+  } else if (goal === "business") {
+    if (BUSINESS_CAREER_IDS.has(career.id)) { base = 0.9; multiplier = 1.3; }
+    else if (career.riskLevel === "entrepreneurial") { base = 0.85; multiplier = 1.3; }
+    else if (career.riskLevel === "moderate") base = 0.6;
+    else { base = 0.4; multiplier = 0.8; }
   }
 
-  // careerPriorities: what the student said matters most ("high_salary",
-  // "job_security", "passion", "government"). Apply as small modifiers on
-  // top of goal-orientation so they refine without overriding.
+  let score = clamp(base * multiplier);
+
+  // careerPriorities: small modifiers on top for what the student values most.
   let priorityMod = 0;
   if (priorities.includes("high_salary") || priorities.includes("salary")) {
     if (career.earningBand === "high") priorityMod += 0.08;
@@ -286,17 +302,12 @@ function aspirationFit(career: Career, profile: StudentProfile): number {
     if (career.riskLevel === "stable") priorityMod += 0.08;
     else if (career.riskLevel === "entrepreneurial") priorityMod -= 0.05;
   }
-  if (priorities.includes("passion") || priorities.includes("interest")) {
-    // passion-driven students benefit more from interest match; no penalty here
-    priorityMod += 0; // handled by interest dimension; no double-dip
-  }
   if (priorities.includes("government") || priorities.includes("govt")) {
-    if (career.domainId === "government") priorityMod += 0.10;
-    else if (["humanities", "law", "engineering"].includes(career.domainId)) priorityMod += 0.05;
+    if (GOVT_CAREER_IDS.has(career.id)) priorityMod += 0.10;
+    else if (career.domainId === "government") priorityMod += 0.05;
   }
   if (priorities.includes("helping") || priorities.includes("social")) {
-    const helpingDomains = ["medical", "allied_health", "humanities", "government"];
-    if (helpingDomains.includes(career.domainId)) priorityMod += 0.06;
+    if (["medical", "allied_health", "humanities", "government"].includes(career.domainId)) priorityMod += 0.06;
   }
 
   return clamp(score + priorityMod);

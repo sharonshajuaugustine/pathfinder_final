@@ -2,6 +2,7 @@ import type { ProfileDelta } from "../profile-builder";
 import { INTEREST_CLUSTERS, APTITUDES } from "@/types/profile";
 
 export type AdaptiveKind = "interest" | "aptitude" | "personality" | "context";
+export type MascotPose = "greeting" | "idle_thinking" | "curious_headtilt" | "excited" | "impressed" | "confused_squint" | "celebrating" | "shrug" | "idle_standing";
 
 export interface AdaptiveOption {
   id: string;
@@ -17,6 +18,7 @@ export interface AdaptiveQuestion {
   freeTextPlaceholder?: string;
   multiSelect?: boolean;    // student can pick multiple options; each is applied in turn
   whyWeAsk?: string;        // shown as a subtle hint so students understand the purpose
+  mascot?: MascotPose;      // which pose to show when this question is displayed
   options: AdaptiveOption[];
   apply: (optionId: string) => ProfileDelta | null;
 }
@@ -141,6 +143,21 @@ const INTEREST_PLACEHOLDERS: Partial<Record<string, string>> = {
   numbers_analysis:     "e.g. I enjoy solving puzzles, working with data, or spreadsheets…",
 };
 
+const INTEREST_MASCOT: Partial<Record<string, MascotPose>> = {
+  technology_coding:    "idle_standing",
+  health_medicine:      "idle_standing",
+  business_money:       "idle_standing",
+  science_research:     "idle_standing",
+  design_visual:        "idle_standing",
+  helping_teaching:     "idle_standing",
+  law_justice:          "idle_standing",
+  building_engineering: "idle_standing",
+  media_communication:  "idle_standing",
+  nature_agriculture:   "idle_standing",
+  defence_adventure:    "idle_standing",
+  numbers_analysis:     "idle_standing",
+};
+
 const interestQuestions: AdaptiveQuestion[] = INTEREST_CLUSTERS.map((key) => {
   const data = INTEREST_QUESTION_DATA[key];
   return {
@@ -148,6 +165,7 @@ const interestQuestions: AdaptiveQuestion[] = INTEREST_CLUSTERS.map((key) => {
     text: data?.text ?? `How much would you enjoy ${key}?`,
     kind: "interest",
     signalKey: key,
+    mascot: INTEREST_MASCOT[key] ?? "idle_standing",
     // No freeText on interest questions — MCQ-only keeps the flow clean and
     // avoids confusing students into thinking they must type something.
     options: [
@@ -207,6 +225,14 @@ const APTITUDE_QUESTION_DATA: Record<string, { text: string; options: { a: strin
   },
 };
 
+const APTITUDE_MASCOT: Partial<Record<string, MascotPose>> = {
+  numerical:  "idle_standing",
+  logical:    "idle_standing",
+  verbal:     "idle_standing",
+  spatial:    "idle_standing",
+  scientific: "idle_standing",
+};
+
 const aptitudeQuestions: AdaptiveQuestion[] = APTITUDES.map((key) => {
   const data = APTITUDE_QUESTION_DATA[key];
   return {
@@ -214,6 +240,7 @@ const aptitudeQuestions: AdaptiveQuestion[] = APTITUDES.map((key) => {
     text: data?.text ?? `How good are you at ${key}?`,
     kind: "aptitude",
     signalKey: key,
+    mascot: APTITUDE_MASCOT[key] ?? "idle_standing",
     options: [
       { id: "a", label: data?.options.a ?? "Quite strong" },
       { id: "b", label: data?.options.b ?? "About average" },
@@ -232,6 +259,7 @@ const personalityQuestions: AdaptiveQuestion[] = [
     text: "In a group project or social situation, where do you naturally fit?",
     kind: "personality",
     signalKey: "social",
+    mascot: "idle_standing",
     whyWeAsk: "This tells us whether people-facing roles or independent focused work suits you better.",
     options: [
       { id: "a", label: "Taking charge, talking, bouncing ideas — I'm energised by people" },
@@ -248,6 +276,7 @@ const personalityQuestions: AdaptiveQuestion[] = [
     text: "When you learn something new, what works best for you?",
     kind: "personality",
     signalKey: "practical",
+    mascot: "idle_standing",
     whyWeAsk: "This helps us separate hands-on practical careers from desk-based thinking roles.",
     options: [
       { id: "a", label: "Doing it — hands-on, building, or practising in real life" },
@@ -264,6 +293,7 @@ const personalityQuestions: AdaptiveQuestion[] = [
     text: "When starting something new with uncertain outcomes, how do you feel?",
     kind: "personality",
     signalKey: "risk_taking",
+    mascot: "idle_standing",
     whyWeAsk: "This helps us gauge your fit for entrepreneurial paths vs stable, structured careers.",
     options: [
       { id: "a", label: "Excited — I like taking big bets for big rewards" },
@@ -351,6 +381,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_goal",
     text: "What's your main plan after Plus Two?",
     kind: "context",
+    mascot: "idle_standing",
     whyWeAsk: "Your timeline shapes everything — short-term job paths and long-term degree paths are very different.",
     options: [
       { id: "a", label: "Study a degree or diploma" },
@@ -368,6 +399,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_stream",
     text: "Which stream are you studying in Plus Two?",
     kind: "context",
+    mascot: "idle_standing",
     options: [
       { id: "a", label: "Science — Biology group (PCB / PCMB)" },
       { id: "b", label: "Science — Maths group (PCM / PCMC)" },
@@ -381,6 +413,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_subjects_bio",
     text: "Which subjects do you enjoy or do best in? Pick all that apply.",
     kind: "context",
+    mascot: "idle_standing",
     multiSelect: true,
     options: [
       { id: "a", label: "Biology" },
@@ -395,6 +428,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_subjects_maths",
     text: "Which subjects do you enjoy or do best in? Pick all that apply.",
     kind: "context",
+    mascot: "idle_standing",
     multiSelect: true,
     options: [
       { id: "a", label: "Mathematics" },
@@ -409,6 +443,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_subjects_commerce",
     text: "Which subjects do you enjoy or do best in? Pick all that apply.",
     kind: "context",
+    mascot: "idle_standing",
     multiSelect: true,
     options: [
       { id: "a", label: "Business Studies" },
@@ -423,6 +458,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_subjects_humanities",
     text: "Which subjects do you enjoy or do best in? Pick all that apply.",
     kind: "context",
+    mascot: "idle_standing",
     multiSelect: true,
     options: [
       { id: "a", label: "English / Literature" },
@@ -437,6 +473,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_subjects_vocational",
     text: "Which area is your vocational / ITI course in? Pick all that apply.",
     kind: "context",
+    mascot: "idle_standing",
     multiSelect: true,
     options: [
       { id: "a", label: "Electronics / Electrical" },
@@ -452,6 +489,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_hobbies",
     text: "Outside school, what do you enjoy doing most?",
     kind: "context",
+    mascot: "idle_standing",
     whyWeAsk: "What you do for fun often points directly to the right career — it's a strong signal we don't want to miss.",
     freeText: true,
     freeTextPlaceholder: "e.g. I love cooking, playing chess, or making short films…",
@@ -474,6 +512,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_budget",
     text: "Can your family manage private college fees if needed?",
     kind: "context",
+    mascot: "idle_standing",
     whyWeAsk: "We use this to filter courses and highlight government seats and scholarship-friendly options.",
     options: [
       { id: "a", label: "Yes — fees aren't a concern" },
@@ -489,6 +528,7 @@ const contextQuestions: AdaptiveQuestion[] = [
     id: "ctx_location",
     text: "Are you open to studying outside Kerala?",
     kind: "context",
+    mascot: "idle_standing",
     whyWeAsk: "This helps us show courses that are actually reachable for you.",
     options: [
       { id: "a", label: "I'd prefer to stay in Kerala" },
@@ -513,6 +553,7 @@ const drillQuestions: AdaptiveQuestion[] = [
     id: "int_business_drill",
     text: "You enjoy the business side — which part appeals to you most?",
     kind: "interest",
+    mascot: "idle_standing",
     options: [
       { id: "a", label: "Sales, marketing, or building a brand" },
       { id: "b", label: "Finance, investments, or managing money" },
@@ -531,6 +572,7 @@ const drillQuestions: AdaptiveQuestion[] = [
     id: "int_health_drill",
     text: "You're interested in health — what draws you to it most?",
     kind: "interest",
+    mascot: "idle_standing",
     options: [
       { id: "a", label: "Treating patients — doctor, nurse, or paramedic" },
       { id: "b", label: "Lab work, diagnosis, or medical testing" },
@@ -549,6 +591,7 @@ const drillQuestions: AdaptiveQuestion[] = [
     id: "int_tech_drill",
     text: "You enjoy tech — which area excites you most?",
     kind: "interest",
+    mascot: "idle_standing",
     options: [
       { id: "a", label: "Building apps, websites, or software" },
       { id: "b", label: "Hardware, electronics, or networking" },
@@ -558,7 +601,7 @@ const drillQuestions: AdaptiveQuestion[] = [
     apply: (opt) => {
       if (opt === "a") return { interests: { technology_coding: 0.9 }, aptitude: { logical: 80 } };
       if (opt === "b") return { interests: { building_engineering: 0.75 }, aptitude: { spatial: 70 } };
-      if (opt === "c") return { interests: { numbers_analysis: 0.75, science_research: 0.6 }, aptitude: { logical: 75 } };
+      if (opt === "c") return { interests: { numbers_analysis: 0.75, technology_coding: 0.75, science_research: 0.3 }, aptitude: { logical: 75 } };
       if (opt === "d") return { interests: { technology_coding: 0.7, building_engineering: 0.5 } };
       return null;
     },
@@ -567,6 +610,7 @@ const drillQuestions: AdaptiveQuestion[] = [
     id: "int_science_drill",
     text: "You enjoy science — which direction pulls you most?",
     kind: "interest",
+    mascot: "idle_standing",
     options: [
       { id: "a", label: "Lab experiments, chemistry, or biology" },
       { id: "b", label: "Maths, physics, or theoretical concepts" },
@@ -585,6 +629,7 @@ const drillQuestions: AdaptiveQuestion[] = [
     id: "int_design_drill",
     text: "You have an eye for design — what kind of work excites you?",
     kind: "interest",
+    mascot: "idle_standing",
     options: [
       { id: "a", label: "Graphic design, branding, or visual content" },
       { id: "b", label: "Interior design, architecture, or spaces" },
@@ -610,6 +655,7 @@ const statedCareerQuestion: AdaptiveQuestion = {
   id: "ctx_stated_career",
   text: "Do you already have a career in mind? Type it below — or pick an option.",
   kind: "context",
+  mascot: "idle_standing",
   whyWeAsk: "If you have a goal in mind, we can tell you exactly what steps to take to get there.",
   freeText: true,
   freeTextPlaceholder: "e.g. CA, nurse, software engineer, pilot…",
@@ -640,6 +686,7 @@ export interface AdaptiveQuestionPublic {
   freeTextPlaceholder?: string;
   multiSelect?: boolean;
   whyWeAsk?: string;
+  mascot?: MascotPose;
 }
 
 export function toPublicQuestion(q: AdaptiveQuestion): AdaptiveQuestionPublic {
@@ -651,5 +698,6 @@ export function toPublicQuestion(q: AdaptiveQuestion): AdaptiveQuestionPublic {
     freeTextPlaceholder: q.freeTextPlaceholder,
     multiSelect: q.multiSelect ?? false,
     whyWeAsk: q.whyWeAsk,
+    mascot: q.mascot,
   };
 }

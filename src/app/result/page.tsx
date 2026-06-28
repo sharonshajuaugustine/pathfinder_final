@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { CoyotCIcon } from "@/components/coyot-logo";
 import { cn } from "@/lib/utils";
 import type { RecommendationResult } from "@/types/recommendation";
 
@@ -91,7 +92,8 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
   if (submitted) {
     return (
       <div className="clay-card px-5 py-6 text-center" style={{ background: "linear-gradient(135deg,#F0FDF4,#DCFCE7)", border: "1px solid rgba(74,222,128,0.2)" }}>
-        <p className="text-2xl mb-2">🙏</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/coyot/bowing.png" alt="" width={100} height={114} style={{ objectFit: "contain", margin: "0 auto 8px" }} />
         <p className="text-sm font-bold" style={{ color: "#166534" }}>Thanks for the feedback!</p>
         <p className="mt-1 text-sm" style={{ color: "#15803D" }}>It helps us improve PathFinder for students like you.</p>
       </div>
@@ -102,26 +104,29 @@ function FeedbackWidget({ sessionId }: { sessionId: string }) {
     <div className="clay-card px-5 py-6">
       <p className="text-base font-bold text-center" style={{ color: "#111827" }}>How was your experience?</p>
       <p className="mt-1 text-sm text-center" style={{ color: "#9CA3AF" }}>Your feedback helps us improve PathFinder</p>
-      <div className="mt-4 flex items-center justify-center gap-3">
+      <div className="mt-4 flex items-center justify-center gap-2">
         {REACTIONS.map((r) => (
           <button key={r.id} onClick={() => { setReaction(r.id); setTimeout(() => textRef.current?.focus(), 50); }}
-            className="flex flex-col items-center gap-1.5 px-3 py-2.5 text-center transition-all"
+            className="flex flex-col items-center gap-2 py-3 text-center transition-all"
             style={{
               borderRadius: 16,
               border: reaction === r.id ? "1.5px solid #1E6FFF" : "1.5px solid rgba(30,111,255,0.1)",
               background: reaction === r.id ? "linear-gradient(135deg,#EEF4FF,#D9E9FF)" : "#F4F6FB",
               transform: reaction === r.id ? "scale(1.06)" : "scale(1)",
-              minWidth: 58,
+              width: 72,
             }}
           >
-            <span className="text-2xl leading-none">{r.emoji}</span>
+            <span style={{ fontSize: 36, lineHeight: 1 }}>{r.emoji}</span>
             <span className="text-xs font-semibold" style={{ color: reaction === r.id ? "#1E6FFF" : "#9CA3AF" }}>{r.label}</span>
           </button>
         ))}
       </div>
-      <div className={cn("overflow-hidden transition-all duration-200", reaction ? "max-h-48 opacity-100 mt-4" : "max-h-0 opacity-0")}>
+      <div className={cn("overflow-hidden transition-all duration-200", reaction ? "max-h-72 opacity-100 mt-4" : "max-h-0 opacity-0")}>
+        <p className="mb-2 text-xs" style={{ color: "#6B7280", lineHeight: 1.6 }}>
+          Tell us anything — what you liked, what felt off, or what you wish was different. Every bit helps us make PathFinder better for students like you.
+        </p>
         <textarea ref={textRef} value={message} onChange={(e) => setMessage(e.target.value)}
-          placeholder="Anything we should improve? (optional)" maxLength={1000} rows={3}
+          placeholder="Share your thoughts… (optional)" maxLength={1000} rows={3}
           className="w-full resize-none px-3 py-2.5 text-sm outline-none placeholder:text-gray-400"
           style={{ borderRadius: 14, border: "1.5px solid rgba(30,111,255,0.15)", background: "#F4F6FB", color: "#111827" }}
           onFocus={(e) => { e.target.style.borderColor = "#1E6FFF"; e.target.style.background = "#fff"; }}
@@ -242,20 +247,72 @@ function StrengthCards({ top }: { top: RecommendationResult["top"] }) {
 
 // ── WhatsApp share ────────────────────────────────────────────────────────────
 
-function WhatsAppShare({ sessionId, topCareer, topScore }: { sessionId: string; topCareer?: string; topScore?: number }) {
+type ShareCareer = { name: string; fitScore: number; personalInsight?: string; shortDescription?: string; gapToFix?: string };
+type ShareCourse = { name: string; eligibility: string; feeBand?: string; exams?: { name: string }[] };
+
+function WhatsAppShare({ sessionId, topCareer, topScore, allCareers, topStrength, topCourse }: {
+  sessionId: string;
+  topCareer?: string;
+  topScore?: number;
+  allCareers?: ShareCareer[];
+  topStrength?: string;
+  topCourse?: ShareCourse;
+}) {
   const [opened, setOpened] = useState(false);
 
   function share() {
     if (typeof window === "undefined") return;
     const url = `${window.location.origin}/discover`;
-    const lines = [
-      "🎉 I just got my career report on PathFinder!",
-      "",
-      topCareer ? `My top match: *${topCareer}*${topScore ? ` (${topScore}% fit)` : ""}` : "My career report is ready!",
-      "",
-      "It's a free AI career guide for Plus Two students — takes about 20 mins. Try it here 👇",
-      url,
-    ];
+    const lines: string[] = [];
+
+    lines.push("🎉 I just got my career report on *PathFinder*!");
+    lines.push("");
+
+    if (topCareer) {
+      lines.push(`🏆 My top match: *${topCareer}*${topScore ? ` — ${topScore}% fit` : ""}`);
+    }
+
+    const top = (allCareers ?? []).slice(0, 3);
+    if (top.length > 1) {
+      lines.push("");
+      lines.push("📋 *My top 3 career matches:*");
+      top.forEach((c, i) => {
+        const pct = Math.round(c.fitScore * 100);
+        lines.push(`${i + 1}. ${c.name} (${pct}%)`);
+      });
+    }
+
+    if (topCourse) {
+      lines.push("");
+      const eligEmoji = topCourse.eligibility === "eligible" ? "✅" : topCourse.eligibility === "conditional" ? "⚠️" : "📌";
+      lines.push(`📚 *Recommended course:* ${topCourse.name}`);
+      lines.push(`${eligEmoji} ${topCourse.eligibility === "eligible" ? "I'm eligible" : topCourse.eligibility === "conditional" ? "Conditional eligibility" : "Check eligibility"}`);
+      if ((topCourse.exams ?? []).length > 0) {
+        lines.push(`📝 Entrance exams: ${(topCourse.exams ?? []).map((e) => e.name).join(", ")}`);
+      }
+    }
+
+    const insight = top[0]?.personalInsight || top[0]?.shortDescription;
+    if (insight) {
+      lines.push("");
+      lines.push(`💬 *Why it fits me:* ${insight}`);
+    }
+
+    const gap = top[0]?.gapToFix;
+    if (gap) {
+      lines.push("");
+      lines.push(`💡 *Tip from Coyot PathFinder:* ${gap}`);
+    }
+
+    if (topStrength) {
+      lines.push("");
+      lines.push(`✨ *My strongest trait:* ${topStrength}`);
+    }
+
+    lines.push("");
+    lines.push("It's a free AI career guide for Plus Two students — takes about 20 mins. Try it here 👇");
+    lines.push(url);
+
     const text = encodeURIComponent(lines.join("\n"));
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank", "noopener,noreferrer");
     setOpened(true);
@@ -333,7 +390,8 @@ function ResultInner() {
   if (!sessionId) return (
     <Center>
       <div className="space-y-4 text-center">
-        <p className="text-3xl">😕</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/coyot/confused_squint.png" alt="" width={120} height={136} style={{ objectFit: "contain", margin: "0 auto" }} />
         <p className="text-base font-bold" style={{ color: "#111827" }}>We couldn&apos;t find your session.</p>
         <p className="text-sm" style={{ color: "#9CA3AF" }}>This usually happens if you opened this link on a different device. Try completing the quiz again.</p>
         <Link href="/discover" className="clay-btn inline-flex items-center px-5 text-sm" style={{ height: 44, textDecoration: "none" }}>Start the quiz →</Link>
@@ -344,7 +402,8 @@ function ResultInner() {
   if (error) return (
     <Center>
       <div className="space-y-4 text-center">
-        <p className="text-3xl">😵</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/coyot/bot_question.png" alt="" width={100} height={100} style={{ objectFit: "contain", margin: "0 auto" }} />
         <p className="text-sm font-bold" style={{ color: "#111827" }}>Something went wrong</p>
         <p className="text-sm" style={{ color: "#9CA3AF" }}>{error}</p>
         <button onClick={() => window.location.reload()} className="clay-btn inline-flex items-center px-5 text-sm" style={{ height: 44 }}>Try again</button>
@@ -372,9 +431,15 @@ function ResultInner() {
     }
   }
 
+  // Sort by composite: 85% personal fit + 15% market demand.
+  // Demand only flips order when fit scores are within ~5 points of each other.
   const groups = Array.from(map.values())
     .map((g) => ({ ...g, careers: g.careers.sort((a, b) => b.fitScore - a.fitScore) }))
-    .sort((a, b) => b.bestFitScore - a.bestFitScore);
+    .sort((a, b) => {
+      const scoreA = a.bestFitScore * 0.85 + (a.course.demandWeight ?? 1.0) * 0.15;
+      const scoreB = b.bestFitScore * 0.85 + (b.course.demandWeight ?? 1.0) * 0.15;
+      return scoreB - scoreA;
+    });
 
   const topCareerName = groups[0]?.careers[0]?.name;
   const topCareerScore = groups[0] ? Math.round(groups[0].bestFitScore * 100) : undefined;
@@ -392,9 +457,7 @@ function ResultInner() {
       <header className="sticky top-0 z-50" style={{ background: "rgba(248,243,236,0.92)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(30,111,255,0.07)" }}>
         <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-5">
           <Link href="/" className="flex items-center gap-2">
-            <div style={{ width: 30, height: 30, borderRadius: 10, background: "linear-gradient(145deg,#3B82FF,#1E6FFF)", boxShadow: "0 3px 0 rgba(6,26,138,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "#fff", fontWeight: 800, fontSize: 12 }}>P</span>
-            </div>
+            <CoyotCIcon size={24} />
             <span className="text-sm font-black tracking-tight" style={{ color: "#111827" }}>PathFinder</span>
           </Link>
           <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: "rgba(30,111,255,0.09)", color: "#1E6FFF" }}>Your Report</span>
@@ -418,7 +481,7 @@ function ResultInner() {
               </p>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/coyot/celebrating.png" alt="Coyot celebrating" width={140} height={160} style={{ objectFit: "contain", flexShrink: 0, alignSelf: "flex-end" }} />
+            <img src="/coyot/point_down.png" alt="Coyot pointing down" width={140} height={160} style={{ objectFit: "contain", flexShrink: 0, alignSelf: "flex-end" }} />
           </div>
         </div>
 
@@ -585,7 +648,27 @@ function ResultInner() {
             </p>
           </div>
           <div style={{ padding: "14px 20px 20px", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            {sessionId && <WhatsAppShare sessionId={sessionId} topCareer={topCareerName} topScore={topCareerScore} />}
+            {sessionId && (
+            <WhatsAppShare
+              sessionId={sessionId}
+              topCareer={topCareerName}
+              topScore={topCareerScore}
+              allCareers={data.top.map((c) => ({
+                name: c.name,
+                fitScore: c.fitScore,
+                personalInsight: c.personalInsight,
+                shortDescription: c.shortDescription,
+                gapToFix: c.gapToFix,
+              }))}
+              topStrength={deriveStrengths(data.top).sort((a, b) => b.value - a.value)[0]?.trait}
+              topCourse={groups[0]?.course ? {
+                name: groups[0].course.name,
+                eligibility: groups[0].course.eligibility,
+                feeBand: groups[0].course.feeBand,
+                exams: groups[0].course.exams,
+              } : undefined}
+            />
+          )}
             <button onClick={() => { if (typeof window !== "undefined") window.print(); }}
               style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 44, padding: "0 18px", borderRadius: 22, fontSize: 13, fontWeight: 700, color: "#6B7280", border: "1.5px solid rgba(30,111,255,0.15)", background: "#ffffff", boxShadow: "inset 2px 2px 4px rgba(255,255,255,0.9), 0 3px 0 rgba(165,150,130,0.14)", cursor: "pointer" }}>
               Save report 🖨

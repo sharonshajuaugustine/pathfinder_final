@@ -92,6 +92,11 @@ export default async function LeadDetailPage({ params }: Props) {
   const recResults: CareerRec[] = Array.isArray(recommendation?.results)
     ? (recommendation.results as CareerRec[])
     : [];
+  const overallConfidence = typeof recommendation?.overall_confidence === "number"
+    ? recommendation.overall_confidence : null;
+  const recExplanation = typeof recommendation?.explanation === "string"
+    ? recommendation.explanation : null;
+  const conflictFlags = Array.isArray(profile?.conflict_flags) ? (profile!.conflict_flags as string[]) : [];
 
   const displayName = (l.name as string) && l.name !== "Unknown" ? l.name as string : null;
 
@@ -175,6 +180,19 @@ export default async function LeadDetailPage({ params }: Props) {
             </Section>
           )}
 
+          {/* Conflict flags */}
+          {conflictFlags.length > 0 && (
+            <Section title="Conflict flags">
+              <div className="flex flex-wrap gap-1.5">
+                {conflictFlags.map((flag) => (
+                  <span key={flag} className="rounded-md border border-yellow-200 bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-800 capitalize">
+                    {flag.replace(/_/g, " ")}
+                  </span>
+                ))}
+              </div>
+            </Section>
+          )}
+
           {/* Feedback */}
           {feedback && (() => {
             const fb = feedback as { reaction: string; message: string | null; created_at: string };
@@ -205,6 +223,19 @@ export default async function LeadDetailPage({ params }: Props) {
           {/* Recommendation */}
           {recResults.length > 0 && (
             <Section title="Career recommendations">
+              {(overallConfidence != null || recExplanation) && (
+                <div className="mb-3 rounded-lg bg-muted/30 px-3 py-2.5 space-y-1.5">
+                  {overallConfidence != null && (
+                    <p className="text-sm">
+                      <span className="text-xs text-muted-foreground">Overall confidence: </span>
+                      <span className="font-semibold">{Math.round(overallConfidence * 100)}%</span>
+                    </p>
+                  )}
+                  {recExplanation && (
+                    <p className="text-xs text-muted-foreground leading-relaxed">{recExplanation}</p>
+                  )}
+                </div>
+              )}
               <div className="space-y-4">
                 {recResults.map((career, i) => (
                   <div key={career.careerId ?? i} className="rounded-lg border bg-muted/20 p-4">

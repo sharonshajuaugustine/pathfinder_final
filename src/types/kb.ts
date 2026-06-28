@@ -47,6 +47,7 @@ export interface Course {
   coreSubjectsRequired: string[];
   typicalFeeBand?: "low" | "medium" | "high" | "very-high";
   availabilityKerala?: "abundant" | "limited" | "rare";
+  demandWeight: number;
   leadsToHigherStudy: CourseId[];
   notes?: string;
 }

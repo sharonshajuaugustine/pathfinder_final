@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { CoyotCIcon } from "@/components/coyot-logo";
 import { getCounsellor } from "@/lib/auth";
 import AdminLogout from "../_logout";
 import AdminExport from "../_export";
@@ -14,7 +15,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
       <nav className="sticky top-0 z-10 border-b bg-white shadow-sm">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 border-r pr-3 mr-1 sm:pr-4 sm:mr-2 hover:opacity-75 transition-opacity">
-            <div className="h-5 w-5 rounded bg-primary shrink-0" />
+            <CoyotCIcon size={18} />
             <span className="text-sm font-semibold">PathFinder</span>
             <span className="hidden text-xs text-muted-foreground sm:inline">Admin</span>
           </Link>

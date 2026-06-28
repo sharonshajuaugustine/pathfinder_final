@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CoyotCIcon } from "@/components/coyot-logo";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FlaskConical, Calculator, Laptop, TrendingUp, Palette, Wrench } from "lucide-react";
 import type { Stream } from "@/types/onboarding";
@@ -83,7 +84,7 @@ function GridOptions({ options, onAnswer, busy }: {
           borderRadius: 22,
           border: `1.5px solid ${isPressed ? meta.border.replace("0.18", "0.6") : meta.border}`,
           background: isPressed ? meta.bg : "#ffffff",
-          padding: "14px 14px 16px",
+          padding: "10px 12px",
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
@@ -96,7 +97,7 @@ function GridOptions({ options, onAnswer, busy }: {
             ? "inset 2px 2px 4px rgba(255,255,255,0.7), 0 2px 0 rgba(165,150,130,0.12), 0 4px 10px rgba(165,150,130,0.08)"
             : "inset 3px 3px 6px rgba(255,255,255,0.95), inset -2px -2px 5px rgba(30,111,255,0.04), 0 6px 0 rgba(165,150,130,0.18), 0 10px 24px rgba(165,150,130,0.12)",
           transition: "transform 0.10s ease, box-shadow 0.10s ease, border-color 0.10s ease",
-          minHeight: 90,
+          minHeight: 68,
           ...style,
         }}
       >
@@ -106,7 +107,7 @@ function GridOptions({ options, onAnswer, busy }: {
           background: meta.border.replace("0.18", "0.7"),
           flexShrink: 0,
         }} />
-        <span style={{ fontSize: 15, fontWeight: 800, color: "#111827", lineHeight: 1.35, letterSpacing: "-0.01em" }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: "#111827", lineHeight: 1.35, letterSpacing: "-0.01em" }}>
           {o.label}
         </span>
       </button>
@@ -116,13 +117,13 @@ function GridOptions({ options, onAnswer, busy }: {
   return (
     <div style={{ padding: "4px 20px 0" }}>
       {/* Pairs — always 2 columns */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         {pairItems.map((o, i) => renderCard(o, i))}
       </div>
 
       {/* Lone last card — centred */}
       {lastItem && (
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 10 }}>
           {renderCard(lastItem, options.length - 1, { width: "calc(50% - 6px)" })}
         </div>
       )}
@@ -153,7 +154,7 @@ function MultiSelectGrid({ options, selected, onToggle, onConfirm, busy }: {
                 borderRadius: 22,
                 border: isSelected ? "2px solid #1E6FFF" : `1.5px solid ${meta.border}`,
                 background: isSelected ? "linear-gradient(135deg, #EEF4FF, #DBEAFE)" : "#ffffff",
-                padding: "14px 14px 14px 14px",
+                padding: "10px 12px",
                 display: "flex",
                 flexDirection: "row",
                 alignItems: "center",
@@ -166,7 +167,7 @@ function MultiSelectGrid({ options, selected, onToggle, onConfirm, busy }: {
                   : "inset 3px 3px 6px rgba(255,255,255,0.95), 0 6px 0 rgba(165,150,130,0.18), 0 10px 24px rgba(165,150,130,0.12)",
                 transform: isSelected ? "scale(0.97)" : "scale(1)",
                 transition: "all 0.15s ease",
-                minHeight: 90,
+                minHeight: 68,
                 position: "relative",
                 overflow: "hidden",
               }}
@@ -214,6 +215,16 @@ function MultiSelectGrid({ options, selected, onToggle, onConfirm, busy }: {
   );
 }
 
+const STORAGE_KEY = "pf_session";
+
+function saveSession(sessionId: string, phase: Phase) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId, phase })); } catch {}
+}
+
+function clearSession() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+}
+
 function DiscoverInner() {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -244,7 +255,19 @@ function DiscoverInner() {
   const [skipWarning, setSkipWarning] = useState(false);
   const [careerConfirmation, setCareerConfirmation] = useState<string | null>(null);
 
+  // Restore session from localStorage on mount, or create a new one
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const { sessionId: sid, phase: savedPhase } = JSON.parse(saved) as { sessionId: string; phase: Phase };
+        if (sid && savedPhase) {
+          setSessionId(sid);
+          setPhase(savedPhase);
+          return;
+        }
+      }
+    } catch {}
     fetch("/api/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -273,6 +296,12 @@ function DiscoverInner() {
     setBusy(false);
   }
 
+  // Persist session to localStorage whenever sessionId or phase changes
+  useEffect(() => {
+    if (sessionId && phase !== "finishing") saveSession(sessionId, phase);
+    if (phase === "finishing") clearSession();
+  }, [sessionId, phase]);
+
   useEffect(() => {
     if (phase !== "adaptive" || loadedRef.current || !sessionId) return;
     loadedRef.current = true;
@@ -300,9 +329,7 @@ function DiscoverInner() {
         setCareerConfirmation(data.careerConfirmation);
         setTimeout(() => setCareerConfirmation(null), 2500);
       }
-      const topScore = Array.isArray(data.beliefs) && data.beliefs[0]?.score;
-      if (topScore > 60) setMascotState("impressed");
-      else if (data.question.freeText) setMascotState("curious_headtilt");
+      if (data.question.mascot) setMascotState(data.question.mascot);
       else setMascotState("idle_thinking");
       setQuestion(data.question);
       setSelectedOptions([]);
@@ -391,6 +418,7 @@ function DiscoverInner() {
       }
     } catch { setErr("No internet? Check your connection and try again."); setBusy(false); return; }
     setPhase("finishing");
+    clearSession();
     router.push(`/result?session=${sessionId}`);
   }
 
@@ -421,14 +449,7 @@ function DiscoverInner() {
       >
         <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-5">
           <Link href="/" className="flex items-center gap-2">
-            <div style={{
-              width: 30, height: 30, borderRadius: 10,
-              background: "linear-gradient(145deg,#3B82FF,#1E6FFF)",
-              boxShadow: "0 3px 0 rgba(6,26,138,0.4)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <span style={{ color: "#fff", fontWeight: 800, fontSize: 12 }}>P</span>
-            </div>
+            <CoyotCIcon size={24} />
             <span className="text-sm font-black tracking-tight" style={{ color: "#111827" }}>PathFinder</span>
           </Link>
           {phase === "adaptive" && (
@@ -708,7 +729,7 @@ function DiscoverInner() {
 
               {/* Question clay card + mascot overlap */}
               <div style={{ position: "relative", margin: "14px 20px 0" }}>
-                <div className="clay-card" style={{ padding: "20px 136px 22px 20px", minHeight: 118 }}>
+                <div className="clay-card" style={{ padding: "20px 178px 22px 20px", minHeight: 118 }}>
                   <p style={{ color: "#1E6FFF", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
                     {MASCOT_LABELS[mascotState]}
                   </p>
@@ -721,8 +742,8 @@ function DiscoverInner() {
                   src={`/coyot/${mascotState}.png`}
                   alt="Coyot"
                   style={{
-                    position: "absolute", top: -22, right: -8,
-                    width: 152, height: 172,
+                    position: "absolute", top: -44, right: -16,
+                    width: 195, height: 220,
                     objectFit: "contain", pointerEvents: "none",
                     transition: "opacity 0.25s ease",
                   }}
@@ -871,7 +892,7 @@ function DiscoverInner() {
               <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>Where should we send your full report?</h2>
             </div>
             <form onSubmit={submitEmail} className="clay-card p-6 space-y-4">
-              <input name="email" type="email" required placeholder="your@email.com" autoFocus className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
+              <input name="email" type="email" placeholder="your@email.com (optional)" autoFocus className="w-full px-4 py-3.5 text-sm outline-none" style={field} />
               <label className="flex items-start gap-2.5 rounded-2xl p-3 text-xs" style={{ border: "1.5px solid rgba(30,111,255,0.1)", background: "#F4F6FB" }}>
                 <Checkbox name="consentGiven" required className="mt-0.5 shrink-0" />
                 <span style={{ color: "#6B7280" }}>I agree to my data being processed for career guidance and possibly shared with a counsellor.</span>

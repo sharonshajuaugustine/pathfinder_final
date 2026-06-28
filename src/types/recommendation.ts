@@ -11,6 +11,7 @@ export interface CourseRecommendation {
   eligibilityNotes: string[];
   exams: { examId: ExamId; name: string; requirement: string; difficulty?: string }[];
   feeBand?: string;
+  demandWeight: number;
 }
 
 // A single contributing reason behind a recommendation (traceable to engine).
@@ -35,6 +36,14 @@ export interface CareerRecommendation {
   shortDescription?: string;
   personalInsight?: string;  // AI: why this career fits this specific student
   gapToFix?: string;         // deterministic: most impactful gap to close
+  // enriched career metadata from KB
+  typicalRoles?: string[];
+  earningBand?: "low" | "medium" | "high" | "variable";
+  jobMarketKerala?: "weak" | "moderate" | "strong";
+  jobMarketIndia?: "weak" | "moderate" | "strong";
+  riskLevel?: "stable" | "moderate" | "entrepreneurial";
+  minYearsToEarn?: number;
+  higherStudyRequired?: "none" | "preferred" | "mandatory";
 }
 
 export interface RecommendationResult {

@@ -60,6 +60,7 @@ const mapCourse = (r: any): Course => ({
   id: r.id, name: r.name, category: r.category, level: r.level, durationYears: r.duration_years,
   streamRequired: r.stream_required ?? [], coreSubjectsRequired: r.core_subjects_required ?? [],
   typicalFeeBand: r.typical_fee_band, availabilityKerala: r.availability_kerala,
+  demandWeight: Number(r.demand_weight ?? 1.0),
   leadsToHigherStudy: r.leads_to_higher_study ?? [], notes: r.notes,
 });
 const mapExam = (r: any): Exam => ({

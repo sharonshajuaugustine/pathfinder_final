@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { CoyotBadge } from "@/components/coyot-logo";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -30,6 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         style={{ fontFamily: "var(--font-body), 'Plus Jakarta Sans', sans-serif" }}
       >
         {children}
+        <div style={{ borderTop: "1px solid rgba(30,111,255,0.07)", background: "rgba(255,255,255,0.5)" }}>
+          <CoyotBadge />
+        </div>
       </body>
     </html>
   );

@@ -115,6 +115,9 @@ export function mergeProfile(
   // and it's the main source now that the quiz is interest-focused. Observed
   // values (e.g. "I'm great at numbers") always win; inference only fills gaps.
   applyDerivedAptitude(next);
+  // Derive personality traits that can be reliably inferred from aptitude.
+  // Must run after applyDerivedAptitude so aptitude values are populated first.
+  applyDerivedPersonality(next);
   return next;
 }
 
@@ -172,6 +175,19 @@ export function applyDerivedAptitude(p: StudentProfile): void {
   for (const [dim, val] of Object.entries(inferred)) {
     const existing = (p.aptitude as Record<string, number>)[dim];
     (p.aptitude as Record<string, number>)[dim] = Math.max(existing ?? 0, val);
+  }
+}
+
+// Infers personality traits that can be reliably predicted from aptitude.
+// Only fills gaps — never overwrites an explicitly measured trait.
+// Must be called AFTER applyDerivedAptitude so numerical/logical are populated.
+export function applyDerivedPersonality(p: StudentProfile): void {
+  const num = (p.aptitude as Record<string, number>).numerical ?? 0;
+  const log = (p.aptitude as Record<string, number>).logical ?? 0;
+  // High numerical + logical aptitude is a reliable proxy for analytical thinking.
+  // Cap at 0.65 — weaker than an explicitly answered MCQ (which yields 0.8).
+  if ((p.personality as Record<string, number>).analytical === undefined && num >= 70 && log >= 70) {
+    (p.personality as Record<string, number>).analytical = 0.65;
   }
 }
 
