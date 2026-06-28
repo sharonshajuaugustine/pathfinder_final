@@ -80,11 +80,11 @@ export function scoreCareer(career: Career, profile: StudentProfile, kb: Knowled
   // section dragging every career down ~25 points). We renormalize over the
   // dimensions we have, so a fit score reflects fit on what we know.
   const has = {
-    interest: Object.values(profile.interests).some((v) => (v ?? 0) > 0),
+    interest: Object.values(profile.interests).some((v) => (v ?? 0) > 0) || Object.keys(profile.riasec).length > 0,
     aptitude: Object.keys(profile.aptitude).length > 0,
-    academic: profile.academic.strongSubjects.length > 0,
+    academic: profile.academic.strongSubjects.length > 0 || profile.academic.percentage !== undefined,
     personality: Object.values(profile.personality).some((v) => Math.abs(v ?? 0) > 0),
-    aspiration: !!profile.aspiration.goalOrientation,
+    aspiration: !!profile.aspiration.goalOrientation || (profile.aspiration.careerPriorities?.length ?? 0) > 0,
     constraint: !!profile.constraints.budgetBand || !!profile.constraints.locationPref,
   };
 
@@ -108,6 +108,15 @@ export function scoreCareer(career: Career, profile: StudentProfile, kb: Knowled
   if (isCulinaryCareer && (hasCulinaryInterest || hasCulinarySubject)) {
     interestScore = 0.95;
   }
+
+  // RIASEC blend: if student has RIASEC data, blend it into the interest score
+  // (RIASEC is fundamentally an interest-type framework). Only blends when we
+  // have RIASEC data so it can't drag scores down when unanswered.
+  const riasec = riasecFit(career, profile);
+  if (riasec !== null) {
+    interestScore = clamp(0.7 * interestScore + 0.3 * riasec);
+  }
+
   pushFactor(factors, "interest", interestScore, SCORING_WEIGHTS.interest, topLabel(career, "interest"));
 
   // Aptitude match: career aptitude signals vs student aptitude (normalized 0..1).
@@ -172,28 +181,37 @@ function weightedMatch(signals: [string, number][], studentValue: (k: string) =>
   return denom === 0 ? 0 : clamp(num / denom);
 }
 
+// Small modifier from the student's overall percentage. High marks signal
+// academic capability; low marks signal potential misalignment with demanding courses.
+// Kept deliberately small (±0.1) so it nudges rather than dominates.
+function percentageModifier(pct: number | undefined): number {
+  if (pct === undefined) return 0;
+  if (pct >= 80) return 0.10;
+  if (pct >= 60) return 0.05;
+  if (pct >= 45) return 0;
+  return -0.10;
+}
+
 function academicFit(career: Career, profile: StudentProfile): number {
-  // Reward when career domain aligns with strong subjects (heuristic for MVP).
   const strong = profile.academic.strongSubjects.map((s) => s.toLowerCase());
+  const pctMod = percentageModifier(profile.academic.percentage);
+
   if (!strong.length) {
-    // If no academic subjects are explicitly entered, but a stated career or custom interests match culinary
     const isCulinaryCareer = career.id === "pastry_chef" || career.id === "restaurant_manager" || career.id === "food_scientist" || career.id === "food_stylist" || career.domainId === "hospitality";
     const hasCulinaryStated = profile.aspiration.statedCareer && (() => {
       const low = profile.aspiration.statedCareer.toLowerCase();
       return low.includes("cook") || low.includes("chef") || low.includes("bake") || low.includes("baking") || low.includes("culinary") || low.includes("food") || low.includes("hotel") || low.includes("hospitality");
     })();
     if (isCulinaryCareer && hasCulinaryStated) return 0.95;
-    return 0.5; // neutral when unknown
+    // No subjects known — percentage alone still applies to the neutral baseline.
+    return clamp(0.5 + pctMod);
   }
 
-  // Check culinary keywords in strong subjects
   const hasCulinarySubject = strong.some(s => {
     return s.includes("cook") || s.includes("chef") || s.includes("bake") || s.includes("baking") || s.includes("culinary") || s.includes("food") || s.includes("hotel") || s.includes("hospitality");
   });
   const isCulinaryCareer = career.id === "pastry_chef" || career.id === "restaurant_manager" || career.id === "food_scientist" || career.id === "food_stylist" || career.domainId === "hospitality";
-  if (isCulinaryCareer && hasCulinarySubject) {
-    return 0.95; // Strong boost for cooking matching culinary careers
-  }
+  if (isCulinaryCareer && hasCulinarySubject) return 0.95;
 
   const domainHints: Record<string, string[]> = {
     "computing":        ["maths", "computer", "physics"],
@@ -214,8 +232,8 @@ function academicFit(career: Career, profile: StudentProfile): number {
   };
   const hints = domainHints[career.domainId] ?? [];
   const hit = hints.some((h) => strong.some((s) => s.includes(h)));
-  // Return 0.5 (neutral) for domains without hints rather than 0.4 (penalty).
-  return hit ? 0.85 : hints.length > 0 ? 0.4 : 0.5;
+  const base = hit ? 0.85 : hints.length > 0 ? 0.4 : 0.5;
+  return clamp(base + pctMod);
 }
 
 function personalityFit(career: Career, profile: StudentProfile): number {
@@ -234,34 +252,81 @@ function personalityFit(career: Career, profile: StudentProfile): number {
 
 function aspirationFit(career: Career, profile: StudentProfile): number {
   const goal = profile.aspiration.goalOrientation;
-  if (!goal) return 0.5;
-  if (goal === "higher_study") {
-    // Careers that require or prefer postgraduate study align best with this goal.
-    if (career.higherStudyRequired === "mandatory") return 0.9;
-    if (career.higherStudyRequired === "preferred") return 0.75;
-    return 0.6; // 'none' — compatible but not a strong pull
+  const priorities = profile.aspiration.careerPriorities ?? [];
+
+  let score = 0.5;
+
+  if (goal) {
+    if (goal === "higher_study") {
+      if (career.higherStudyRequired === "mandatory") score = 0.9;
+      else if (career.higherStudyRequired === "preferred") score = 0.75;
+      else score = 0.6;
+    } else if (goal === "job_soon") {
+      score = career.minYearsToEarn && career.minYearsToEarn <= 4 ? 0.9 : 0.4;
+    } else if (goal === "business") {
+      if (career.riskLevel === "entrepreneurial") score = 0.9;
+      else if (career.riskLevel === "moderate") score = 0.6;
+      else score = 0.4;
+    } else if (goal === "government") {
+      if (career.domainId === "government") score = 0.9;
+      else if (["humanities", "law", "commerce_finance", "engineering"].includes(career.domainId)) score = 0.6;
+      else score = 0.4;
+    }
   }
-  if (goal === "job_soon") return career.minYearsToEarn && career.minYearsToEarn <= 4 ? 0.9 : 0.4;
-  if (goal === "business") {
-    if (career.riskLevel === "entrepreneurial") return 0.9;
-    if (career.riskLevel === "moderate") return 0.6;
-    return 0.4; // stable careers don't align with entrepreneurial goal
+
+  // careerPriorities: what the student said matters most ("high_salary",
+  // "job_security", "passion", "government"). Apply as small modifiers on
+  // top of goal-orientation so they refine without overriding.
+  let priorityMod = 0;
+  if (priorities.includes("high_salary") || priorities.includes("salary")) {
+    if (career.earningBand === "high") priorityMod += 0.08;
+    else if (career.earningBand === "low") priorityMod -= 0.08;
   }
-  if (goal === "government") {
-    // Score by how strongly a career tracks to government recruitment.
-    if (career.domainId === "government") return 0.9;
-    // Humanities, law, commerce, engineering all have significant govt pipelines (PSC, IBPS, PSU).
-    const govCompatible = ["humanities", "law", "commerce_finance", "engineering"];
-    if (govCompatible.includes(career.domainId)) return 0.6;
-    return 0.4; // primarily private-sector paths
+  if (priorities.includes("job_security") || priorities.includes("stability")) {
+    if (career.riskLevel === "stable") priorityMod += 0.08;
+    else if (career.riskLevel === "entrepreneurial") priorityMod -= 0.05;
   }
-  return 0.5;
+  if (priorities.includes("passion") || priorities.includes("interest")) {
+    // passion-driven students benefit more from interest match; no penalty here
+    priorityMod += 0; // handled by interest dimension; no double-dip
+  }
+  if (priorities.includes("government") || priorities.includes("govt")) {
+    if (career.domainId === "government") priorityMod += 0.10;
+    else if (["humanities", "law", "engineering"].includes(career.domainId)) priorityMod += 0.05;
+  }
+  if (priorities.includes("helping") || priorities.includes("social")) {
+    const helpingDomains = ["medical", "allied_health", "humanities", "government"];
+    if (helpingDomains.includes(career.domainId)) priorityMod += 0.06;
+  }
+
+  return clamp(score + priorityMod);
 }
 
 function constraintFit(career: Career, profile: StudentProfile): number {
   let score = 0.7;
   if (profile.constraints.timeToIncomeNeed === "urgent" && (career.minYearsToEarn ?? 5) > 4) score -= 0.3;
   if (profile.constraints.budgetBand === "low" && career.higherStudyRequired === "mandatory") score -= 0.15;
+
+  // Location preference: reward careers whose job market aligns with where the
+  // student wants to work. Penalties are mild — location is a preference, not a rule.
+  const loc = profile.constraints.locationPref;
+  if (loc === "kerala") {
+    if (career.jobMarketKerala === "strong") score += 0.10;
+    else if (career.jobMarketKerala === "weak") score -= 0.08;
+  } else if (loc === "india") {
+    if (career.jobMarketIndia === "strong") score += 0.10;
+    else if (career.jobMarketIndia === "weak") score -= 0.05;
+  } else if (loc === "gulf") {
+    // Gulf demand is strong for engineering, hospitality, medical, allied health, computing.
+    const gulfFriendly = ["engineering", "hospitality", "medical", "allied_health", "computing", "commerce_finance"];
+    if (gulfFriendly.includes(career.domainId)) score += 0.10;
+    else if (career.jobMarketIndia === "weak") score -= 0.05;
+  } else if (loc === "abroad") {
+    if (career.jobMarketIndia === "strong") score += 0.08;
+    // Research/sciences and computing have strong global demand
+    if (["computing", "sciences", "medical", "engineering"].includes(career.domainId)) score += 0.05;
+  }
+
   return clamp(score);
 }
 
@@ -277,4 +342,14 @@ function pushFactor(
 
 function topLabel(career: Career, kind: string): string {
   return kind === "interest" ? "Matches your interests" : career.name;
+}
+
+// RIASEC fit: what fraction of the career's RIASEC codes the student scores >= 0.5 on.
+// Returns null when either side has no data so the caller can skip the blend.
+function riasecFit(career: Career, profile: StudentProfile): number | null {
+  if (!career.riasecCodes.length) return null;
+  const profileKeys = Object.keys(profile.riasec);
+  if (profileKeys.length === 0) return null;
+  const hits = career.riasecCodes.filter((code) => (profile.riasec[code] ?? 0) >= 0.5).length;
+  return hits / career.riasecCodes.length;
 }

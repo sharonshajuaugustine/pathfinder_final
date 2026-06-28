@@ -247,16 +247,17 @@ function WhatsAppShare({ sessionId, topCareer, topScore }: { sessionId: string; 
 
   function share() {
     if (typeof window === "undefined") return;
-    const url = `${window.location.origin}/result?session=${sessionId}`;
+    const url = `${window.location.origin}/discover`;
     const lines = [
-      "🎉 I just found my career path on PathFinder!",
+      "🎉 I just got my career report on PathFinder!",
       "",
-      topCareer ? `My top match: *${topCareer}*${topScore ? ` — ${topScore}% fit` : ""}` : "My career report is ready!",
+      topCareer ? `My top match: *${topCareer}*${topScore ? ` (${topScore}% fit)` : ""}` : "My career report is ready!",
       "",
-      "It's free and takes about 5 minutes. Try yours 👇",
+      "It's a free AI career guide for Plus Two students — takes about 20 mins. Try it here 👇",
       url,
     ];
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`, "_blank", "noopener,noreferrer");
+    const text = encodeURIComponent(lines.join("\n"));
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank", "noopener,noreferrer");
     setOpened(true);
     setTimeout(() => setOpened(false), 3000);
   }
@@ -304,9 +305,10 @@ const ROUTE_LABEL: Record<string, string> = {
 };
 
 const FEE_LABEL: Record<string, string> = {
-  low: "Low fees",
-  medium: "Mid-range fees",
-  high: "Higher fees",
+  low:       "₹ Affordable",
+  medium:    "₹₹ Moderate fees",
+  high:      "₹₹₹ Higher fees",
+  "very-high": "₹₹₹₹ Premium fees",
 };
 
 // ── Main result view ─────────────────────────────────────────────────────────

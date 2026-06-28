@@ -227,6 +227,7 @@ function DiscoverInner() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [age, setAge] = useState("");
+  const [isKerala, setIsKerala] = useState<boolean | null>(null);
   const [district, setDistrict] = useState("");
   const [stream, setStream] = useState<Stream | "vocational" | null>(null);
   const [percentage, setPercentage] = useState("");
@@ -377,7 +378,7 @@ function DiscoverInner() {
         body: JSON.stringify({
           sessionId,
           email: String(fd.get("email") ?? ""),
-          district: district || "Kozhikode",
+          district: district || undefined,
           preferredLanguage: "en",
           consentGiven: fd.get("consentGiven") === "on",
         }),
@@ -535,23 +536,64 @@ function DiscoverInner() {
 
             {intakeStep === 2 && (
               <>
-                <div className="clay-card px-6 pt-6 pb-5">
-                  <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "#1E6FFF" }}>Your location</p>
-                  <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>Which district are you from?</h2>
-                  <p className="mt-2 text-xs" style={{ color: "#9CA3AF" }}>We use this to find colleges and exams near you.</p>
-                </div>
-                <div className="clay-card p-4">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    {KERALA_DISTRICTS.map((d) => (
-                      <button key={d} type="button" onClick={() => { setDistrict(d); setIntakeStep(3); }}
-                        style={{ borderRadius: 16, border: "1.5px solid rgba(30,111,255,0.1)", background: "#F4F6FB", color: "#374151", padding: "10px 8px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", transition: "all 0.12s ease" }}
+                {isKerala === null && (
+                  <>
+                    <div className="clay-card px-6 pt-6 pb-5">
+                      <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "#1E6FFF" }}>Your location</p>
+                      <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>Are you based in Kerala?</h2>
+                      <p className="mt-2 text-xs" style={{ color: "#9CA3AF" }}>We use this to find the right colleges and exams for you.</p>
+                    </div>
+                    <div className="clay-card p-4 space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsKerala(true)}
+                        className="w-full flex items-center gap-3 px-4 py-4 text-left text-sm font-semibold"
+                        style={{ borderRadius: 18, border: "1.5px solid rgba(30,111,255,0.1)", background: "#F4F6FB", color: "#374151" }}
                         onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#1E6FFF"; e.currentTarget.style.background = "#EEF4FF"; e.currentTarget.style.color = "#1E6FFF"; }}
                         onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(30,111,255,0.1)"; e.currentTarget.style.background = "#F4F6FB"; e.currentTarget.style.color = "#374151"; }}
-                      >{d}</button>
-                    ))}
-                  </div>
-                </div>
-                <button onClick={() => setIntakeStep(1)} style={{ background: "none", border: "none", color: "#9CA3AF", fontSize: 13, fontWeight: 600, cursor: "pointer", alignSelf: "flex-start" }}>← Back</button>
+                      >
+                        <span style={{ fontSize: 20 }}>🌴</span>
+                        <span className="flex-1">Yes, I&apos;m in Kerala</span>
+                        <span style={{ color: "rgba(30,111,255,0.3)", fontSize: 12 }}>→</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsKerala(false); setDistrict(""); setIntakeStep(3); }}
+                        className="w-full flex items-center gap-3 px-4 py-4 text-left text-sm font-semibold"
+                        style={{ borderRadius: 18, border: "1.5px solid rgba(30,111,255,0.1)", background: "#F4F6FB", color: "#374151" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#1E6FFF"; e.currentTarget.style.background = "#EEF4FF"; e.currentTarget.style.color = "#1E6FFF"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(30,111,255,0.1)"; e.currentTarget.style.background = "#F4F6FB"; e.currentTarget.style.color = "#374151"; }}
+                      >
+                        <span style={{ fontSize: 20 }}>🗺️</span>
+                        <span className="flex-1">No, I&apos;m outside Kerala</span>
+                        <span style={{ color: "rgba(30,111,255,0.3)", fontSize: 12 }}>→</span>
+                      </button>
+                    </div>
+                    <button onClick={() => setIntakeStep(1)} style={{ background: "none", border: "none", color: "#9CA3AF", fontSize: 13, fontWeight: 600, cursor: "pointer", alignSelf: "flex-start" }}>← Back</button>
+                  </>
+                )}
+
+                {isKerala === true && (
+                  <>
+                    <div className="clay-card px-6 pt-6 pb-5">
+                      <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: "#1E6FFF" }}>Your district</p>
+                      <h2 className="text-xl font-bold leading-snug" style={{ color: "#111827" }}>Which district are you from?</h2>
+                      <p className="mt-2 text-xs" style={{ color: "#9CA3AF" }}>We use this to find colleges and exams near you.</p>
+                    </div>
+                    <div className="clay-card p-4">
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        {KERALA_DISTRICTS.map((d) => (
+                          <button key={d} type="button" onClick={() => { setDistrict(d); setIntakeStep(3); }}
+                            style={{ borderRadius: 16, border: "1.5px solid rgba(30,111,255,0.1)", background: "#F4F6FB", color: "#374151", padding: "10px 8px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", transition: "all 0.12s ease" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#1E6FFF"; e.currentTarget.style.background = "#EEF4FF"; e.currentTarget.style.color = "#1E6FFF"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(30,111,255,0.1)"; e.currentTarget.style.background = "#F4F6FB"; e.currentTarget.style.color = "#374151"; }}
+                          >{d}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <button onClick={() => setIsKerala(null)} style={{ background: "none", border: "none", color: "#9CA3AF", fontSize: 13, fontWeight: 600, cursor: "pointer", alignSelf: "flex-start" }}>← Back</button>
+                  </>
+                )}
               </>
             )}
 
@@ -576,7 +618,7 @@ function DiscoverInner() {
                     </button>
                   ))}
                 </div>
-                <button onClick={() => setIntakeStep(2)} style={{ background: "none", border: "none", color: "#9CA3AF", fontSize: 13, fontWeight: 600, cursor: "pointer", alignSelf: "flex-start" }}>← Back</button>
+                <button onClick={() => { if (isKerala === false) setIsKerala(null); setIntakeStep(2); }} style={{ background: "none", border: "none", color: "#9CA3AF", fontSize: 13, fontWeight: 600, cursor: "pointer", alignSelf: "flex-start" }}>← Back</button>
               </>
             )}
 
